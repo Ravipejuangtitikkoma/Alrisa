@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skema Mekanika Mesin & Rangka Pagar Geser Otomatis (Mechanical Blueprint)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #080d1a;
+      color: #f1f5f9;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      padding: 30px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .header {
+      text-align: center;
+      max-width: 960px;
+      margin-bottom: 25px;
+    }
+    .header h1 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #38bdf8;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    .header p {
+      color: #94a3b8;
+      font-size: 14px;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(14, 165, 233, 0.15);
+      border: 1px solid #0284c7;
+      color: #38bdf8;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 10px;
+    }
+    .blueprint-frame {
+      width: 100%;
+      max-width: 1200px;
+      background: #0f172a;
+      border: 2px solid #0284c7;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 0 40px rgba(2, 132, 199, 0.2);
+      position: relative;
+    }
+    .blueprint-grid {
+      background-image: 
+        linear-gradient(to right, rgba(56, 189, 248, 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(56, 189, 248, 0.05) 1px, transparent 1px);
+      background-size: 20px 20px;
+      border: 1px dashed rgba(56, 189, 248, 0.3);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+
+    /* SVG Canvas Container */
+    .svg-container {
+      width: 100%;
+      overflow-x: auto;
+      text-align: center;
+    }
+    svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* Component List Cards */
+    .comp-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .comp-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 16px;
+      position: relative;
+    }
+    .comp-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      background: #0284c7;
+      color: white;
+      font-weight: 800;
+      font-size: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .comp-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .comp-desc {
+      font-size: 12.5px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+    .comp-spec {
+      margin-top: 8px;
+      padding: 6px 8px;
+      background: #0f172a;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: #38bdf8;
+    }
+
+    /* Kinematic Chain Flow */
+    .flow-box {
+      margin-top: 24px;
+      padding: 16px;
+      background: #0284c7;
+      background: linear-gradient(135deg, #0369a1, #0f172a);
+      border-radius: 10px;
+      border: 1px solid #38bdf8;
+    }
+    .flow-box h3 {
+      font-size: 15px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .flow-steps {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #e0f2fe;
+    }
+    .flow-step-item {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid #38bdf8;
+      padding: 6px 12px;
+      border-radius: 6px;
+    }
+    .flow-arrow {
+      color: #38bdf8;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .btn-print {
+      margin-top: 24px;
+      background: #0284c7;
+      color: white;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+    .btn-print:hover {
+      background: #0369a1;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="badge">NEXORA AUTOMATION — MECHANICAL BLUEPRINT</div>
+    <h1>Skema Mekanika & Dinamika Gerak Pagar Geser Otomatis</h1>
+    <p>Rincian teknis komponen mekanik: Dinamo Motor, Gearbox Reducer, Roda Gigi Pinion, Rel Gigi Baja (Rack Gear), Roda Bearing, & Stopper Batas</p>
+  </div>
+
+  <div class="blueprint-frame">
+    
+    <!-- BLUEPRINT DRAWING CANVAS -->
+    <div class="blueprint-grid">
+      <div class="svg-container">
+        <svg width="1000" height="520" viewBox="0 0 1000 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+          
+          <!-- Latar Tanah / Pondasi Beton Dasar -->
+          <rect x="20" y="440" width="960" height="60" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+          <pattern id="concrete" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 0 20 L 20 0 M 0 0 L 20 20" stroke="#334155" stroke-width="1"/>
+          </pattern>
+          <rect x="20" y="440" width="960" height="60" fill="url(#concrete)" opacity="0.3"/>
+          <text x="40" y="475" fill="#64748b" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="bold">PONDASI BETON DUDUKAN MOTOR & REL TANAH</text>
+
+          <!-- Rel Besi Tanah (Ground Track / Angle Iron Rail) -->
+          <rect x="20" y="432" width="960" height="8" fill="#94a3b8" stroke="#cbd5e1" stroke-width="1"/>
+          <path d="M 20 432 L 980 432" stroke="#38bdf8" stroke-width="2"/>
+
+          <!-- 1. TIANG PANDUAN ATAS (Guide Pillar & Top Rollers) -->
+          <rect x="220" y="60" width="40" height="372" fill="#334155" stroke="#64748b" stroke-width="2"/>
+          <text x="240" y="50" fill="#38bdf8" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">TIANG PANDUAN</text>
+          <!-- Top Guide Rollers (2 Buah Roda Nilon Penjepit Atas) -->
+          <circle cx="215" cy="110" r="12" fill="#0284c7" stroke="#38bdf8" stroke-width="2"/>
+          <circle cx="265" cy="110" r="12" fill="#0284c7" stroke="#38bdf8" stroke-width="2"/>
+          <line x1="215" y1="110" x2="265" y2="110" stroke="#f8fafc" stroke-width="2" stroke-dasharray="3 3"/>
+          <text x="240" y="95" fill="#e0f2fe" font-family="sans-serif" font-size="10" font-weight="bold" text-anchor="middle">RODA PANDU ATAS [1]</text>
+
+          <!-- 2. RANGKA PAGAR BESI GESER (Sliding Gate Frame) -->
+          <rect x="230" y="100" width="620" height="310" rx="4" fill="rgba(30, 41, 59, 0.4)" stroke="#94a3b8" stroke-width="3"/>
+          <!-- Jeruji Vertikal Pagar -->
+          <line x1="280" y1="100" x2="280" y2="410" stroke="#64748b" stroke-width="2"/>
+          <line x1="330" y1="100" x2="330" y2="410" stroke="#64748b" stroke-width="2"/>
+          <line x1="380" y1="100" x2="380" y2="410" stroke="#64748b" stroke-width="2"/>
+          <line x1="430" y1="100" x2="430" y2="410" stroke="#64748b" stroke-width="2"/>
+          <line x1="480" y1="100" x2="480" y2="410" stroke="#64748b" stroke-width="2"/>
+          <line x1="530" y1="100" x2="530" y2="410" stroke="#64748b" stroke-width="2"/>
+          <line x1="580" y1="100" x2="580" y2="410" stroke="#64748b" stroke-width="2"/>
+          <line x1="630" y1="100" x2="630" y2="410" stroke="#64748b" stroke-width="2"/>
+          <line x1="680" y1="100" x2="680" y2="410" stroke="#64748b" stroke-width="2"/>
+          <line x1="730" y1="100" x2="730" y2="410" stroke="#64748b" stroke-width="2"/>
+          <line x1="780" y1="100" x2="780" y2="410" stroke="#64748b" stroke-width="2"/>
+          <!-- Palang Penguat Tengah -->
+          <line x1="230" y1="250" x2="850" y2="250" stroke="#64748b" stroke-width="2"/>
+
+          <!-- 3. RODA BEARING BAWAH (Bottom V-Groove Wheels) -->
+          <!-- Roda Kiri -->
+          <circle cx="290" cy="422" r="16" fill="#475569" stroke="#cbd5e1" stroke-width="3"/>
+          <circle cx="290" cy="422" r="5" fill="#0284c7"/>
+          <!-- Roda Kanan -->
+          <circle cx="790" cy="422" r="16" fill="#475569" stroke="#cbd5e1" stroke-width="3"/>
+          <circle cx="790" cy="422" r="5" fill="#0284c7"/>
+          <text x="790" y="400" fill="#38bdf8" font-family="sans-serif" font-size="10" font-weight="bold" text-anchor="middle">RODA V-GROOVE [2]</text>
+
+          <!-- 4. STEEL GEAR RACK (Rel Gigi Baja Modul 4) -->
+          <rect x="230" y="360" width="620" height="12" fill="#38bdf8" stroke="#0284c7" stroke-width="1.5"/>
+          <!-- Gigi-gigi rel -->
+          <g stroke="#080d1a" stroke-width="2">
+            <!-- Pola Gigi -->
+            <path d="M 235 360 L 238 354 L 241 360 M 245 360 L 248 354 L 251 360 M 255 360 L 258 354 L 261 360 M 265 360 L 268 354 L 271 360 M 275 360 L 278 354 L 281 360 M 285 360 L 288 354 L 291 360 M 295 360 L 298 354 L 301 360 M 305 360 L 308 354 L 311 360 M 315 360 L 318 354 L 321 360 M 325 360 L 328 354 L 331 360 M 335 360 L 338 354 L 341 360 M 345 360 L 348 354 L 351 360 M 355 360 L 358 354 L 361 360 M 365 360 L 368 354 L 371 360 M 375 360 L 378 354 L 381 360 M 385 360 L 388 354 L 391 360 M 395 360 L 398 354 L 401 360 M 405 360 L 408 354 L 411 360 M 415 360 L 418 354 L 421 360 M 425 360 L 428 354 L 431 360 M 435 360 L 438 354 L 441 360 M 445 360 L 448 354 L 451 360 M 455 360 L 458 354 L 461 360 M 465 360 L 468 354 L 471 360 M 475 360 L 478 354 L 481 360 M 485 360 L 488 354 L 491 360 M 495 360 L 498 354 L 501 360 M 505 360 L 508 354 L 511 360 M 515 360 L 518 354 L 521 360 M 525 360 L 528 354 L 531 360 M 535 360 L 538 354 L 541 360 M 545 360 L 548 354 L 551 360 M 555 360 L 558 354 L 561 360 M 565 360 L 568 354 L 571 360 M 575 360 L 578 354 L 581 360 M 585 360 L 588 354 L 591 360 M 595 360 L 598 354 L 601 360 M 605 360 L 608 354 L 611 360 M 615 360 L 618 354 L 621 360 M 625 360 L 628 354 L 631 360 M 635 360 L 638 354 L 641 360 M 645 360 L 648 354 L 651 360 M 655 360 L 658 354 L 661 360 M 665 360 L 668 354 L 671 360 M 675 360 L 678 354 L 681 360 M 685 360 L 688 354 L 691 360 M 695 360 L 698 354 L 701 360 M 705 360 L 708 354 L 711 360 M 715 360 L 718 354 L 721 360 M 725 360 L 728 354 L 731 360 M 735 360 L 738 354 L 741 360 M 745 360 L 748 354 L 751 360 M 755 360 L 758 354 L 761 360 M 765 360 L 768 354 L 771 360 M 775 360 L 778 354 L 781 360 M 785 360 L 788 354 L 791 360 M 795 360 L 798 354 L 801 360 M 805 360 L 808 354 L 811 360 M 815 360 L 818 354 L 821 360 M 825 360 L 828 354 L 831 360 M 835 360 L 838 354 L 841 360"/>
+          </g>
+          <!-- Baut Pengikat Rel Gigi ke Rangka Pagar -->
+          <circle cx="260" cy="366" r="3" fill="#f8fafc"/>
+          <circle cx="380" cy="366" r="3" fill="#f8fafc"/>
+          <circle cx="500" cy="366" r="3" fill="#f8fafc"/>
+          <circle cx="620" cy="366" r="3" fill="#f8fafc"/>
+          <circle cx="740" cy="366" r="3" fill="#f8fafc"/>
+          <text x="560" y="390" fill="#38bdf8" font-family="sans-serif" font-size="11" font-weight="bold">REL GIGI BAJA (STEEL GEAR RACK) [3]</text>
+
+          <!-- 5. UNIT MESIN MOTOR (Sliding Gate Motor Drive Unit) -->
+          <!-- Base Plate Dudukan Motor Baja -->
+          <rect x="70" y="420" width="130" height="15" fill="#475569" stroke="#64748b" stroke-width="2"/>
+          <line x1="80" y1="435" x2="80" y2="465" stroke="#cbd5e1" stroke-width="4"/>
+          <line x1="190" y1="435" x2="190" y2="465" stroke="#cbd5e1" stroke-width="4"/>
+
+          <!-- Body Motor Cast Iron Casing -->
+          <rect x="75" y="270" width="120" height="150" rx="10" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+          <!-- Motor Cap Top -->
+          <path d="M 80 270 C 80 240, 190 240, 190 270 Z" fill="#334155" stroke="#38bdf8" stroke-width="2"/>
+          <text x="135" y="260" fill="#f8fafc" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="bold" text-anchor="middle">DINAMO MOTOR</text>
+
+          <!-- Internal Gearbox WORM REDUCER Simulation -->
+          <rect x="90" y="295" width="90" height="60" rx="4" fill="#0f172a" stroke="#64748b" stroke-width="1.5"/>
+          <text x="135" y="320" fill="#94a3b8" font-family="sans-serif" font-size="9" text-anchor="middle">GEARBOX WORM</text>
+          <text x="135" y="335" fill="#38bdf8" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="bold" text-anchor="middle">REDUKSI 1:30</text>
+
+          <!-- Lubang Kunci Manual Release Clutch -->
+          <circle cx="105" cy="385" r="8" fill="#0f172a" stroke="#f59e0b" stroke-width="2"/>
+          <rect x="103" y="380" width="4" height="10" fill="#f59e0b"/>
+          <text x="105" y="408" fill="#f59e0b" font-family="sans-serif" font-size="8" text-anchor="middle">KUNCI MANUAL</text>
+
+          <!-- 6. PINION GEAR (Roda Gigi Pemutar Luar) yang MENGGIGIT Gear Rack -->
+          <circle cx="215" cy="345" r="26" fill="#475569" stroke="#38bdf8" stroke-width="3"/>
+          <circle cx="215" cy="345" r="8" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+          <!-- Gigi Pinion Gear melingkar -->
+          <g stroke="#38bdf8" stroke-width="3">
+            <line x1="215" y1="315" x2="215" y2="375"/>
+            <line x1="185" y1="345" x2="245" y2="345"/>
+            <line x1="194" y1="324" x2="236" y2="366"/>
+            <line x1="194" y1="366" x2="236" y2="324"/>
+          </g>
+          <!-- Panah Putaran Motor -->
+          <path d="M 238 320 A 28 28 0 0 1 245 355" stroke="#10b981" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+          <text x="215" y="300" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="800" text-anchor="middle">PINION GEAR [4]</text>
+
+          <!-- 7. LIMIT SWITCH & STOPPER (Sensor Batas Akhir) -->
+          <!-- Plat Magnet Stopper di Pagar -->
+          <rect x="235" y="340" width="16" height="18" fill="#ef4444" stroke="#f8fafc" stroke-width="1.5"/>
+          <text x="243" y="330" fill="#ef4444" font-family="sans-serif" font-size="9" font-weight="bold" text-anchor="middle">STOPPER [5]</text>
+
+          <rect x="830" y="340" width="16" height="18" fill="#ef4444" stroke="#f8fafc" stroke-width="1.5"/>
+          <text x="838" y="330" fill="#ef4444" font-family="sans-serif" font-size="9" font-weight="bold" text-anchor="middle">STOPPER [5]</text>
+
+          <!-- Panah Pergerakan Linier Pagar -->
+          <g stroke="#38bdf8" stroke-width="3">
+            <line x1="450" y1="200" x2="630" y2="200"/>
+            <polyline points="620,190 635,200 620,210" fill="none"/>
+            <polyline points="460,190 445,200 460,210" fill="none"/>
+          </g>
+          <text x="540" y="190" fill="#ffffff" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">GERAK LINIER GESER (BUKA / TUTUP)</text>
+
+        </svg>
+      </div>
+    </div>
+
+    <!-- KINEMATIC CHAIN EXPLANATION -->
+    <div class="flow-box">
+      <h3>⚙️ Alur Rantai Dinamika Mekanik (Kinematic Chain):</h3>
+      <div class="flow-steps">
+        <div class="flow-step-item">1. Dinamo Listrik (1400 RPM)</div>
+        <span class="flow-arrow">➔</span>
+        <div class="flow-step-item">2. Gearbox Worm Reducer (Reduksi Torsi Tinggi ~46 RPM)</div>
+        <span class="flow-arrow">➔</span>
+        <div class="flow-step-item">3. Pinion Gear Baja Berputar</div>
+        <span class="flow-arrow">➔</span>
+        <div class="flow-step-item">4. Gigi Mendorong Steel Gear Rack</div>
+        <span class="flow-arrow">➔</span>
+        <div class="flow-step-item">5. Pagar Meluncur di Atas Rel V-Track</div>
+        <span class="flow-arrow">➔</span>
+        <div class="flow-step-item">6. Stopper Menyentuh Limit Switch (Stop Otomatis)</div>
+      </div>
+    </div>
+
+    <!-- MECHANICAL COMPONENTS DETAIL -->
+    <div class="comp-grid">
+      
+      <!-- Komponen 1 -->
+      <div class="comp-card">
+        <div class="comp-title">
+          <span class="comp-num">1</span> Roda Pandu Atas (Guide Rollers)
+        </div>
+        <div class="comp-desc">
+          Terdiri dari 2 buah roller nilon/karet berkualitas tinggi yang menjepit sisi atas pagar agar gerbang tetap tegak lurus, stabil, dan tidak goyang/tumbang saat tertiup angin kencang.
+        </div>
+        <div class="comp-spec">
+          Bahan: Heavy Duty Nylon Roller (Bearing 6201)
+        </div>
+      </div>
+
+      <!-- Komponen 2 -->
+      <div class="comp-card">
+        <div class="comp-title">
+          <span class="comp-num">2</span> Roda Bawah V-Groove (Wheels)
+        </div>
+        <div class="comp-desc">
+          Roda baja padat dengan alur V atau U yang menopang seluruh beban berat pagar (300 kg - 1500 kg) agar meluncur sangat ringan dan halus di atas rel besi as tanah.
+        </div>
+        <div class="comp-spec">
+          Bahan: Baja Tempa + Double Sealed Ball Bearings
+        </div>
+      </div>
+
+      <!-- Komponen 3 -->
+      <div class="comp-card">
+        <div class="comp-title">
+          <span class="comp-num">3</span> Rel Gigi Baja (Steel Gear Rack)
+        </div>
+        <div class="comp-desc">
+          Batang baja bergigi presisi standar Modul 4 (M4) sepanjang gerbang yang dibaut paten ke rangka pagar. Berfungsi menerima gaya dorong linier dari putaran Pinion Gear mesin.
+        </div>
+        <div class="comp-spec">
+          Modul: M4 (Tebal 8mm - 12mm x Panjang 1000mm)
+        </div>
+      </div>
+
+      <!-- Komponen 4 -->
+      <div class="comp-card">
+        <div class="comp-title">
+          <span class="comp-num">4</span> Pinion Gear & Gearbox Reducer
+        </div>
+        <div class="comp-desc">
+          Roda gigi baja luar yang terhubung ke as motor penggerak. Di dalam mesin terdapat transmisi roda gigi cacing (*Worm Gear*) yang melipatgandakan torsi hingga ratusan Newton-meter.
+        </div>
+        <div class="comp-spec">
+          Torsi Output: 50 - 80 Nm (Kecepatan 12 meter/menit)
+        </div>
+      </div>
+
+      <!-- Komponen 5 -->
+      <div class="comp-card">
+        <div class="comp-title">
+          <span class="comp-num">5</span> Magnetic Limit Switch & Stopper
+        </div>
+        <div class="comp-desc">
+          Braket stopper magnet baja yang dipasang di ujung kiri dan kanan rel gigi. Saat pagar sampai di titik batas, magnet akan memicu sensor di mesin untuk memutus daya motor secara presisi.
+        </div>
+        <div class="comp-spec">
+          Presisi: Sensor Reed Magnetic / Spring Limit Switch
+        </div>
+      </div>
+
+      <!-- Komponen 6 -->
+      <div class="comp-card">
+        <div class="comp-title">
+          <span class="comp-num">6</span> Kunci Manual (Emergency Clutch)
+        </div>
+        <div class="comp-desc">
+          Mekanisme kopling mekanik di bodi motor. Saat listrik PLN padam, tuas kunci diputar untuk membebaskan roda gigi sehingga pagar dapat didorong manual dengan sangat ringan.
+        </div>
+        <div class="comp-spec">
+          Tipe: Mechanical Release Key / Kopling Tuas
+        </div>
+      </div>
+
+    </div>
+
+    <center>
+      <button class="btn-print" onclick="window.print()">🖨️ Cetak / Simpan Gambar Skema Mekanik ke PDF</button>
+    </center>
+
+  </div>
+
+</body>
+</html>

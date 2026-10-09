@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skema Alat Nyata & Wiring Diagram — Nexora Smart PLC Gate</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #0b0f19;
+      color: #f1f5f9;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      padding: 30px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .header {
+      text-align: center;
+      max-width: 900px;
+      margin-bottom: 30px;
+    }
+    .header h1 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #38bdf8;
+      margin-bottom: 8px;
+    }
+    .header p {
+      color: #94a3b8;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid #0284c7;
+      color: #38bdf8;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .container {
+      width: 100%;
+      max-width: 1280px;
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+    .flow-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      position: relative;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .card:hover {
+      transform: translateY(-3px);
+      border-color: #38bdf8;
+    }
+    .step-num {
+      position: absolute;
+      top: -10px;
+      left: 14px;
+      background: #0284c7;
+      color: white;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 800;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid #38bdf8;
+    }
+    .device-icon-box {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 12px 0;
+      padding: 10px;
+    }
+    .device-icon-box svg {
+      max-width: 100%;
+      max-height: 100%;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 4px;
+    }
+    .card-subtitle {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #38bdf8;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 8px;
+    }
+    .card-desc {
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.4;
+      flex-grow: 1;
+    }
+    .port-info {
+      margin-top: 12px;
+      padding: 8px;
+      background: #0f172a;
+      border-radius: 6px;
+      border-left: 3px solid #10b981;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: #cbd5e1;
+    }
+
+    /* Wiring Table */
+    .wiring-section {
+      margin-top: 30px;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .wiring-section h2 {
+      font-size: 18px;
+      color: #f8fafc;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid #1e293b;
+    }
+    th {
+      background: #1e293b;
+      color: #38bdf8;
+      font-weight: 700;
+    }
+    td {
+      color: #cbd5e1;
+    }
+    .cable-tag {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+    }
+    .tag-lan { background: #0369a1; color: #e0f2fe; }
+    .tag-power { background: #b91c1c; color: #fee2e2; }
+    .tag-signal { background: #047857; color: #d1fae5; }
+
+    .print-btn {
+      margin-top: 25px;
+      background: #0284c7;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+    .print-btn:hover {
+      background: #0369a1;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="badge">SISTEM KONTROL GERBANG OTOMATIS BERBASIS PLC & CCTV LAN</div>
+    <h1>Skema Alat Nyata, Jalur Kabel & Mekanik Gerbang</h1>
+    <p>Diagram fisik perkabelan industri tanpa WiFi (Menggunakan Kabel LAN Ethernet RJ45 & Protokol Modbus TCP / RTSP Stream)</p>
+  </div>
+
+  <div class="container">
+    <div class="flow-grid">
+      
+      <!-- STEP 1: HP / Aplikasi Nexora -->
+      <div class="card">
+        <div class="step-num">TAHAP 1</div>
+        <div class="device-icon-box">
+          <!-- Smartphone SVG -->
+          <svg width="60" height="90" viewBox="0 0 60 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="5" y="2" width="50" height="86" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+            <rect x="9" y="10" width="42" height="68" rx="4" fill="#0f172a"/>
+            <!-- Camera Feed Screen -->
+            <rect x="12" y="14" width="36" height="24" rx="2" fill="#334155"/>
+            <circle cx="30" cy="26" r="5" fill="#38bdf8"/>
+            <rect x="14" y="44" width="32" height="8" rx="4" fill="#0284c7"/>
+            <text x="30" y="50" fill="white" font-size="5" font-family="sans-serif" font-weight="bold" text-anchor="middle">BUKA GERBANG</text>
+            <circle cx="30" cy="83" r="2" fill="#64748b"/>
+          </svg>
+        </div>
+        <div class="card-title">Smartphone / Tablet</div>
+        <div class="card-subtitle">Aplikasi Nexora</div>
+        <div class="card-desc">
+          User melihat live feed kamera CCTV melalui protokol <b>RTSP</b> dan menekan tombol Buka Gerbang via <b>Modbus TCP / IP</b>.
+        </div>
+        <div class="port-info">
+          Koneksi: Wi-Fi Router / LAN Hub
+        </div>
+      </div>
+
+      <!-- STEP 2: Outdoor IP Camera -->
+      <div class="card">
+        <div class="step-num">CCTV</div>
+        <div class="device-icon-box">
+          <!-- Outdoor Bullet IP Cam SVG -->
+          <svg width="90" height="70" viewBox="0 0 90 70" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Wall bracket -->
+            <rect x="5" y="25" width="8" height="30" rx="2" fill="#475569"/>
+            <rect x="13" y="36" width="16" height="6" fill="#64748b"/>
+            <!-- Camera Body -->
+            <rect x="29" y="18" width="46" height="28" rx="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
+            <!-- Sun shield hood -->
+            <path d="M 26 18 L 78 18 L 72 24 L 26 24 Z" fill="#0284c7"/>
+            <!-- Lens Glass -->
+            <rect x="75" y="21" width="6" height="22" rx="2" fill="#0f172a"/>
+            <circle cx="78" cy="32" r="4" fill="#38bdf8"/>
+            <!-- IR LEDs -->
+            <circle cx="78" cy="24" r="1.5" fill="#ef4444"/>
+            <circle cx="78" cy="40" r="1.5" fill="#ef4444"/>
+          </svg>
+        </div>
+        <div class="card-title">Outdoor IP Camera</div>
+        <div class="card-subtitle">Protokol RTSP (Port 554)</div>
+        <div class="card-desc">
+          Kamera pengawas dipasang mengarah ke gerbang. Mengirimkan video langsung 1080P FHD ke aplikasi Nexora tanpa jeda.
+        </div>
+        <div class="port-info">
+          Kabel: LAN UTP RJ45 (PoE 48V / 12V)
+        </div>
+      </div>
+
+      <!-- STEP 3: Switch Hub & PLC Controller -->
+      <div class="card">
+        <div class="step-num">TAHAP 2 & 3</div>
+        <div class="device-icon-box">
+          <!-- Industrial PLC Module SVG -->
+          <svg width="90" height="85" viewBox="0 0 90 85" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- PLC Case -->
+            <rect x="8" y="5" width="74" height="75" rx="4" fill="#334155" stroke="#64748b" stroke-width="2"/>
+            <!-- Top Terminal Blocks (Inputs) -->
+            <rect x="12" y="8" width="66" height="12" fill="#1e293b"/>
+            <circle cx="20" cy="14" r="2.5" fill="#10b981"/>
+            <circle cx="30" cy="14" r="2.5" fill="#10b981"/>
+            <circle cx="40" cy="14" r="2.5" fill="#10b981"/>
+            <!-- Middle LCD Screen & LEDs -->
+            <rect x="16" y="26" width="38" height="24" rx="2" fill="#0f172a" stroke="#0284c7"/>
+            <text x="35" y="40" fill="#38bdf8" font-size="7" font-family="monospace" font-weight="bold" text-anchor="middle">PLC RUN</text>
+            <!-- Ethernet Port RJ45 -->
+            <rect x="58" y="28" width="18" height="18" rx="2" fill="#0284c7"/>
+            <rect x="62" y="32" width="10" height="10" fill="#0f172a"/>
+            <!-- Bottom Terminal Blocks (Relay Outputs) -->
+            <rect x="12" y="65" width="66" height="12" fill="#1e293b"/>
+            <circle cx="20" cy="71" r="2.5" fill="#f59e0b"/>
+            <circle cx="30" cy="71" r="2.5" fill="#f59e0b"/>
+          </svg>
+        </div>
+        <div class="card-title">PLC Industri (DIN-Rail)</div>
+        <div class="card-subtitle">Siemens / Outseal / Modicon</div>
+        <div class="card-desc">
+          Menerima perintah via kabel LAN (Modbus TCP). Menjalankan logika keamanan, lalu mengaktifkan Relay Output <b>%QX0.0 (Q1)</b>.
+        </div>
+        <div class="port-info">
+          Input: 24V DC | Output: Relay Dry Contact
+        </div>
+      </div>
+
+      <!-- STEP 4: Motor Sliding Gate & Controller -->
+      <div class="card">
+        <div class="step-num">TAHAP 4</div>
+        <div class="device-icon-box">
+          <!-- Gate Motor SVG -->
+          <svg width="85" height="85" viewBox="0 0 85 85" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Motor Base & Housing -->
+            <rect x="10" y="20" width="55" height="55" rx="6" fill="#475569" stroke="#334155" stroke-width="2"/>
+            <!-- Motor Top Cap -->
+            <path d="M 12 20 C 12 10, 63 10, 63 20 Z" fill="#64748b"/>
+            <!-- Key lock hole -->
+            <circle cx="22" cy="35" r="4" fill="#0f172a"/>
+            <!-- Pinion Gear (Roda Gigi Luar) -->
+            <circle cx="65" cy="62" r="14" fill="#94a3b8" stroke="#cbd5e1" stroke-width="2"/>
+            <path d="M 65 46 L 65 78 M 49 62 L 81 62 M 54 51 L 76 73 M 54 73 L 76 51" stroke="#0f172a" stroke-width="3"/>
+            <circle cx="65" cy="62" r="5" fill="#0f172a"/>
+          </svg>
+        </div>
+        <div class="card-title">Mesin Motor Pagar</div>
+        <div class="card-subtitle">Sliding Gate Motor (AC/DC)</div>
+        <div class="card-desc">
+          Menerima sinyal kontak dari PLC. Memutar dinamo berkekuatan besar untuk memutar <b>Pinion Gear (Roda Gigi)</b>.
+        </div>
+        <div class="port-info">
+          Daya: 220V AC / 24V DC (Torsi 50-80 Nm)
+        </div>
+      </div>
+
+      <!-- STEP 5: Mekanisme Gerbang & Rel Gigi -->
+      <div class="card">
+        <div class="step-num">TAHAP 5</div>
+        <div class="device-icon-box">
+          <!-- Sliding Fence Mechanism SVG -->
+          <svg width="100" height="80" viewBox="0 0 100 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Pillar -->
+            <rect x="5" y="10" width="12" height="65" fill="#334155"/>
+            <!-- Sliding Fence Panel -->
+            <rect x="22" y="15" width="70" height="50" fill="none" stroke="#64748b" stroke-width="2"/>
+            <line x1="32" y1="15" x2="32" y2="65" stroke="#64748b" stroke-width="1.5"/>
+            <line x1="42" y1="15" x2="42" y2="65" stroke="#64748b" stroke-width="1.5"/>
+            <line x1="52" y1="15" x2="52" y2="65" stroke="#64748b" stroke-width="1.5"/>
+            <line x1="62" y1="15" x2="62" y2="65" stroke="#64748b" stroke-width="1.5"/>
+            <line x1="72" y1="15" x2="72" y2="65" stroke="#64748b" stroke-width="1.5"/>
+            <line x1="82" y1="15" x2="82" y2="65" stroke="#64748b" stroke-width="1.5"/>
+            <!-- Steel Gear Rack (Rel Gigi Bawah) -->
+            <rect x="20" y="66" width="75" height="4" fill="#cbd5e1"/>
+            <path d="M 22 66 L 24 63 L 26 66 L 28 63 L 30 66 L 32 63 L 34 66 L 36 63 L 38 66 L 40 63 L 42 66 L 44 63 L 46 66 L 48 63 L 50 66 L 52 63 L 54 66 L 56 63 L 58 66 L 60 63 L 62 66 L 64 63 L 66 66 L 68 63 L 70 66 L 72 63 L 74 66 L 76 63 L 78 66 L 80 63 L 82 66 L 84 63 L 86 66 L 88 63 L 90 66" stroke="#0284c7" stroke-width="1.5"/>
+            <!-- Wheels & Track -->
+            <circle cx="35" cy="74" r="3" fill="#94a3b8"/>
+            <circle cx="80" cy="74" r="3" fill="#94a3b8"/>
+            <line x1="2" y1="77" x2="98" y2="77" stroke="#cbd5e1" stroke-width="2"/>
+          </svg>
+        </div>
+        <div class="card-title">Mekanik Pagar Besi</div>
+        <div class="card-subtitle">Steel Gear Rack & Track</div>
+        <div class="card-desc">
+          Rel gigi baja bergerak mengikuti putaran motor. Pagar meluncur buka/tutup dan berhenti pas di sensor <b>Limit Switch</b>.
+        </div>
+        <div class="port-info">
+          Sensor: 24V Photocell Beam Anti-Jepit
+        </div>
+      </div>
+
+    </div>
+
+    <!-- WIRING TABLE -->
+    <div class="wiring-section">
+      <h2>🔌 Tabel Rincian Kabel & Terminal Alat</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Dari Perangkat</th>
+            <th>Terminal Asal</th>
+            <th>Menuju Perangkat</th>
+            <th>Terminal Tujuan</th>
+            <th>Tipe Kabel</th>
+            <th>Fungsi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Outdoor IP Camera</b></td>
+            <td>Port RJ45</td>
+            <td><b>Switch Hub LAN</b></td>
+            <td>Port 1 (LAN Hub)</td>
+            <td><span class="cable-tag tag-lan">Kabel LAN UTP Cat6</span></td>
+            <td>Streaming Video RTSP (Live Pantauan)</td>
+          </tr>
+          <tr>
+            <td><b>Switch Hub LAN</b></td>
+            <td>Port 2 (LAN Hub)</td>
+            <td><b>Unit PLC</b></td>
+            <td>Port Ethernet (RJ45)</td>
+            <td><span class="cable-tag tag-lan">Kabel LAN UTP Cat6</span></td>
+            <td>Data Perintah Modbus TCP/IP (Buka/Tutup)</td>
+          </tr>
+          <tr>
+            <td><b>Unit PLC</b></td>
+            <td>Output Q1 (%QX0.0)</td>
+            <td><b>Controller Motor</b></td>
+            <td>Terminal PUSH / CYCLE</td>
+            <td><span class="cable-tag tag-signal">Kabel NYAF 2x0.75mm</span></td>
+            <td>Kontak Kering (Dry Contact) Trigger Buka</td>
+          </tr>
+          <tr>
+            <td><b>Limit Switch (Sensor Batas)</b></td>
+            <td>NO / NC Contact</td>
+            <td><b>Unit PLC</b></td>
+            <td>Input I1 (%IX0.0)</td>
+            <td><span class="cable-tag tag-signal">Kabel 2x0.5mm (24V DC)</span></td>
+            <td>Deteksi Gerbang Terbuka Penuh (Stop Motor)</td>
+          </tr>
+          <tr>
+            <td><b>Photocell (Sensor Anti-Jepit)</b></td>
+            <td>Relay Out (Rx)</td>
+            <td><b>Unit PLC</b></td>
+            <td>Input I2 (%IX0.1)</td>
+            <td><span class="cable-tag tag-signal">Kabel 4x0.5mm (24V DC)</span></td>
+            <td>Pengaman Otomatis Berhenti Jika Ada Mobil/Orang</td>
+          </tr>
+          <tr>
+            <td><b>Sumber Listrik PLN</b></td>
+            <td>MCB 6A / 220V</td>
+            <td><b>Motor & Box Panel PLC</b></td>
+            <td>Power Supply 24V & Motor L-N</td>
+            <td><span class="cable-tag tag-power">Kabel NYM 3x1.5mm</span></td>
+            <td>Suplai Daya Utama Sistem</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <center>
+      <button class="print-btn" onclick="window.print()">🖨️ Cetak / Simpan sebagai PDF untuk Bos</button>
+    </center>
+  </div>
+
+</body>
+</html>

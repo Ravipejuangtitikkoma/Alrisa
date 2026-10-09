@@ -1,0 +1,276 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+import 'package:flutter/foundation.dart';
+import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt_client/mqtt_server_client.dart';
+import 'package:nexora/core/config/mqtt_config.dart';
+
+/// Model payload pesan MQTT NEXORA: {"state": bool, "value": num?}
+class DevicePayload {
+  final bool state;
+  final num? value;
+
+  const DevicePayload({required this.state, this.value});
+
+  factory DevicePayload.fromJson(Map<String, dynamic> json) {
+    return DevicePayload(
+      state: json['state'] as bool? ?? false,
+      value: json['value'] as num?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    final map = <String, dynamic>{'state': state};
+    if (value != null) {
+      map['value'] = value;
+    }
+    return map;
+  }
+
+  @override
+  String toString() => 'DevicePayload(state: $state, value: $value)';
+}
+
+/// Event update status perangkat dari broker
+class DeviceStateEvent {
+  final String deviceId;
+  final DevicePayload payload;
+  final DateTime timestamp;
+
+  DeviceStateEvent({
+    required this.deviceId,
+    required this.payload,
+    DateTime? timestamp,
+  }) : timestamp = timestamp ?? DateTime.now();
+}
+
+/// MqttService Singleton: Mengelola koneksi broker, auto-reconnect,
+/// publish perintah ke /set, dan subscribe status dari /state.
+class MqttService {
+  static final MqttService _instance = MqttService._internal();
+  factory MqttService() => _instance;
+
+  MqttService._internal() {
+    _clientId = 'nexora-fi-${_generateRandomSuffix()}';
+    _initAndConnect();
+  }
+
+  MqttServerClient? _client;
+  late final String _clientId;
+
+  // Stream status koneksi (true = terhubung, false = terputus/banner offline)
+  final _connectionController = StreamController<bool>.broadcast();
+  bool _isConnected = false;
+
+  // Stream pembaruan status perangkat (/state)
+  final _stateController = StreamController<DeviceStateEvent>.broadcast();
+
+  // Cache status perangkat terkini (single source of truth)
+  final Map<String, DevicePayload> _deviceStates = {
+    'pagar': const DevicePayload(state: false),
+    'pintu_geser': const DevicePayload(state: false),
+    'gorden': const DevicePayload(state: false),
+    'lampu_teras': const DevicePayload(state: false, value: 0),
+    'pompa_toren': const DevicePayload(state: false, value: 82),
+    'pompa_kolam': const DevicePayload(state: false),
+  };
+
+  // Log pesan terakhir untuk halaman Pengaturan
+  String _lastMessage = 'Belum ada pesan';
+  DateTime? _lastMessageTime;
+  int _reconnectAttempts = 0;
+  Timer? _reconnectTimer;
+  bool _isManualDisconnect = false;
+
+  // Getters
+  String get clientId => _clientId;
+  String get broker => MqttConfig.broker;
+  int get port => MqttConfig.port;
+  bool get isConnected => _isConnected;
+  Stream<bool> get connectionStream => _connectionController.stream;
+  Stream<DeviceStateEvent> get stateStream => _stateController.stream;
+  String get lastMessage => _lastMessage;
+  DateTime? get lastMessageTime => _lastMessageTime;
+
+  DevicePayload? getDeviceState(String deviceId) => _deviceStates[deviceId];
+
+  String _generateRandomSuffix() {
+    final rand = Random();
+    return List.generate(5, (_) => rand.nextInt(36).toRadixString(36)).join();
+  }
+
+  /// Inisialisasi klien dan mulai koneksi
+  Future<void> _initAndConnect() async {
+    _isManualDisconnect = false;
+    _client = MqttServerClient.withPort(MqttConfig.broker, _clientId, MqttConfig.port);
+    _client!.logging(on: false);
+    _client!.keepAlivePeriod = 20;
+    _client!.setProtocolV311();
+    _client!.autoReconnect = false; // Kita kelola sendiri dengan exponential backoff
+
+    _client!.onConnected = _onConnected;
+    _client!.onDisconnected = _onDisconnected;
+    _client!.onSubscribed = _onSubscribed;
+
+    final connMessage = MqttConnectMessage()
+        .withClientIdentifier(_clientId)
+        .startClean();
+    _client!.connectionMessage = connMessage;
+
+    await connect();
+  }
+
+  StreamSubscription<List<MqttReceivedMessage<MqttMessage>>>? _updatesSub;
+
+  /// Hubungkan ke Broker
+  Future<void> connect() async {
+    if (_isConnected && _client?.connectionStatus?.state == MqttConnectionState.connected) return;
+
+    try {
+      debugPrint('🔌 [MQTT] Menghubungkan ke ${MqttConfig.broker}:${MqttConfig.port} sebagai $_clientId...');
+      _lastMessage = 'Sedang menghubungkan ke ${MqttConfig.broker}...';
+      final status = await _client?.connect();
+      if (status?.state == MqttConnectionState.connected ||
+          _client?.connectionStatus?.state == MqttConnectionState.connected) {
+        if (!_isConnected) {
+          _onConnected();
+        }
+      } else {
+        _lastMessage = 'Gagal: status = ${status?.state}';
+        _handleDisconnect();
+      }
+    } catch (e) {
+      debugPrint('❌ [MQTT] Koneksi gagal: $e');
+      _lastMessage = 'Error koneksi: $e';
+      _handleDisconnect();
+    }
+  }
+
+  void _onConnected() {
+    debugPrint('✅ [MQTT] Berhasil terhubung ke ${MqttConfig.broker}!');
+    _isConnected = true;
+    _reconnectAttempts = 0;
+    _reconnectTimer?.cancel();
+    _connectionController.add(true);
+
+    // Subscribe ke semua status perangkat sesuai kontrak: nexora/+/state
+    final topic = MqttConfig.allStateTopics();
+    debugPrint('📡 [MQTT] Subscribe ke topik: $topic');
+    _client?.subscribe(topic, MqttQos.atLeastOnce);
+
+    // Dengarkan pesan masuk dari broker secara aman tanpa duplicate listener
+    _updatesSub?.cancel();
+    _updatesSub = _client?.updates?.listen(_onMessageReceived);
+  }
+
+  void _onSubscribed(String topic) {
+    debugPrint(' Subscribed ke topik: $topic');
+  }
+
+  void _onDisconnected() {
+    debugPrint('⚠️ [MQTT] Terputus dari broker');
+    _isConnected = false;
+    _connectionController.add(false);
+
+    if (!_isManualDisconnect) {
+      _scheduleReconnect();
+    }
+  }
+
+  void _handleDisconnect() {
+    _isConnected = false;
+    _connectionController.add(false);
+    _scheduleReconnect();
+  }
+
+  /// Auto-reconnect dengan Exponential Backoff (1s, 2s, 4s, 8s ... maks 30s)
+  void _scheduleReconnect() {
+    _reconnectTimer?.cancel();
+    final delaySeconds = min(pow(2, _reconnectAttempts).toInt(), 30);
+    _reconnectAttempts++;
+
+    debugPrint('🔄 [MQTT] Menjadwalkan reconnect dalam $delaySeconds detik (percobaan ke-$_reconnectAttempts)...');
+    _reconnectTimer = Timer(Duration(seconds: delaySeconds), () {
+      if (!_isConnected && !_isManualDisconnect) {
+        connect();
+      }
+    });
+  }
+
+  /// Memproses pesan masuk dari topic: nexora/<device_id>/state
+  void _onMessageReceived(List<MqttReceivedMessage<MqttMessage>> messages) {
+    for (final message in messages) {
+      final recMess = message.payload as MqttPublishMessage;
+      final payloadString = MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
+      final topic = message.topic;
+
+      debugPrint('📥 [MQTT DITERIMA] Topik: $topic | Payload: $payloadString');
+
+      _lastMessage = '$topic: $payloadString';
+      _lastMessageTime = DateTime.now();
+
+      // Ekstrak device_id dari topik "nexora/<device_id>/state"
+      final parts = topic.split('/');
+      if (parts.length >= 3 && parts[0] == MqttConfig.topicPrefix && parts[2] == 'state') {
+        final deviceId = parts[1];
+        try {
+          final jsonMap = jsonDecode(payloadString) as Map<String, dynamic>;
+          final payload = DevicePayload.fromJson(jsonMap);
+
+          // Update cache state (Single Source of Truth)
+          _deviceStates[deviceId] = payload;
+
+          // Siarkan event ke listener UI
+          _stateController.add(DeviceStateEvent(deviceId: deviceId, payload: payload));
+        } catch (e) {
+          debugPrint('⚠️ [MQTT] Format JSON tidak valid pada topik $topic: $e');
+        }
+      }
+    }
+  }
+
+  /// Publish perintah ke topik "nexora/<device_id>/set"
+  /// Payload: {"state": bool, "value": num?}
+  void publishSet(String deviceId, {required bool state, num? value}) {
+    final topic = MqttConfig.setTopic(deviceId);
+    final payload = DevicePayload(state: state, value: value);
+    _deviceStates[deviceId] = payload;
+    final jsonString = jsonEncode(payload.toJson());
+
+    debugPrint('🚀 [MQTT PUBLISH] Topik: $topic | Payload: $jsonString');
+
+    if (_client == null || _client?.connectionStatus?.state != MqttConnectionState.connected) {
+      debugPrint('⚠️ [MQTT] Status: Belum terhubung (state: ${_client?.connectionStatus?.state}). Mencoba connect ulang...');
+      connect();
+      return;
+    }
+
+    final builder = MqttClientPayloadBuilder();
+    builder.addString(jsonString);
+
+    _client!.publishMessage(
+      topic,
+      MqttQos.atLeastOnce,
+      builder.payload!,
+    );
+  }
+
+  /// Reconnect manual untuk tombol di Halaman Pengaturan
+  Future<void> reconnect() async {
+    _reconnectTimer?.cancel();
+    _reconnectAttempts = 0;
+    if (_client != null && _isConnected) {
+      _client!.disconnect();
+    }
+    await _initAndConnect();
+  }
+
+  void dispose() {
+    _isManualDisconnect = true;
+    _reconnectTimer?.cancel();
+    _client?.disconnect();
+    _connectionController.close();
+    _stateController.close();
+  }
+}
