@@ -1,8 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nexora/core/design_tokens.dart';
-import 'package:nexora/data/mock_home.dart';
-
+import 'package:nexora/services/mqtt_service.dart';
 
 class EnergyView extends StatefulWidget {
   const EnergyView({Key? key}) : super(key: key);
@@ -13,13 +13,83 @@ class EnergyView extends StatefulWidget {
 
 class _EnergyViewState extends State<EnergyView> {
   int _selectedBarIndex = 4; // default jam 18.00 (puncak)
-  final List<EnergyPoint> _points = MockHomeData.getEnergyPoints();
+  double _plnCapacityWatt = 2200.0; // Pilihan Daya: 900, 1300, 2200, 3500 VA
+  StreamSubscription<DeviceStateEvent>? _mqttSub;
+
+  // Base consumption + state
+  bool _isPumpActive = false;
+  bool _isAcActive = true;
+  double _lampBrightness = 0.8;
+  bool _isGateActive = false;
+
+  final List<Map<String, dynamic>> _points = [
+    {'time': '00.00', 'watt': 140.0},
+    {'time': '04.00', 'watt': 180.0},
+    {'time': '08.00', 'watt': 320.0},
+    {'time': '12.00', 'watt': 460.0},
+    {'time': '18.00', 'watt': 620.0},
+    {'time': '20.00', 'watt': 510.0},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _syncDeviceStates();
+
+    _mqttSub = MqttService().stateStream.listen((event) {
+      if (!mounted) return;
+      setState(() {
+        _syncDeviceStates();
+      });
+    });
+  }
+
+  void _syncDeviceStates() {
+    final pump = MqttService().getDeviceState('pompa_toren');
+    if (pump != null) _isPumpActive = pump.state;
+
+    final lamp = MqttService().getDeviceState('lampu_teras');
+    if (lamp != null) {
+      _lampBrightness = (lamp.value ?? (lamp.state ? 80 : 0)) / 100.0;
+    }
+
+    final gate = MqttService().getDeviceState('pagar');
+    if (gate != null) _isGateActive = gate.state;
+  }
+
+  @override
+  void dispose() {
+    _mqttSub?.cancel();
+    super.dispose();
+  }
+
+  double _calculateCurrentWatt() {
+    double total = 110.0; // Base load (Router, MiniPC PLC, ESP32, CCTV Gateway)
+    if (_isAcActive) total += 220.0;
+    if (_isPumpActive) total += 150.0;
+    total += 45.0 * _lampBrightness;
+    if (_isGateActive) total += 65.0;
+    return total;
+  }
 
   @override
   Widget build(BuildContext context) {
-    const double maxCapacityWatt = 2200.0;
-    const double currentWatt = 540.0;
-    final double powerLoadPercentage = (currentWatt / maxCapacityWatt).clamp(0.0, 1.0);
+    final double currentWatt = _calculateCurrentWatt();
+    final double powerLoadPercentage = (currentWatt / _plnCapacityWatt).clamp(0.0, 1.0);
+    final double remainingWatt = (_plnCapacityWatt - currentWatt).clamp(0.0, _plnCapacityWatt);
+
+    // PLN Tariff calculation: Rp 1.444,70 / kWh (Tarif Golongan R-1)
+    const double plnTariffPerKwh = 1444.70;
+    final double estimatedDailyKwh = (currentWatt * 24) / 1000.0;
+    final double estimatedMonthlyKwh = estimatedDailyKwh * 30.0;
+    final double estimatedMonthlyCost = estimatedMonthlyKwh * plnTariffPerKwh;
+
+    // Breakdown components
+    final double acWatt = _isAcActive ? 220.0 : 0.0;
+    final double pumpWatt = _isPumpActive ? 150.0 : 0.0;
+    final double lampWatt = 45.0 * _lampBrightness;
+    final double gateWatt = _isGateActive ? 65.0 : 0.0;
+    final double standbyWatt = 110.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,9 +116,64 @@ class _EnergyViewState extends State<EnergyView> {
           ),
         ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
 
-        // 2. Hero Card: Live Power Meter (540 W)
+        // Pilihan Daya Kontrak PLN
+        Row(
+          children: [
+            const Text(
+              'Daya PLN:',
+              style: TextStyle(
+                fontFamily: NexoraTokens.fontFamilySans,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: NexoraTokens.inkSecondary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [900.0, 1300.0, 2200.0, 3500.0].map((cap) {
+                    final isSel = _plnCapacityWatt == cap;
+                    return GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _plnCapacityWatt = cap);
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isSel ? NexoraTokens.brandCyan : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSel ? NexoraTokens.brandCyan : NexoraTokens.cardBorder,
+                          ),
+                        ),
+                        child: Text(
+                          '${cap.toInt()} VA',
+                          style: TextStyle(
+                            fontFamily: NexoraTokens.fontFamilySans,
+                            fontSize: 11,
+                            fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                            color: isSel ? Colors.white : NexoraTokens.ink,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 14),
+
+        // 2. Hero Card: Live Power Meter
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
@@ -93,16 +218,22 @@ class _EnergyViewState extends State<EnergyView> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: NexoraTokens.statusGreenSubtle,
+                      color: powerLoadPercentage > 0.8
+                          ? NexoraTokens.statusRedSubtle
+                          : (powerLoadPercentage > 0.5 ? NexoraTokens.statusAmberSubtle : NexoraTokens.statusGreenSubtle),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
-                      'Beban Rendah',
+                    child: Text(
+                      powerLoadPercentage > 0.8
+                          ? 'Beban Tinggi'
+                          : (powerLoadPercentage > 0.5 ? 'Beban Sedang' : 'Beban Efisien'),
                       style: TextStyle(
                         fontFamily: NexoraTokens.fontFamilySans,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: NexoraTokens.statusGreen,
+                        color: powerLoadPercentage > 0.8
+                            ? NexoraTokens.statusRed
+                            : (powerLoadPercentage > 0.5 ? NexoraTokens.statusAmber : NexoraTokens.statusGreen),
                       ),
                     ),
                   ),
@@ -114,10 +245,10 @@ class _EnergyViewState extends State<EnergyView> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
-                children: const [
+                children: [
                   Text(
-                    '540',
-                    style: TextStyle(
+                    currentWatt.toStringAsFixed(0),
+                    style: const TextStyle(
                       fontFamily: NexoraTokens.fontFamilySans,
                       fontSize: 44,
                       fontWeight: FontWeight.w800,
@@ -126,10 +257,10 @@ class _EnergyViewState extends State<EnergyView> {
                       height: 1.0,
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
-                    'Watt / 2.200 VA',
-                    style: TextStyle(
+                    'Watt / ${_plnCapacityWatt.toInt()} VA',
+                    style: const TextStyle(
                       fontFamily: NexoraTokens.fontFamilySans,
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -148,7 +279,11 @@ class _EnergyViewState extends State<EnergyView> {
                   value: powerLoadPercentage,
                   minHeight: 8,
                   backgroundColor: NexoraTokens.cardBorder,
-                  valueColor: const AlwaysStoppedAnimation<Color>(NexoraTokens.brandCyan),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    powerLoadPercentage > 0.8
+                        ? NexoraTokens.statusRed
+                        : (powerLoadPercentage > 0.5 ? NexoraTokens.statusAmber : NexoraTokens.brandCyan),
+                  ),
                 ),
               ),
 
@@ -166,9 +301,9 @@ class _EnergyViewState extends State<EnergyView> {
                       color: NexoraTokens.inkMuted,
                     ),
                   ),
-                  const Text(
-                    'Sisa Daya: 1.660 W',
-                    style: TextStyle(
+                  Text(
+                    'Sisa Daya: ${remainingWatt.toStringAsFixed(0)} W',
+                    style: const TextStyle(
                       fontFamily: NexoraTokens.fontFamilySans,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
@@ -200,7 +335,7 @@ class _EnergyViewState extends State<EnergyView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Est. Tagihan Bulan Ini',
+                      'Est. Tagihan / Bulan',
                       style: TextStyle(
                         fontFamily: NexoraTokens.fontFamilySans,
                         fontSize: 12,
@@ -209,11 +344,11 @@ class _EnergyViewState extends State<EnergyView> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Rp 342.500',
-                      style: TextStyle(
+                    Text(
+                      'Rp ${_formatRupiah(estimatedMonthlyCost)}',
+                      style: const TextStyle(
                         fontFamily: NexoraTokens.fontFamilySans,
-                        fontSize: 18,
+                        fontSize: 17,
                         fontWeight: FontWeight.w800,
                         color: NexoraTokens.ink,
                         letterSpacing: -0.5,
@@ -222,14 +357,14 @@ class _EnergyViewState extends State<EnergyView> {
                     const SizedBox(height: 6),
                     Row(
                       children: const [
-                        Icon(Icons.arrow_downward_rounded, size: 12, color: NexoraTokens.statusGreen),
+                        Icon(Icons.check_circle_outline_rounded, size: 12, color: NexoraTokens.statusGreen),
                         SizedBox(width: 4),
                         Text(
-                          '14% lebih hemat',
+                          'Rp 1.444,70 / kWh',
                           style: TextStyle(
                             fontFamily: NexoraTokens.fontFamilySans,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
                             color: NexoraTokens.statusGreen,
                           ),
                         ),
@@ -254,7 +389,7 @@ class _EnergyViewState extends State<EnergyView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Total Akumulasi Listrik',
+                      'Proyeksi Akumulasi',
                       style: TextStyle(
                         fontFamily: NexoraTokens.fontFamilySans,
                         fontSize: 12,
@@ -263,20 +398,20 @@ class _EnergyViewState extends State<EnergyView> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      '238 kWh',
-                      style: TextStyle(
+                    Text(
+                      '${estimatedMonthlyKwh.toStringAsFixed(1)} kWh',
+                      style: const TextStyle(
                         fontFamily: NexoraTokens.fontFamilySans,
-                        fontSize: 18,
+                        fontSize: 17,
                         fontWeight: FontWeight.w800,
                         color: NexoraTokens.ink,
                         letterSpacing: -0.5,
                       ),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Rata-rata 7.9 kWh/hari',
-                      style: TextStyle(
+                    Text(
+                      'Rata-rata ${estimatedDailyKwh.toStringAsFixed(1)} kWh/hari',
+                      style: const TextStyle(
                         fontFamily: NexoraTokens.fontFamilySans,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -318,7 +453,7 @@ class _EnergyViewState extends State<EnergyView> {
                     ),
                   ),
                   Text(
-                    'Terpilih: ${_points[_selectedBarIndex].watt.toInt()} W',
+                    'Terpilih: ${_points[_selectedBarIndex]['watt'].toInt()} W',
                     style: const TextStyle(
                       fontFamily: NexoraTokens.fontFamilySans,
                       fontSize: 12.5,
@@ -340,7 +475,8 @@ class _EnergyViewState extends State<EnergyView> {
                   children: List.generate(_points.length, (index) {
                     final pt = _points[index];
                     final isSelected = index == _selectedBarIndex;
-                    final double barHeightRatio = (pt.watt / 700.0).clamp(0.15, 1.0);
+                    final double watt = pt['watt'] as double;
+                    final double barHeightRatio = (watt / 700.0).clamp(0.15, 1.0);
 
                     return GestureDetector(
                       onTap: () {
@@ -355,7 +491,7 @@ class _EnergyViewState extends State<EnergyView> {
                           AnimatedContainer(
                             duration: const Duration(milliseconds: 250),
                             curve: Curves.easeOutCubic,
-                            width: 32,
+                            width: 34,
                             height: 85 * barHeightRatio,
                             decoration: BoxDecoration(
                               color: isSelected
@@ -372,7 +508,7 @@ class _EnergyViewState extends State<EnergyView> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            pt.timeLabel,
+                            pt['time'] as String,
                             style: TextStyle(
                               fontFamily: NexoraTokens.fontFamilySans,
                               fontSize: 11,
@@ -392,7 +528,7 @@ class _EnergyViewState extends State<EnergyView> {
 
         const SizedBox(height: 20),
 
-        // 5. Rincian Konsumsi Perangkat
+        // 5. Rincian Konsumsi Perangkat Real-time
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
@@ -405,23 +541,69 @@ class _EnergyViewState extends State<EnergyView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Proporsi Beban Alat',
-                style: TextStyle(
-                  fontFamily: NexoraTokens.fontFamilySans,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: NexoraTokens.ink,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Proporsi Beban Alat',
+                    style: TextStyle(
+                      fontFamily: NexoraTokens.fontFamilySans,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: NexoraTokens.ink,
+                    ),
+                  ),
+                  Text(
+                    'Total ${currentWatt.toInt()} W',
+                    style: const TextStyle(
+                      fontFamily: NexoraTokens.fontFamilySans,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: NexoraTokens.brandCyan,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
-              _buildBreakdownItem('AC & Pendingin Ruang', '226 W (42%)', 0.42, Icons.ac_unit),
+              _buildBreakdownItem(
+                'AC & Pendingin Ruang',
+                '${acWatt.toInt()} W (${(acWatt / currentWatt * 100).toStringAsFixed(0)}%)',
+                acWatt / currentWatt,
+                Icons.ac_unit_rounded,
+                _isAcActive,
+              ),
               const SizedBox(height: 12),
-              _buildBreakdownItem('Pompa Toren & Air', '151 W (28%)', 0.28, Icons.opacity),
+              _buildBreakdownItem(
+                'Pompa Toren & Air',
+                '${pumpWatt.toInt()} W (${(pumpWatt / currentWatt * 100).toStringAsFixed(0)}%)',
+                pumpWatt / currentWatt,
+                Icons.opacity_rounded,
+                _isPumpActive,
+              ),
               const SizedBox(height: 12),
-              _buildBreakdownItem('Pencahayaan & Lampu', '97 W (18%)', 0.18, Icons.lightbulb_outline),
+              _buildBreakdownItem(
+                'Pencahayaan & Lampu',
+                '${lampWatt.toInt()} W (${(lampWatt / currentWatt * 100).toStringAsFixed(0)}%)',
+                lampWatt / currentWatt,
+                Icons.lightbulb_outline_rounded,
+                lampWatt > 0,
+              ),
               const SizedBox(height: 12),
-              _buildBreakdownItem('Motor Pagar & Solenoid', '66 W (12%)', 0.12, Icons.meeting_room_outlined),
+              _buildBreakdownItem(
+                'Motor Pagar & Gerbang',
+                '${gateWatt.toInt()} W (${(gateWatt / currentWatt * 100).toStringAsFixed(0)}%)',
+                gateWatt / currentWatt,
+                Icons.fence_rounded,
+                _isGateActive,
+              ),
+              const SizedBox(height: 12),
+              _buildBreakdownItem(
+                'Sistem Gateway, PLC & ESP32',
+                '${standbyWatt.toInt()} W (${(standbyWatt / currentWatt * 100).toStringAsFixed(0)}%)',
+                standbyWatt / currentWatt,
+                Icons.router_rounded,
+                true,
+              ),
             ],
           ),
         ),
@@ -452,7 +634,7 @@ class _EnergyViewState extends State<EnergyView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
                     Text(
-                      'Saran Penghematan Pintar',
+                      'Saran Penghematan Pintar Nexora',
                       style: TextStyle(
                         fontFamily: NexoraTokens.fontFamilySans,
                         fontSize: 13,
@@ -462,7 +644,7 @@ class _EnergyViewState extends State<EnergyView> {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Jadwalkan pengisian Toren Air jam 04.00 subuh untuk tegangan listrik lebih stabil.',
+                      'Jadwalkan pengisian Toren Air jam 04.00 subuh dan atur dimmer lampu 70% untuk efisiensi tagihan hingga 18%.',
                       style: TextStyle(
                         fontFamily: NexoraTokens.fontFamilySans,
                         fontSize: 11.5,
@@ -480,7 +662,9 @@ class _EnergyViewState extends State<EnergyView> {
     );
   }
 
-  Widget _buildBreakdownItem(String label, String valueText, double ratio, IconData icon) {
+  Widget _buildBreakdownItem(String label, String valueText, double ratio, IconData icon, bool isActive) {
+    final cleanRatio = ratio.isNaN ? 0.0 : ratio.clamp(0.0, 1.0);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -489,26 +673,30 @@ class _EnergyViewState extends State<EnergyView> {
           children: [
             Row(
               children: [
-                Icon(icon, size: 16, color: NexoraTokens.inkSecondary),
+                Icon(
+                  icon,
+                  size: 16,
+                  color: isActive ? NexoraTokens.brandCyan : NexoraTokens.inkMuted,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: NexoraTokens.fontFamilySans,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: NexoraTokens.ink,
+                    color: isActive ? NexoraTokens.ink : NexoraTokens.inkSecondary,
                   ),
                 ),
               ],
             ),
             Text(
               valueText,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: NexoraTokens.fontFamilySans,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: NexoraTokens.inkSecondary,
+                color: isActive ? NexoraTokens.brandCyan : NexoraTokens.inkMuted,
               ),
             ),
           ],
@@ -517,15 +705,22 @@ class _EnergyViewState extends State<EnergyView> {
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
-            value: ratio,
+            value: cleanRatio,
             minHeight: 6,
             backgroundColor: const Color(0xFFF1F4F7),
             valueColor: AlwaysStoppedAnimation<Color>(
-              ratio > 0.35 ? NexoraTokens.brandCyan : const Color(0xFF89B4FA),
+              isActive ? NexoraTokens.brandCyan : const Color(0xFFCBD5E1),
             ),
           ),
         ),
       ],
     );
+  }
+
+  String _formatRupiah(double amount) {
+    final int rounded = amount.round();
+    final str = rounded.toString();
+    final reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+    return str.replaceAllMapped(reg, (Match m) => '${m[1]}.');
   }
 }

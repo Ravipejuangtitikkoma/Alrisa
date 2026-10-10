@@ -34,6 +34,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
   VlcPlayerController? _vlcViewController;
   String? _selectedGateId;
   StreamSubscription<void>? _refreshSub;
+  StreamSubscription<DeviceStateEvent>? _mqttSub;
 
   @override
   void initState() {
@@ -47,7 +48,23 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateTime());
 
     _selectedGateId = widget.camera.boundGateId ?? 'pagar';
+    final initialGateState = MqttService().getDeviceState(_selectedGateId!);
+    if (initialGateState != null) {
+      _isGateOpen = initialGateState.state;
+    }
+
     _initVlcPlayer();
+
+    // Dengarkan perubahan status gerbang secara realtime dari MqttService
+    _mqttSub = MqttService().stateStream.listen((event) {
+      final activeGateId = _selectedGateId ?? widget.camera.boundGateId ?? 'pagar';
+      if (event.deviceId == activeGateId && mounted) {
+        setState(() {
+          _isGateOpen = event.payload.state;
+          _isGateLoading = false;
+        });
+      }
+    });
 
     // Dengarkan trigger refresh dari Pull-to-Refresh layar
     _refreshSub = CctvManagerService().refreshStream.listen((_) {
@@ -124,6 +141,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
   @override
   void dispose() {
     _refreshSub?.cancel();
+    _mqttSub?.cancel();
     _timer?.cancel();
     _pulseController.dispose();
     try {
@@ -179,12 +197,16 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
 
   Future<void> _toggleGate() async {
     HapticFeedback.heavyImpact();
-    setState(() => _isGateLoading = true);
-
     final gateId = _selectedGateId ?? widget.camera.boundGateId ?? 'pagar';
     final newActive = !_isGateOpen;
 
-    // Kirim sinyal MQTT ke ESP8266 / PLC
+    // Langsung update state lokal agar responsif seketika
+    setState(() {
+      _isGateOpen = newActive;
+      _isGateLoading = false;
+    });
+
+    // Kirim sinyal MQTT ke ESP8266 / PLC & sync DeviceManager
     MqttService().publishSet(gateId, state: newActive);
     DeviceManagerService().updateState(
       gateId,
@@ -192,14 +214,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
       statusText: newActive ? 'Terbuka' : 'Terkunci',
     );
 
-    await Future.delayed(const Duration(milliseconds: 600));
-
     if (mounted) {
-      setState(() {
-        _isGateOpen = newActive;
-        _isGateLoading = false;
-      });
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
@@ -885,7 +900,13 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                           onChanged: (val) {
                             if (val != null) {
                               HapticFeedback.selectionClick();
-                              setState(() => _selectedGateId = val);
+                              final gateState = MqttService().getDeviceState(val);
+                              setState(() {
+                                _selectedGateId = val;
+                                if (gateState != null) {
+                                  _isGateOpen = gateState.state;
+                                }
+                              });
                             }
                           },
                         ),

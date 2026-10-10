@@ -1,5 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:nexora/core/constants/app_colors.dart';
+import 'package:flutter/services.dart';
+import 'package:nexora/core/design_tokens.dart';
+import 'package:nexora/core/utils/snackbar_utils.dart';
+import 'package:nexora/services/mqtt_service.dart';
 
 class WaterLevelScreen extends StatefulWidget {
   const WaterLevelScreen({Key? key}) : super(key: key);
@@ -9,43 +13,85 @@ class WaterLevelScreen extends StatefulWidget {
 }
 
 class _WaterLevelScreenState extends State<WaterLevelScreen> {
-  final double _waterPercentage = 0.78; // 78%
+  final double _waterPercentage = 0.82; // 82%
   bool _isAutoCutoff = true;
   bool _isPumpActive = false;
+  StreamSubscription<DeviceStateEvent>? _mqttSub;
 
   // Data grafik 7 hari terakhir (dalam persentase)
-  final List<double> _weeklyData = [0.65, 0.70, 0.82, 0.55, 0.90, 0.75, 0.78];
-  final List<String> _days = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+  final List<double> _weeklyData = [0.65, 0.70, 0.82, 0.55, 0.90, 0.75, 0.82];
+  final List<String> _days = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Hari Ini'];
+
+  @override
+  void initState() {
+    super.initState();
+    final pump = MqttService().getDeviceState('pompa_toren');
+    if (pump != null) {
+      _isPumpActive = pump.state;
+    }
+
+    _mqttSub = MqttService().stateStream.listen((event) {
+      if (event.deviceId == 'pompa_toren' && mounted) {
+        setState(() {
+          _isPumpActive = event.payload.state;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _mqttSub?.cancel();
+    super.dispose();
+  }
+
+  void _togglePump() {
+    HapticFeedback.lightImpact();
+    final nextState = !_isPumpActive;
+    setState(() {
+      _isPumpActive = nextState;
+    });
+
+    if (MqttService().isConnected) {
+      MqttService().publishSet('pompa_toren', state: nextState);
+    } else {
+      showOfflineWarning(context, 'pompa toren');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final currentLiters = (_waterPercentage * 1000).toInt();
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: NexoraTokens.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_outlined, color: AppColors.textPrimary),
+          icon: const Icon(Icons.arrow_back_ios_rounded, color: NexoraTokens.ink, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Monitoring Tandon Air',
           style: TextStyle(
-            color: AppColors.textPrimary,
+            fontFamily: NexoraTokens.fontFamilySans,
+            color: NexoraTokens.ink,
             fontSize: 18,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w800,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.primaryBlue),
+            icon: const Icon(Icons.refresh_rounded, color: NexoraTokens.brandCyan),
             onPressed: () {
+              HapticFeedback.lightImpact();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Sinkronisasi sensor ultrasonik sukses!'),
-                  duration: Duration(seconds: 1),
+                SnackBar(
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  content: const Text('✅ Sinkronisasi sensor ultrasonik toren sukses!'),
+                  duration: const Duration(seconds: 1),
                 ),
               );
             },
@@ -64,9 +110,9 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.cardBorder),
-                boxShadow: AppColors.cardShadow,
+                borderRadius: NexoraTokens.borderRadiusCard,
+                border: Border.all(color: NexoraTokens.cardBorder),
+                boxShadow: NexoraTokens.cardShadow,
               ),
               child: Column(
                 children: [
@@ -79,18 +125,21 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
                           const Text(
                             'Kapasitas Tangki',
                             style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.textSecondary,
+                              fontFamily: NexoraTokens.fontFamilySans,
+                              fontSize: 13,
+                              color: NexoraTokens.inkSecondary,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '$currentLiters / 1000 L',
+                            '$currentLiters / 1.000 L',
                             style: const TextStyle(
+                              fontFamily: NexoraTokens.fontFamilySans,
                               fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w800,
+                              color: NexoraTokens.ink,
+                              letterSpacing: -0.5,
                             ),
                           ),
                         ],
@@ -98,7 +147,7 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: AppColors.cyanLight,
+                          color: NexoraTokens.brandCyanSubtle,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
@@ -108,17 +157,18 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
                               width: 8,
                               height: 8,
                               decoration: const BoxDecoration(
-                                color: AppColors.statusOnline,
+                                color: NexoraTokens.statusGreen,
                                 shape: BoxShape.circle,
                               ),
                             ),
                             const SizedBox(width: 6),
                             const Text(
-                              'Aman',
+                              'Level Aman',
                               style: TextStyle(
+                                fontFamily: NexoraTokens.fontFamilySans,
                                 fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primaryBlue,
+                                fontWeight: FontWeight.w700,
+                                color: NexoraTokens.brandCyan,
                               ),
                             ),
                           ],
@@ -127,7 +177,7 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
                     ],
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 28),
 
                   // Visualisasi Level Air Melengkung
                   Stack(
@@ -140,31 +190,35 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
                           value: _waterPercentage,
                           strokeWidth: 14,
                           backgroundColor: const Color(0xFFF1F5F9),
-                          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryBlue),
+                          valueColor: const AlwaysStoppedAnimation<Color>(NexoraTokens.brandCyan),
                         ),
                       ),
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.opacity,
-                            color: AppColors.neonCyan,
-                            size: 32,
+                          const Icon(
+                            Icons.opacity_rounded,
+                            color: NexoraTokens.brandCyan,
+                            size: 34,
                           ),
                           const SizedBox(height: 4),
                           Text(
                             '${(_waterPercentage * 100).toInt()}%',
                             style: const TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
+                              fontFamily: NexoraTokens.fontFamilySans,
+                              fontSize: 34,
+                              fontWeight: FontWeight.w800,
+                              color: NexoraTokens.ink,
+                              letterSpacing: -1.0,
                             ),
                           ),
                           const Text(
                             'Volume Tersedia',
                             style: TextStyle(
+                              fontFamily: NexoraTokens.fontFamilySans,
                               fontSize: 11,
-                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w600,
+                              color: NexoraTokens.inkMuted,
                             ),
                           ),
                         ],
@@ -172,27 +226,27 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
                     ],
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 28),
 
                   // Status Info Tambahan
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _buildQuickStat(
-                        icon: Icons.speed,
-                        label: 'Tekanan',
+                        icon: Icons.speed_rounded,
+                        label: 'Tekanan Pipa',
                         value: '2.4 Bar',
                       ),
-                      Container(width: 1, height: 32, color: AppColors.cardBorder),
+                      Container(width: 1, height: 32, color: NexoraTokens.cardBorder),
                       _buildQuickStat(
-                        icon: Icons.ac_unit,
+                        icon: Icons.thermostat_rounded,
                         label: 'Suhu Air',
                         value: '26.5 °C',
                       ),
-                      Container(width: 1, height: 32, color: AppColors.cardBorder),
+                      Container(width: 1, height: 32, color: NexoraTokens.cardBorder),
                       _buildQuickStat(
-                        icon: Icons.flash_on,
-                        label: 'Pompa',
+                        icon: Icons.flash_on_rounded,
+                        label: 'Pompa Toren',
                         value: _isPumpActive ? 'Aktif' : 'Standby',
                       ),
                     ],
@@ -203,15 +257,15 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
 
             const SizedBox(height: 20),
 
-            // Kartu Grafik Riwayat Pemakaian
+            // Kartu Grafik Riwayat Pemakaian 7 Hari
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.cardBorder),
-                boxShadow: AppColors.cardShadow,
+                borderRadius: NexoraTokens.borderRadiusCard,
+                border: Border.all(color: NexoraTokens.cardBorder),
+                boxShadow: NexoraTokens.cardShadow,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -222,17 +276,19 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
                       Text(
                         'Grafik Level 7 Hari Terakhir',
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          fontFamily: NexoraTokens.fontFamilySans,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: NexoraTokens.ink,
                         ),
                       ),
                       Text(
-                        'Rata-rata: 73%',
+                        'Rata-rata: 74%',
                         style: TextStyle(
+                          fontFamily: NexoraTokens.fontFamilySans,
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primaryBlue,
+                          fontWeight: FontWeight.w700,
+                          color: NexoraTokens.brandCyan,
                         ),
                       ),
                     ],
@@ -255,33 +311,32 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
                             Text(
                               '${(val * 100).toInt()}%',
                               style: TextStyle(
+                                fontFamily: NexoraTokens.fontFamilySans,
                                 fontSize: 10,
-                                fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                                color: isToday ? AppColors.primaryBlue : AppColors.textMuted,
+                                fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
+                                color: isToday ? NexoraTokens.brandCyan : NexoraTokens.inkMuted,
                               ),
                             ),
                             const SizedBox(height: 6),
                             Container(
-                              width: 24,
+                              width: 26,
                               height: 90 * val,
                               decoration: BoxDecoration(
-                                gradient: isToday
-                                    ? AppColors.primaryGradient
-                                    : const LinearGradient(
-                                        colors: [Color(0xFFCBD5E1), Color(0xFF94A3B8)],
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                      ),
+                                color: isToday ? NexoraTokens.brandCyan : NexoraTokens.brandCyanSubtle,
                                 borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isToday ? NexoraTokens.brandCyan : NexoraTokens.brandCyanBorder,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               _days[index],
                               style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
-                                color: isToday ? AppColors.textPrimary : AppColors.textSecondary,
+                                fontFamily: NexoraTokens.fontFamilySans,
+                                fontSize: 11,
+                                fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+                                color: isToday ? NexoraTokens.ink : NexoraTokens.inkSecondary,
                               ),
                             ),
                           ],
@@ -300,60 +355,63 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.cardBorder),
-                boxShadow: AppColors.cardShadow,
+                borderRadius: NexoraTokens.borderRadiusCard,
+                border: Border.all(color: NexoraTokens.cardBorder),
+                boxShadow: NexoraTokens.cardShadow,
               ),
               child: Column(
                 children: [
-                  SwitchListTile(
+                  SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
                     title: const Text(
-                      'Auto Cut-Off Pompa',
+                      'Auto Cut-Off Pompa Otomatis',
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        fontFamily: NexoraTokens.fontFamilySans,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: NexoraTokens.ink,
                       ),
                     ),
                     subtitle: const Text(
-                      'Matikan pompa otomatis saat tangki mencapai 95%',
+                      'Matikan daya pompa otomatis saat sensor mendeteksi tangki mencapai 95%',
                       style: TextStyle(
+                        fontFamily: NexoraTokens.fontFamilySans,
                         fontSize: 12,
-                        color: AppColors.textSecondary,
+                        color: NexoraTokens.inkSecondary,
                       ),
                     ),
                     value: _isAutoCutoff,
-                    activeColor: AppColors.primaryBlue,
+                    activeColor: NexoraTokens.brandCyan,
                     onChanged: (val) {
+                      HapticFeedback.selectionClick();
                       setState(() {
                         _isAutoCutoff = val;
                       });
                     },
                   ),
-                  const Divider(),
-                  SwitchListTile(
+                  const Divider(height: 24),
+                  SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
                     title: const Text(
-                      'Daya Pompa Air',
+                      'Daya Pompa Pengisi Toren',
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        fontFamily: NexoraTokens.fontFamilySans,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: NexoraTokens.ink,
                       ),
                     ),
                     subtitle: Text(
-                      _isPumpActive ? 'Pompa sedang aktif menyedot air' : 'Pompa saat ini mati',
-                      style: const TextStyle(
+                      _isPumpActive ? 'Pompa sedang aktif mengisi tangki' : 'Pompa saat ini siaga / standby',
+                      style: TextStyle(
+                        fontFamily: NexoraTokens.fontFamilySans,
                         fontSize: 12,
-                        color: AppColors.textSecondary,
+                        color: _isPumpActive ? NexoraTokens.brandCyan : NexoraTokens.inkSecondary,
                       ),
                     ),
                     value: _isPumpActive,
-                    activeColor: AppColors.primaryBlue,
-                    onChanged: (val) {
-                      setState(() {
-                        _isPumpActive = val;
-                      });
-                    },
+                    activeColor: NexoraTokens.brandCyan,
+                    onChanged: (val) => _togglePump(),
                   ),
                 ],
               ),
@@ -372,22 +430,24 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
   }) {
     return Column(
       children: [
-        Icon(icon, size: 20, color: AppColors.primaryBlue),
+        Icon(icon, size: 20, color: NexoraTokens.brandCyan),
         const SizedBox(height: 4),
         Text(
           label,
           style: const TextStyle(
+            fontFamily: NexoraTokens.fontFamilySans,
             fontSize: 11,
-            color: AppColors.textMuted,
+            color: NexoraTokens.inkMuted,
           ),
         ),
         const SizedBox(height: 2),
         Text(
           value,
           style: const TextStyle(
+            fontFamily: NexoraTokens.fontFamilySans,
             fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
+            color: NexoraTokens.ink,
           ),
         ),
       ],

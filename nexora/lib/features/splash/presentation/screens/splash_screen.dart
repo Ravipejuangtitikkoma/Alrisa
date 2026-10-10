@@ -27,30 +27,30 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 600),
     );
 
     _fadeAnimation = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+      curve: Curves.easeOut,
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.88, end: 1.0).animate(
+    _scaleAnimation = Tween<double>(begin: 0.92, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic),
+        curve: Curves.easeOutCubic,
       ),
     );
 
     _loadingFadeAnimation = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.3, 1.0, curve: Curves.easeIn),
+      curve: Curves.easeIn,
     );
 
     _controller.forward();
 
-    // Tampilkan Splash Screen dengan durasi pas (2.5 detik) lalu masuk ke Home
-    _navTimer = Timer(const Duration(milliseconds: 2500), _navigateToHome);
+    // Navigasi kilat ke Home Dashboard (900 ms)
+    _navTimer = Timer(const Duration(milliseconds: 900), _navigateToHome);
   }
 
   void _navigateToHome() {
@@ -59,7 +59,7 @@ class _SplashScreenState extends State<SplashScreen>
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 600),
+        transitionDuration: const Duration(milliseconds: 300),
         pageBuilder: (context, animation, secondaryAnimation) =>
             const DashboardScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {

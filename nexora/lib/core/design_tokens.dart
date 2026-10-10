@@ -29,6 +29,8 @@ class NexoraTokens {
   static const Color statusGreenSubtle = Color(0xFFE8FAF0);
   static const Color statusAmber = Color(0xFFF5A524); // Energi / peringatan
   static const Color statusAmberSubtle = Color(0xFFFEF6E9);
+  static const Color statusRed = Color(0xFFF04438);   // Bahaya / beban tinggi
+  static const Color statusRedSubtle = Color(0xFFFEE4E2);
   static const Color statusGray = Color(0xFF8A949E);  // Idle / nonaktif
   static const Color statusGraySubtle = Color(0xFFF1F3F5);
 

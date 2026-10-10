@@ -529,7 +529,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     // 1. Refresh CCTV Streams
     CctvManagerService().triggerRefresh();
     // 2. Refresh Weather data
-    await WeatherService().fetchRealWeather();
+    await WeatherService().fetchBMKGWeather();
     // 3. Refresh MQTT sync
     if (!MqttService().isConnected) {
       MqttService().connect();

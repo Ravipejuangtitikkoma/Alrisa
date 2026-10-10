@@ -7,6 +7,8 @@ import 'package:nexora/services/cctv_manager_service.dart';
 import 'package:nexora/services/language_service.dart';
 import 'package:nexora/services/mqtt_service.dart';
 
+import 'package:nexora/services/device_manager_service.dart';
+
 /// Modal Live RTSP/ONVIF CCTV Stream Viewer
 class CctvStreamSheet extends StatefulWidget {
   final CctvCameraItem camera;
@@ -127,21 +129,26 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
 
   void _toggleGate(bool open) {
     HapticFeedback.mediumImpact();
-    if (widget.gateId != null) {
-      MqttService().publishSet(widget.gateId!, state: open);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: open ? NexoraTokens.statusGreen : NexoraTokens.ink,
-          content: Text(
-            open
-                ? '🚪 Mengirim sinyal Buka Pagar...'
-                : '🔒 Mengirim sinyal Kunci Pagar...',
-          ),
-          duration: const Duration(seconds: 2),
+    final targetId = widget.gateId ?? 'pagar';
+    MqttService().publishSet(targetId, state: open);
+    DeviceManagerService().updateState(
+      targetId,
+      isActive: open,
+      statusText: open ? 'Terbuka' : 'Terkunci',
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: open ? NexoraTokens.statusGreen : NexoraTokens.ink,
+        content: Text(
+          open
+              ? '🚪 Mengirim sinyal Buka Pagar...'
+              : '🔒 Mengirim sinyal Kunci Pagar...',
         ),
-      );
-    }
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override

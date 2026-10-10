@@ -4,42 +4,18 @@ import 'package:flutter/services.dart';
 import 'package:nexora/core/design_tokens.dart';
 import 'package:nexora/core/utils/snackbar_utils.dart';
 import 'package:nexora/services/mqtt_service.dart';
+import 'package:nexora/services/device_manager_service.dart';
 
 /// Data Model Ruangan
 class RoomCategory {
   final String id;
   final String title;
   final IconData icon;
-  final int deviceCount;
 
   const RoomCategory({
     required this.id,
     required this.title,
     required this.icon,
-    required this.deviceCount,
-  });
-}
-
-/// Data Model Item Perangkat di Ruangan
-class RoomDeviceItem {
-  final String id;
-  final String name;
-  final String roomName;
-  final String roomId;
-  final IconData icon;
-  bool state;
-  double? value; // e.g. 0-100%
-  final String type; // 'toggle', 'dimmer', 'door', 'curtain'
-
-  RoomDeviceItem({
-    required this.id,
-    required this.name,
-    required this.roomName,
-    required this.roomId,
-    required this.icon,
-    required this.state,
-    this.value,
-    required this.type,
   });
 }
 
@@ -53,29 +29,39 @@ class RoomsView extends StatefulWidget {
 class _RoomsViewState extends State<RoomsView> {
   String _selectedRoomId = 'all';
   StreamSubscription<DeviceStateEvent>? _mqttSub;
+  StreamSubscription<List<CustomDeviceItem>>? _deviceSub;
 
   final List<RoomCategory> _categories = const [
-    RoomCategory(id: 'all', title: 'Semua Ruangan', icon: Icons.grid_view, deviceCount: 7),
-    RoomCategory(id: 'teras', title: 'Halaman & Teras', icon: Icons.home_work_outlined, deviceCount: 2),
-    RoomCategory(id: 'living', title: 'Ruang Tamu', icon: Icons.weekend_outlined, deviceCount: 2),
-    RoomCategory(id: 'utility', title: 'Utilitas Air', icon: Icons.opacity, deviceCount: 2),
-    RoomCategory(id: 'bed', title: 'Kamar Utama', icon: Icons.hotel_outlined, deviceCount: 1),
+    RoomCategory(id: 'all', title: 'Semua Ruangan', icon: Icons.grid_view_rounded),
+    RoomCategory(id: 'teras', title: 'Halaman & Teras', icon: Icons.home_work_outlined),
+    RoomCategory(id: 'living', title: 'Ruang Tamu', icon: Icons.weekend_outlined),
+    RoomCategory(id: 'utility', title: 'Utilitas Air', icon: Icons.opacity_rounded),
+    RoomCategory(id: 'bed', title: 'Kamar Utama', icon: Icons.hotel_outlined),
   ];
 
-  late List<RoomDeviceItem> _devices;
+  List<CustomDeviceItem> _dynamicDevices = [];
 
   @override
   void initState() {
     super.initState();
-    _initDeviceList();
+    _loadDevices();
+
+    // Dengarkan perubahan daftar perangkat dari DeviceManagerService
+    _deviceSub = DeviceManagerService().devicesStream.listen((devs) {
+      if (!mounted) return;
+      setState(() {
+        _dynamicDevices = List.from(devs);
+        _syncWithMqtt();
+      });
+    });
 
     // Sync dengan status MQTT live
     _mqttSub = MqttService().stateStream.listen((event) {
       if (!mounted) return;
       setState(() {
-        for (var d in _devices) {
+        for (var d in _dynamicDevices) {
           if (d.id == event.deviceId) {
-            d.state = event.payload.state;
+            d.isActive = event.payload.state;
             if (event.payload.value != null) {
               d.value = event.payload.value!.toDouble();
             }
@@ -85,102 +71,106 @@ class _RoomsViewState extends State<RoomsView> {
     });
   }
 
-  void _initDeviceList() {
-    final pagarState = MqttService().getDeviceState('pagar')?.state ?? false;
-    final pintuState = MqttService().getDeviceState('pintu_geser')?.state ?? false;
-    final gordenState = MqttService().getDeviceState('gorden')?.state ?? false;
-    final lampuState = MqttService().getDeviceState('lampu_teras');
-    final pompaState = MqttService().getDeviceState('pompa_toren')?.state ?? false;
+  void _loadDevices() {
+    _dynamicDevices = List.from(DeviceManagerService().allDevices);
+    
+    // Pastikan perangkat default AC ada jika belum ada
+    if (!_dynamicDevices.any((d) => d.id == 'ac_kamar')) {
+      _dynamicDevices.add(
+        CustomDeviceItem(
+          id: 'ac_kamar',
+          name: 'AC Inverter DualCool',
+          type: DeviceType.light, // Disajikan sebagai kontrol temperatur khusus
+          hardwarePin: 'IR Remote',
+          isActive: true,
+          value: 23.0,
+          statusText: '23°C',
+        ),
+      );
+    }
+    _syncWithMqtt();
+  }
 
-    _devices = [
-      RoomDeviceItem(
-        id: 'pagar',
-        name: 'Pagar Gerbang Utama',
-        roomName: 'Halaman & Teras',
-        roomId: 'teras',
-        icon: Icons.security,
-        state: pagarState,
-        type: 'door',
-      ),
-      RoomDeviceItem(
-        id: 'lampu_teras',
-        name: 'Lampu Teras Depan',
-        roomName: 'Halaman & Teras',
-        roomId: 'teras',
-        icon: Icons.lightbulb_outline,
-        state: lampuState?.state ?? true,
-        value: (lampuState?.value ?? 80).toDouble(),
-        type: 'dimmer',
-      ),
-      RoomDeviceItem(
-        id: 'pintu_geser',
-        name: 'Pintu Geser Utama',
-        roomName: 'Ruang Tamu',
-        roomId: 'living',
-        icon: Icons.meeting_room_outlined,
-        state: pintuState,
-        type: 'door',
-      ),
-      RoomDeviceItem(
-        id: 'gorden',
-        name: 'Gorden Otomatis',
-        roomName: 'Ruang Tamu',
-        roomId: 'living',
-        icon: Icons.view_column_outlined,
-        state: gordenState,
-        type: 'curtain',
-      ),
-      RoomDeviceItem(
-        id: 'pompa_toren',
-        name: 'Pompa Toren Air',
-        roomName: 'Utilitas Air',
-        roomId: 'utility',
-        icon: Icons.opacity,
-        state: pompaState,
-        value: 82,
-        type: 'toggle',
-      ),
-      RoomDeviceItem(
-        id: 'pompa_kolam',
-        name: 'Pompa Sirkulasi Kolam',
-        roomName: 'Utilitas Air',
-        roomId: 'utility',
-        icon: Icons.waves,
-        state: false,
-        type: 'toggle',
-      ),
-      RoomDeviceItem(
-        id: 'ac_kamar',
-        name: 'AC Inverter DualCool',
-        roomName: 'Kamar Utama',
-        roomId: 'bed',
-        icon: Icons.ac_unit,
-        state: true,
-        value: 23, // 23 derajat Celcius
-        type: 'ac',
-      ),
-    ];
+  void _syncWithMqtt() {
+    for (var d in _dynamicDevices) {
+      final mqttState = MqttService().getDeviceState(d.id);
+      if (mqttState != null) {
+        d.isActive = mqttState.state;
+        if (mqttState.value != null) {
+          d.value = mqttState.value!.toDouble();
+        }
+      }
+    }
   }
 
   @override
   void dispose() {
     _mqttSub?.cancel();
+    _deviceSub?.cancel();
     super.dispose();
   }
 
-  void _handleDeviceToggle(RoomDeviceItem device) {
+  String _getRoomIdForDevice(CustomDeviceItem dev) {
+    if (dev.id == 'ac_kamar' || dev.name.toLowerCase().contains('kamar') || dev.name.toLowerCase().contains('tidur')) {
+      return 'bed';
+    }
+    if (dev.type == DeviceType.gate || dev.name.toLowerCase().contains('pagar') || dev.name.toLowerCase().contains('teras') || dev.name.toLowerCase().contains('taman')) {
+      return 'teras';
+    }
+    if (dev.type == DeviceType.waterPump || dev.name.toLowerCase().contains('pompa') || dev.name.toLowerCase().contains('toren') || dev.name.toLowerCase().contains('air') || dev.name.toLowerCase().contains('kolam')) {
+      return 'utility';
+    }
+    if (dev.type == DeviceType.slidingDoor || dev.type == DeviceType.curtain || dev.name.toLowerCase().contains('tamu') || dev.name.toLowerCase().contains('keluarga')) {
+      return 'living';
+    }
+    return 'teras';
+  }
+
+  String _getRoomNameForDevice(CustomDeviceItem dev) {
+    final roomId = _getRoomIdForDevice(dev);
+    switch (roomId) {
+      case 'teras':
+        return 'Halaman & Teras';
+      case 'living':
+        return 'Ruang Tamu';
+      case 'utility':
+        return 'Utilitas Air';
+      case 'bed':
+        return 'Kamar Utama';
+      default:
+        return 'Ruangan';
+    }
+  }
+
+  IconData _getIconForDevice(CustomDeviceItem dev) {
+    if (dev.id == 'ac_kamar') return Icons.ac_unit_rounded;
+    switch (dev.type) {
+      case DeviceType.gate:
+        return Icons.fence_rounded;
+      case DeviceType.light:
+        return Icons.lightbulb_outline_rounded;
+      case DeviceType.slidingDoor:
+        return Icons.meeting_room_outlined;
+      case DeviceType.curtain:
+        return Icons.view_column_outlined;
+      case DeviceType.waterPump:
+        return Icons.opacity_rounded;
+    }
+  }
+
+  void _handleDeviceToggle(CustomDeviceItem device) {
     HapticFeedback.lightImpact();
-    final nextState = !device.state;
+    final nextState = !device.isActive;
 
     setState(() {
-      device.state = nextState;
+      device.isActive = nextState;
     });
 
     if (MqttService().isConnected) {
       MqttService().publishSet(
         device.id,
         state: nextState,
-        value: device.value?.round(),
+        value: device.value.round(),
       );
     } else {
       showOfflineWarning(context, device.name.toLowerCase());
@@ -190,10 +180,10 @@ class _RoomsViewState extends State<RoomsView> {
   @override
   Widget build(BuildContext context) {
     final filteredDevices = _selectedRoomId == 'all'
-        ? _devices
-        : _devices.where((d) => d.roomId == _selectedRoomId).toList();
+        ? _dynamicDevices
+        : _dynamicDevices.where((d) => _getRoomIdForDevice(d) == _selectedRoomId).toList();
 
-    final activeCount = _devices.where((d) => d.state).length;
+    final activeCount = _dynamicDevices.where((d) => d.isActive).length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -232,18 +222,35 @@ class _RoomsViewState extends State<RoomsView> {
             GestureDetector(
               onTap: () {
                 HapticFeedback.mediumImpact();
+                final anyActive = filteredDevices.any((d) => d.isActive);
+                final targetState = !anyActive;
+
                 setState(() {
                   for (var d in filteredDevices) {
-                    d.state = false;
+                    d.isActive = targetState;
                   }
                 });
+
                 if (MqttService().isConnected) {
                   for (var d in filteredDevices) {
-                    MqttService().publishSet(d.id, state: false);
+                    MqttService().publishSet(d.id, state: targetState, value: d.value.round());
                   }
                 } else {
-                  showOfflineWarning(context, 'semua perangkat');
+                  showOfflineWarning(context, 'perangkat');
                 }
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    content: Text(
+                      targetState
+                          ? '⚡ Semua perangkat di zona ini dinyalakan'
+                          : '🔌 Semua perangkat di zona ini dinonaktifkan',
+                    ),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -255,12 +262,20 @@ class _RoomsViewState extends State<RoomsView> {
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.power_settings_new_rounded, size: 14, color: NexoraTokens.statusGray),
-                    SizedBox(width: 6),
+                  children: [
+                    Icon(
+                      filteredDevices.any((d) => d.isActive)
+                          ? Icons.power_settings_new_rounded
+                          : Icons.flash_on_rounded,
+                      size: 14,
+                      color: filteredDevices.any((d) => d.isActive)
+                          ? NexoraTokens.statusGray
+                          : NexoraTokens.brandCyan,
+                    ),
+                    const SizedBox(width: 6),
                     Text(
-                      'Semua Mati',
-                      style: TextStyle(
+                      filteredDevices.any((d) => d.isActive) ? 'Matikan Semua' : 'Nyalakan Semua',
+                      style: const TextStyle(
                         fontFamily: NexoraTokens.fontFamilySans,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -287,6 +302,9 @@ class _RoomsViewState extends State<RoomsView> {
             itemBuilder: (context, index) {
               final cat = _categories[index];
               final isSelected = cat.id == _selectedRoomId;
+              final count = cat.id == 'all'
+                  ? _dynamicDevices.length
+                  : _dynamicDevices.where((d) => _getRoomIdForDevice(d) == cat.id).length;
 
               return GestureDetector(
                 onTap: () {
@@ -325,7 +343,7 @@ class _RoomsViewState extends State<RoomsView> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        cat.title,
+                        '${cat.title} ($count)',
                         style: TextStyle(
                           fontFamily: NexoraTokens.fontFamilySans,
                           fontSize: 12.5,
@@ -344,22 +362,53 @@ class _RoomsViewState extends State<RoomsView> {
         const SizedBox(height: 20),
 
         // 3. Grid Kartu Perangkat
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: filteredDevices.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final dev = filteredDevices[index];
-            return _buildDeviceCard(dev);
-          },
-        ),
+        if (filteredDevices.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: NexoraTokens.borderRadiusCard,
+              border: Border.all(color: NexoraTokens.cardBorder),
+            ),
+            child: Column(
+              children: const [
+                Icon(Icons.devices_other_rounded, size: 40, color: NexoraTokens.statusGray),
+                SizedBox(height: 12),
+                Text(
+                  'Belum ada perangkat di ruangan ini',
+                  style: TextStyle(
+                    fontFamily: NexoraTokens.fontFamilySans,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: NexoraTokens.inkSecondary,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: filteredDevices.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final dev = filteredDevices[index];
+              return _buildDeviceCard(dev);
+            },
+          ),
       ],
     );
   }
 
-  Widget _buildDeviceCard(RoomDeviceItem dev) {
-    final bool isOn = dev.state;
+  Widget _buildDeviceCard(CustomDeviceItem dev) {
+    final bool isOn = dev.isActive;
+    final icon = _getIconForDevice(dev);
+    final roomName = _getRoomNameForDevice(dev);
+    final isAc = dev.id == 'ac_kamar';
+    final isLight = dev.type == DeviceType.light && !isAc;
+    final isGate = dev.type == DeviceType.gate || dev.type == DeviceType.slidingDoor;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
@@ -370,8 +419,11 @@ class _RoomsViewState extends State<RoomsView> {
         borderRadius: NexoraTokens.borderRadiusCard,
         border: Border.all(
           color: isOn ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
+          width: isOn ? 1.5 : 1.0,
         ),
-        boxShadow: NexoraTokens.cardShadow,
+        boxShadow: isOn
+            ? NexoraTokens.cardShadowActive(NexoraTokens.brandCyan)
+            : NexoraTokens.cardShadow,
       ),
       child: Column(
         children: [
@@ -386,7 +438,7 @@ class _RoomsViewState extends State<RoomsView> {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  dev.icon,
+                  icon,
                   size: 22,
                   color: isOn ? Colors.white : NexoraTokens.inkSecondary,
                 ),
@@ -408,7 +460,7 @@ class _RoomsViewState extends State<RoomsView> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${dev.roomName} • ${_getStatusLabel(dev)}',
+                      '$roomName • ${_getStatusLabel(dev)}',
                       style: TextStyle(
                         fontFamily: NexoraTokens.fontFamilySans,
                         fontSize: 12,
@@ -421,7 +473,7 @@ class _RoomsViewState extends State<RoomsView> {
               ),
               // Switch Interaktif
               Switch.adaptive(
-                value: dev.state,
+                value: dev.isActive,
                 activeColor: NexoraTokens.brandCyan,
                 onChanged: (_) => _handleDeviceToggle(dev),
               ),
@@ -429,7 +481,7 @@ class _RoomsViewState extends State<RoomsView> {
           ),
 
           // Jika Lampu Dimmer -> Berikan slider intensitas
-          if (dev.type == 'dimmer' && dev.state) ...[
+          if (isLight && dev.isActive) ...[
             const SizedBox(height: 12),
             Row(
               children: [
@@ -445,7 +497,7 @@ class _RoomsViewState extends State<RoomsView> {
                       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
                     ),
                     child: Slider(
-                      value: (dev.value ?? 80).clamp(10, 100),
+                      value: dev.value.clamp(10, 100),
                       min: 10,
                       max: 100,
                       onChanged: (val) {
@@ -464,7 +516,7 @@ class _RoomsViewState extends State<RoomsView> {
                   ),
                 ),
                 Text(
-                  '${(dev.value ?? 80).round()}%',
+                  '${dev.value.round()}%',
                   style: const TextStyle(
                     fontFamily: NexoraTokens.fontFamilySans,
                     fontSize: 12,
@@ -475,21 +527,162 @@ class _RoomsViewState extends State<RoomsView> {
               ],
             ),
           ],
+
+          // Jika AC -> Berikan Pengatur Suhu (+/-)
+          if (isAc && dev.isActive) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Suhu Target Ruangan',
+                  style: TextStyle(
+                    fontFamily: NexoraTokens.fontFamilySans,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: NexoraTokens.inkSecondary,
+                  ),
+                ),
+                Row(
+                  children: [
+                    _buildTempButton(
+                      icon: Icons.remove,
+                      onTap: () {
+                        if (dev.value > 16) {
+                          setState(() => dev.value -= 1);
+                          if (MqttService().isConnected) {
+                            MqttService().publishSet(dev.id, state: true, value: dev.value.round());
+                          }
+                        }
+                      },
+                    ),
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: NexoraTokens.brandCyanBorder),
+                      ),
+                      child: Text(
+                        '${dev.value.round()}°C',
+                        style: const TextStyle(
+                          fontFamily: NexoraTokens.fontFamilySans,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: NexoraTokens.brandCyan,
+                        ),
+                      ),
+                    ),
+                    _buildTempButton(
+                      icon: Icons.add,
+                      onTap: () {
+                        if (dev.value < 30) {
+                          setState(() => dev.value += 1);
+                          if (MqttService().isConnected) {
+                            MqttService().publishSet(dev.id, state: true, value: dev.value.round());
+                          }
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+
+          // Jika Pagar / Gerbang -> Berikan Tombol Cepat Buka / Tutup
+          if (isGate) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      setState(() => dev.isActive = true);
+                      if (MqttService().isConnected) {
+                        MqttService().publishSet(dev.id, state: true);
+                      } else {
+                        showOfflineWarning(context, dev.name.toLowerCase());
+                      }
+                    },
+                    icon: const Icon(Icons.lock_open_rounded, size: 14),
+                    label: const Text('Buka', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    style: OutlinedButton.styleFrom(
+                      primary: dev.isActive ? NexoraTokens.brandCyan : NexoraTokens.inkSecondary,
+                      side: BorderSide(
+                        color: dev.isActive ? NexoraTokens.brandCyan : NexoraTokens.cardBorder,
+                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      setState(() => dev.isActive = false);
+                      if (MqttService().isConnected) {
+                        MqttService().publishSet(dev.id, state: false);
+                      } else {
+                        showOfflineWarning(context, dev.name.toLowerCase());
+                      }
+                    },
+                    icon: const Icon(Icons.lock_rounded, size: 14),
+                    label: const Text('Kunci', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    style: OutlinedButton.styleFrom(
+                      primary: !dev.isActive ? NexoraTokens.ink : NexoraTokens.inkSecondary,
+                      side: BorderSide(
+                        color: !dev.isActive ? NexoraTokens.ink : NexoraTokens.cardBorder,
+                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 
-  String _getStatusLabel(RoomDeviceItem dev) {
-    if (dev.type == 'door') {
-      return dev.state ? 'Terbuka' : 'Terkunci';
-    } else if (dev.type == 'curtain') {
-      return dev.state ? 'Terbuka' : 'Tertutup';
-    } else if (dev.type == 'dimmer') {
-      return dev.state ? 'Menyala ${(dev.value ?? 80).round()}%' : 'Mati';
-    } else if (dev.type == 'ac') {
-      return dev.state ? 'Suhu ${dev.value?.round() ?? 23}°C' : 'Standby';
+  Widget _buildTempButton({required IconData icon, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: NexoraTokens.cardBorder),
+        ),
+        child: Icon(icon, size: 16, color: NexoraTokens.ink),
+      ),
+    );
+  }
+
+  String _getStatusLabel(CustomDeviceItem dev) {
+    if (dev.id == 'ac_kamar') {
+      return dev.isActive ? 'Suhu ${dev.value.round()}°C' : 'Standby';
     }
-    return dev.state ? 'Aktif' : 'Mati';
+    if (dev.type == DeviceType.gate || dev.type == DeviceType.slidingDoor) {
+      return dev.isActive ? 'Terbuka' : 'Terkunci';
+    } else if (dev.type == DeviceType.curtain) {
+      return dev.isActive ? 'Terbuka' : 'Tertutup';
+    } else if (dev.type == DeviceType.light) {
+      return dev.isActive ? 'Menyala ${dev.value.round()}%' : 'Mati';
+    } else if (dev.type == DeviceType.waterPump) {
+      return dev.isActive ? 'Mengalir' : 'Mati';
+    }
+    return dev.isActive ? 'Aktif' : 'Mati';
   }
 }

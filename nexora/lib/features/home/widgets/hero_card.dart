@@ -5,6 +5,7 @@ import 'package:nexora/core/design_tokens.dart';
 import 'package:nexora/core/utils/snackbar_utils.dart';
 import 'package:nexora/services/mqtt_service.dart';
 import 'package:nexora/services/language_service.dart';
+import 'package:nexora/services/device_manager_service.dart';
 
 enum GateStatus { locked, opening, open, closing }
 
@@ -78,29 +79,34 @@ class _HeroCardState extends State<HeroCard> with TickerProviderStateMixin {
     _mqttSub = MqttService().stateStream.listen((event) {
       if (event.deviceId == widget.deviceId && mounted) {
         final reduceMotion = MediaQuery.of(context).accessibleNavigation;
-        if (event.payload.state && _status == GateStatus.locked) {
-          setState(() {
-            _status = GateStatus.opening;
-          });
-          if (reduceMotion) {
-            _gateController.value = 1.0;
+        final targetState = event.payload.state;
+        if (targetState) {
+          if (_status != GateStatus.open && _status != GateStatus.opening) {
             setState(() {
-              _status = GateStatus.open;
+              _status = GateStatus.opening;
             });
-          } else {
-            _gateController.forward(from: 0.0);
+            if (reduceMotion) {
+              _gateController.value = 1.0;
+              setState(() {
+                _status = GateStatus.open;
+              });
+            } else {
+              _gateController.forward(from: _gateController.value);
+            }
           }
-        } else if (!event.payload.state && _status == GateStatus.open) {
-          setState(() {
-            _status = GateStatus.closing;
-          });
-          if (reduceMotion) {
-            _gateController.value = 0.0;
+        } else {
+          if (_status != GateStatus.locked && _status != GateStatus.closing) {
             setState(() {
-              _status = GateStatus.locked;
+              _status = GateStatus.closing;
             });
-          } else {
-            _gateController.reverse(from: 1.0);
+            if (reduceMotion) {
+              _gateController.value = 0.0;
+              setState(() {
+                _status = GateStatus.locked;
+              });
+            } else {
+              _gateController.reverse(from: _gateController.value);
+            }
           }
         }
       }
@@ -141,6 +147,13 @@ class _HeroCardState extends State<HeroCard> with TickerProviderStateMixin {
         _gateController.reverse(from: 1.0);
       }
     }
+
+    // Sync DeviceManagerService & MQTT Service
+    DeviceManagerService().updateState(
+      widget.deviceId,
+      isActive: willOpen,
+      statusText: willOpen ? 'Terbuka' : 'Terkunci',
+    );
 
     // Cek konektivitas MQTT / Server
     if (MqttService().isConnected) {
