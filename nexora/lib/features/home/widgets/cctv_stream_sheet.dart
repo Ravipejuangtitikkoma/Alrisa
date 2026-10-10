@@ -46,10 +46,16 @@ class CctvStreamSheet extends StatefulWidget {
 
 class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProviderStateMixin {
   bool _isSnapshotTaken = false;
+  bool _isGateOpen = false;
+  bool _isStreamOnline = false;
+  bool _isConnecting = false;
   late AnimationController _pulseController;
   Timer? _timer;
+  Timer? _connectTimeoutTimer;
   String _timestamp = '';
   VlcPlayerController? _vlcViewController;
+  StreamSubscription<DeviceStateEvent>? _mqttSub;
+  StreamSubscription<List<CustomDeviceItem>>? _deviceSub;
 
   @override
   void initState() {
@@ -61,25 +67,99 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
 
     _updateTime();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateTime());
+
+    final targetId = widget.gateId ?? widget.camera.boundGateId ?? 'pagar';
+    _isGateOpen = MqttService().getDeviceState(targetId)?.state ??
+        DeviceManagerService().getDevice(targetId)?.isActive ?? false;
+
+    _mqttSub = MqttService().stateStream.listen((event) {
+      if (event.deviceId == targetId && mounted) {
+        setState(() => _isGateOpen = event.payload.state);
+      }
+    });
+
+    _deviceSub = DeviceManagerService().devicesStream.listen((devs) {
+      if (!mounted) return;
+      try {
+        final d = devs.firstWhere((item) => item.id == targetId);
+        if (_isGateOpen != d.isActive) {
+          setState(() => _isGateOpen = d.isActive);
+        }
+      } catch (_) {}
+    });
+
     _initVlcPlayer();
   }
 
   void _initVlcPlayer() {
+    _connectTimeoutTimer?.cancel();
+    final oldController = _vlcViewController;
+    _vlcViewController = null;
+    if (mounted) {
+      setState(() {
+        _isConnecting = true;
+        _isStreamOnline = false;
+      });
+    }
+
     try {
-      _vlcViewController = VlcPlayerController.network(
+      oldController?.removeListener(_vlcListener);
+      oldController?.stopRendererScanning();
+      oldController?.dispose();
+    } catch (_) {}
+
+    try {
+      final controller = VlcPlayerController.network(
         widget.camera.rtspUrl,
         hwAcc: HwAcc.full,
         autoPlay: true,
         options: VlcPlayerOptions(
           advanced: VlcAdvancedOptions([
-            VlcAdvancedOptions.networkCaching(300),
+            VlcAdvancedOptions.networkCaching(150),
           ]),
           rtp: VlcRtpOptions([
             VlcRtpOptions.rtpOverRtsp(true),
           ]),
         ),
       );
-    } catch (_) {}
+      _vlcViewController = controller;
+      controller.addListener(_vlcListener);
+
+      _connectTimeoutTimer = Timer(const Duration(milliseconds: 3500), () {
+        if (mounted && !_isStreamOnline) {
+          setState(() {
+            _isConnecting = false;
+          });
+        }
+      });
+      if (mounted) setState(() {});
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isConnecting = false;
+          _isStreamOnline = false;
+        });
+      }
+    }
+  }
+
+  void _vlcListener() {
+    if (!mounted || _vlcViewController == null) return;
+    final isPlaying = _vlcViewController!.value.isPlaying;
+    final hasError = _vlcViewController!.value.hasError;
+
+    if (isPlaying && !_isStreamOnline) {
+      _connectTimeoutTimer?.cancel();
+      setState(() {
+        _isStreamOnline = true;
+        _isConnecting = false;
+      });
+    } else if (hasError && (_isStreamOnline || _isConnecting)) {
+      setState(() {
+        _isStreamOnline = false;
+        _isConnecting = false;
+      });
+    }
   }
 
   void _updateTime() {
@@ -96,9 +176,13 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
 
   @override
   void dispose() {
+    _mqttSub?.cancel();
+    _deviceSub?.cancel();
+    _connectTimeoutTimer?.cancel();
     _timer?.cancel();
     _pulseController.dispose();
     try {
+      _vlcViewController?.removeListener(_vlcListener);
       _vlcViewController?.stopRendererScanning();
       _vlcViewController?.dispose();
     } catch (_) {}
@@ -128,26 +212,15 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
   }
 
   void _toggleGate(bool open) {
+    if (_isGateOpen == open) return;
     HapticFeedback.mediumImpact();
-    final targetId = widget.gateId ?? 'pagar';
+    final targetId = widget.gateId ?? widget.camera.boundGateId ?? 'pagar';
+    setState(() => _isGateOpen = open);
     MqttService().publishSet(targetId, state: open);
     DeviceManagerService().updateState(
       targetId,
       isActive: open,
       statusText: open ? 'Terbuka' : 'Terkunci',
-    );
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: open ? NexoraTokens.statusGreen : NexoraTokens.ink,
-        content: Text(
-          open
-              ? '🚪 Mengirim sinyal Buka Pagar...'
-              : '🔒 Mengirim sinyal Kunci Pagar...',
-        ),
-        duration: const Duration(seconds: 2),
-      ),
     );
   }
 
@@ -249,7 +322,7 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
             height: 210,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.black,
+              color: const Color(0xFF1E293B),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.white.withOpacity(0.12)),
               boxShadow: [
@@ -262,156 +335,110 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // A. Live RTSP Video Stream (VLC Engine)
-                  if (_vlcViewController != null)
-                    VlcPlayer(
-                      controller: _vlcViewController!,
-                      aspectRatio: 16 / 9,
-                      placeholder: Container(
-                        width: double.infinity,
-                        height: double.infinity,
-                        color: const Color(0xFF0F172A),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            CustomPaint(
-                              size: Size.infinite,
-                              painter: _CctvViewportPainter(),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.7),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation(Color(0xFF38BDF8)),
+              child: (_isStreamOnline && _vlcViewController != null)
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        VlcPlayer(
+                          controller: _vlcViewController!,
+                          aspectRatio: 16 / 9,
+                          placeholder: _buildOfflineSheetViewport(cam, isConnecting: true),
+                        ),
+
+                        // Flash Efek saat Snapshot Foto
+                        if (_isSnapshotTaken)
+                          Container(color: Colors.white.withOpacity(0.85)),
+
+                        // Overlay Top Bar LIVE
+                        Positioned(
+                          top: 12,
+                          left: 14,
+                          right: 14,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  FadeTransition(
+                                    opacity: _pulseController,
+                                    child: Container(
+                                      width: 9,
+                                      height: 9,
+                                      decoration: const BoxDecoration(
+                                        color: Colors.redAccent,
+                                        shape: BoxShape.circle,
+                                      ),
                                     ),
                                   ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Menghubungkan Stream RTSP...',
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    'REC • RTSP STREAM',
                                     style: TextStyle(
-                                      fontFamily: NexoraTokens.fontFamilySans,
-                                      fontSize: 11,
+                                      fontFamily: 'JetBrains Mono',
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w800,
                                       color: Colors.white,
+                                      letterSpacing: 0.6,
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    CustomPaint(
-                      painter: _CctvViewportPainter(),
-                    ),
-
-                  // Flash Efek saat Snapshot Foto
-                  if (_isSnapshotTaken)
-                    Container(color: Colors.white.withOpacity(0.85)),
-
-                  // Overlay Top Bar (Badge LIVE Merah Berkedip + Jam RTSP)
-                  Positioned(
-                    top: 12,
-                    left: 14,
-                    right: 14,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            FadeTransition(
-                              opacity: _pulseController,
-                              child: Container(
-                                width: 9,
-                                height: 9,
-                                decoration: const BoxDecoration(
-                                  color: Colors.redAccent,
-                                  shape: BoxShape.circle,
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.6),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  _timestamp,
+                                  style: const TextStyle(
+                                    fontFamily: 'JetBrains Mono',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Text(
-                              'REC • RTSP STREAM',
-                              style: TextStyle(
-                                fontFamily: 'JetBrains Mono',
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: 0.6,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            _timestamp,
-                            style: const TextStyle(
-                              fontFamily: 'JetBrains Mono',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
 
-                  // Overlay Bottom Info (Protokol RTSP & Resolusi)
-                  Positioned(
-                    bottom: 12,
-                    left: 14,
-                    right: 14,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            cam.rtspUrl,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: 'JetBrains Mono',
-                              fontSize: 9.5,
-                              color: Colors.white.withOpacity(0.7),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          cam.resolution,
-                          style: const TextStyle(
-                            fontFamily: 'JetBrains Mono',
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF38BDF8),
+                        // Overlay Bottom Info (Protokol RTSP & Resolusi)
+                        Positioned(
+                          bottom: 12,
+                          left: 14,
+                          right: 14,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  cam.rtspUrl,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontFamily: 'JetBrains Mono',
+                                    fontSize: 9.5,
+                                    color: Colors.white.withOpacity(0.7),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                cam.resolution,
+                                style: const TextStyle(
+                                  fontFamily: 'JetBrains Mono',
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF38BDF8),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                ],
-              ),
+                    )
+                  : _buildOfflineSheetViewport(cam, isConnecting: _isConnecting),
             ),
           ),
 
@@ -484,12 +511,24 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
                 ),
                 ElevatedButton.icon(
                   onPressed: () => _toggleGate(true),
-                  icon: const Icon(Icons.lock_open_rounded, size: 16),
-                  label: Text(lang.isIndonesian ? 'Buka' : 'Open'),
+                  icon: Icon(
+                    Icons.lock_open_rounded,
+                    size: 16,
+                    color: _isGateOpen ? Colors.white : const Color(0xFF94A3B8),
+                  ),
+                  label: Text(
+                    lang.isIndonesian ? 'Buka' : 'Open',
+                    style: TextStyle(
+                      color: _isGateOpen ? Colors.white : const Color(0xFF94A3B8),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
-                    primary: const Color(0xFF10B981),
-                    onPrimary: Colors.white,
-                    elevation: 0,
+                    primary: _isGateOpen ? const Color(0xFF10B981) : const Color(0xFF1E293B),
+                    elevation: _isGateOpen ? 3 : 0,
+                    side: BorderSide(
+                      color: _isGateOpen ? const Color(0xFF10B981) : const Color(0xFF334155),
+                    ),
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -497,12 +536,24 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: () => _toggleGate(false),
-                  icon: const Icon(Icons.lock_rounded, size: 16),
-                  label: Text(lang.isIndonesian ? 'Kunci' : 'Lock'),
+                  icon: Icon(
+                    Icons.lock_rounded,
+                    size: 16,
+                    color: !_isGateOpen ? Colors.white : const Color(0xFF94A3B8),
+                  ),
+                  label: Text(
+                    lang.isIndonesian ? 'Kunci' : 'Lock',
+                    style: TextStyle(
+                      color: !_isGateOpen ? Colors.white : const Color(0xFF94A3B8),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
-                    primary: const Color(0xFF334155),
-                    onPrimary: Colors.white,
-                    elevation: 0,
+                    primary: !_isGateOpen ? const Color(0xFF0F172A) : const Color(0xFF1E293B),
+                    elevation: !_isGateOpen ? 3 : 0,
+                    side: BorderSide(
+                      color: !_isGateOpen ? const Color(0xFF38BDF8) : const Color(0xFF334155),
+                    ),
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -510,6 +561,180 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
               ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfflineSheetViewport(CctvCameraItem cam, {bool isConnecting = false}) {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF334155),
+            Color(0xFF1E293B),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          CustomPaint(
+            painter: _CctvViewportPainter(),
+          ),
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.18),
+                      width: 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: isConnecting
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              valueColor: AlwaysStoppedAnimation(Color(0xFF38BDF8)),
+                            ),
+                          )
+                        : const Icon(
+                            Icons.videocam_off_rounded,
+                            size: 30,
+                            color: Color(0xFFCBD5E1),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  isConnecting ? 'Menghubungkan Stream RTSP...' : 'Kamera CCTV Offline',
+                  style: const TextStyle(
+                    fontFamily: NexoraTokens.fontFamilySans,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  isConnecting
+                      ? 'Menunggu respons sinyal video...'
+                      : 'Stream belum aktif • ${cam.onvifHost}:${cam.onvifPort}',
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF94A3B8).withOpacity(0.9),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (!isConnecting)
+                  InkWell(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      _initVlcPlayer();
+                    },
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4.5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.white.withOpacity(0.18)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.refresh_rounded, size: 12, color: Color(0xFF38BDF8)),
+                          SizedBox(width: 5),
+                          Text(
+                            'Coba Sambungkan',
+                            style: TextStyle(
+                              fontFamily: NexoraTokens.fontFamilySans,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: 10,
+            left: 12,
+            right: 12,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.circle,
+                        size: 6,
+                        color: isConnecting ? const Color(0xFFF59E0B) : const Color(0xFF94A3B8),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        isConnecting ? 'CONNECTING...' : 'STANDBY',
+                        style: const TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFE2E8F0),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    _timestamp,
+                    style: const TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFE2E8F0),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

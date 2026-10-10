@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nexora/core/design_tokens.dart';
-import 'package:nexora/core/utils/snackbar_utils.dart';
 import 'package:nexora/services/mqtt_service.dart';
 import 'package:nexora/services/language_service.dart';
 import 'package:nexora/services/device_manager_service.dart';
@@ -37,6 +36,7 @@ class _HeroCardState extends State<HeroCard> with TickerProviderStateMixin {
   late AnimationController _gateController;
   late Animation<double> _gateCurve;
   StreamSubscription<DeviceStateEvent>? _mqttSub;
+  StreamSubscription<List<CustomDeviceItem>>? _deviceSub;
 
   @override
   void initState() {
@@ -44,125 +44,98 @@ class _HeroCardState extends State<HeroCard> with TickerProviderStateMixin {
 
     _gateController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1400),
     );
 
     _gateCurve = CurvedAnimation(
       parent: _gateController,
-      curve: Curves.easeInOutCubic,
+      curve: Curves.easeInOutCubic, 
     );
 
-    _gateController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        HapticFeedback.mediumImpact();
-        setState(() {
-          _status = GateStatus.open;
-        });
-        widget.onLockChanged?.call(false);
-      } else if (status == AnimationStatus.dismissed) {
-        HapticFeedback.lightImpact();
-        setState(() {
-          _status = GateStatus.locked;
-        });
-        widget.onLockChanged?.call(true);
-      }
-    });
-
-    // Cek status awal pagar dari cache MqttService
+    // Cek status awal pagar dari cache MqttService dan DeviceManagerService
     final initialPayload = MqttService().getDeviceState(widget.deviceId);
-    if (initialPayload?.state == true) {
+    final dev = DeviceManagerService().getDevice(widget.deviceId);
+    final isInitiallyOpen = (initialPayload?.state ?? dev?.isActive ?? false);
+    if (isInitiallyOpen) {
       _status = GateStatus.open;
       _gateController.value = 1.0;
+    } else {
+      _status = GateStatus.locked;
+      _gateController.value = 0.0;
     }
 
     // Dengarkan pesan masuk /state dari broker MQTT (Single Source of Truth)
     _mqttSub = MqttService().stateStream.listen((event) {
       if (event.deviceId == widget.deviceId && mounted) {
-        final reduceMotion = MediaQuery.of(context).accessibleNavigation;
-        final targetState = event.payload.state;
-        if (targetState) {
-          if (_status != GateStatus.open && _status != GateStatus.opening) {
-            setState(() {
-              _status = GateStatus.opening;
-            });
-            if (reduceMotion) {
-              _gateController.value = 1.0;
-              setState(() {
-                _status = GateStatus.open;
-              });
-            } else {
-              _gateController.forward(from: _gateController.value);
-            }
-          }
-        } else {
-          if (_status != GateStatus.locked && _status != GateStatus.closing) {
-            setState(() {
-              _status = GateStatus.closing;
-            });
-            if (reduceMotion) {
-              _gateController.value = 0.0;
-              setState(() {
-                _status = GateStatus.locked;
-              });
-            } else {
-              _gateController.reverse(from: _gateController.value);
-            }
-          }
-        }
+        _applyGateState(event.payload.state);
       }
     });
+
+    // Dengarkan perubahan state perangkat dari DeviceManagerService
+    _deviceSub = DeviceManagerService().devicesStream.listen((devs) {
+      if (!mounted) return;
+      try {
+        final d = devs.firstWhere((item) => item.id == widget.deviceId);
+        _applyGateState(d.isActive);
+      } catch (_) {}
+    });
+  }
+
+  void _applyGateState(bool targetState) {
+    if (!mounted) return;
+    final reduceMotion = MediaQuery.of(context).accessibleNavigation;
+    setState(() {
+      _status = targetState ? GateStatus.open : GateStatus.locked;
+    });
+    widget.onLockChanged?.call(!targetState);
+
+    if (reduceMotion) {
+      _gateController.value = targetState ? 1.0 : 0.0;
+    } else {
+      if (targetState) {
+        if (_gateController.value < 1.0) {
+          _gateController.forward();
+        }
+      } else {
+        if (_gateController.value > 0.0) {
+          _gateController.reverse();
+        }
+      }
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant HeroCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.deviceId != widget.deviceId) {
+      final initialPayload = MqttService().getDeviceState(widget.deviceId);
+      final dev = DeviceManagerService().getDevice(widget.deviceId);
+      final isInitiallyOpen = (initialPayload?.state ?? dev?.isActive ?? false);
+      setState(() {
+        if (isInitiallyOpen) {
+          _status = GateStatus.open;
+          _gateController.value = 1.0;
+        } else {
+          _status = GateStatus.locked;
+          _gateController.value = 0.0;
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
+    _deviceSub?.cancel();
     _mqttSub?.cancel();
     _gateController.dispose();
     super.dispose();
   }
 
-  void _handleGateAction() {
-    HapticFeedback.lightImpact();
-
-    // Hindari spam klik saat pagar sedang bergerak
-    if (_status == GateStatus.opening || _status == GateStatus.closing) return;
-
-    final willOpen = (_status == GateStatus.locked);
-
-    // Jalankan animasi lokal seketika (Optimistic UI) agar selalu responsif
-    final reduceMotion = MediaQuery.of(context).accessibleNavigation;
-    if (willOpen) {
-      setState(() => _status = GateStatus.opening);
-      if (reduceMotion) {
-        _gateController.value = 1.0;
-        setState(() => _status = GateStatus.open);
-      } else {
-        _gateController.forward(from: 0.0);
-      }
-    } else {
-      setState(() => _status = GateStatus.closing);
-      if (reduceMotion) {
-        _gateController.value = 0.0;
-        setState(() => _status = GateStatus.locked);
-      } else {
-        _gateController.reverse(from: 1.0);
-      }
-    }
-
-    // Sync DeviceManagerService & MQTT Service
-    DeviceManagerService().updateState(
-      widget.deviceId,
-      isActive: willOpen,
-      statusText: willOpen ? 'Terbuka' : 'Terkunci',
-    );
-
-    // Cek konektivitas MQTT / Server
-    if (MqttService().isConnected) {
-      // Jika Online: Teruskan perintah ke broker MQTT sesuai deviceId dinamis
-      MqttService().publishSet(widget.deviceId, state: willOpen);
-    } else {
-      // Jika Offline: Tampilkan notifikasi peringatan bahwa koneksi server bermasalah
-      showOfflineWarning(context, widget.deviceName);
-    }
+  void _setGateState(bool targetOpen) {
+    if ((_status == GateStatus.open) == targetOpen) return;
+    HapticFeedback.mediumImpact();
+    _applyGateState(targetOpen);
+    MqttService().publishSet(widget.deviceId, state: targetOpen);
   }
 
   @override
@@ -491,61 +464,104 @@ class _HeroCardState extends State<HeroCard> with TickerProviderStateMixin {
   }
 
   Widget _buildActionButton() {
-    final isBusy = _status == GateStatus.opening || _status == GateStatus.closing;
     final isOpen = _status == GateStatus.open;
     final lang = LanguageService();
 
-    String buttonLabel;
-    IconData buttonIcon;
-    if (_status == GateStatus.opening) {
-      buttonLabel = lang.tr('gate_opening');
-      buttonIcon = Icons.hourglass_top_rounded;
-    } else if (_status == GateStatus.closing) {
-      buttonLabel = lang.tr('gate_closing');
-      buttonIcon = Icons.hourglass_bottom_rounded;
-    } else if (isOpen) {
-      buttonLabel = lang.tr('btn_lock_gate');
-      buttonIcon = Icons.lock_outline_rounded;
-    } else {
-      buttonLabel = lang.tr('btn_open_gate');
-      buttonIcon = Icons.lock_open_rounded;
-    }
-
-    return GestureDetector(
-      onTap: isBusy ? null : _handleGateAction,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: isOpen ? NexoraTokens.brandCyan : NexoraTokens.ink,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: (isOpen ? NexoraTokens.brandCyan : NexoraTokens.ink).withOpacity(0.20),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(buttonIcon, size: 15, color: Colors.white),
-            const SizedBox(width: 6),
-            Text(
-              buttonLabel,
-              style: const TextStyle(
-                fontFamily: NexoraTokens.fontFamilySans,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                letterSpacing: -0.2,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Tombol BUKA
+        GestureDetector(
+          onTap: () => _setGateState(true),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isOpen ? NexoraTokens.brandCyan : Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isOpen ? NexoraTokens.brandCyan : NexoraTokens.cardBorder,
+                width: isOpen ? 1.5 : 1.0,
               ),
+              boxShadow: isOpen
+                  ? [
+                      BoxShadow(
+                        color: NexoraTokens.brandCyan.withOpacity(0.28),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      )
+                    ]
+                  : NexoraTokens.cardShadow,
             ),
-          ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.lock_open_rounded,
+                  size: 14,
+                  color: isOpen ? Colors.white : NexoraTokens.inkSecondary,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  lang.isIndonesian ? 'Buka' : 'Open',
+                  style: TextStyle(
+                    fontFamily: NexoraTokens.fontFamilySans,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: isOpen ? Colors.white : NexoraTokens.ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
+        const SizedBox(width: 6),
+        // Tombol KUNCI
+        GestureDetector(
+          onTap: () => _setGateState(false),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: !isOpen ? NexoraTokens.ink : Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: !isOpen ? NexoraTokens.ink : NexoraTokens.cardBorder,
+                width: !isOpen ? 1.5 : 1.0,
+              ),
+              boxShadow: !isOpen
+                  ? [
+                      BoxShadow(
+                        color: NexoraTokens.ink.withOpacity(0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      )
+                    ]
+                  : NexoraTokens.cardShadow,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.lock_rounded,
+                  size: 14,
+                  color: !isOpen ? Colors.white : NexoraTokens.inkSecondary,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  lang.isIndonesian ? 'Kunci' : 'Lock',
+                  style: TextStyle(
+                    fontFamily: NexoraTokens.fontFamilySans,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: !isOpen ? Colors.white : NexoraTokens.ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:nexora/core/design_tokens.dart';
 import 'package:nexora/core/utils/snackbar_utils.dart';
 import 'package:nexora/services/mqtt_service.dart';
+import 'package:nexora/services/device_manager_service.dart';
 import 'water_card.dart';
 import 'energy_card.dart';
 
@@ -23,23 +24,35 @@ class _BentoGridState extends State<BentoGrid> {
   bool _isCurtainOpen = false;         // Gorden (default Tertutup)
 
   StreamSubscription<DeviceStateEvent>? _mqttSub;
+  StreamSubscription<List<CustomDeviceItem>>? _deviceSub;
 
   @override
   void initState() {
     super.initState();
 
-    // Inisialisasi dari status MQTT tersimpan
+    // Inisialisasi dari status MQTT / DeviceManager tersimpan
     final lampState = MqttService().getDeviceState('lampu_teras');
+    final lampDev = DeviceManagerService().getDevice('lampu_teras');
     if (lampState != null) {
       _terraceLightBrightness = (lampState.value ?? (lampState.state ? 80 : 0)) / 100.0;
+    } else if (lampDev != null) {
+      _terraceLightBrightness = lampDev.isActive ? (lampDev.value / 100.0) : 0.0;
     }
+
     final doorState = MqttService().getDeviceState('pintu_geser');
+    final doorDev = DeviceManagerService().getDevice('pintu_geser');
     if (doorState != null) {
       _isSlidingDoorUnlocked = doorState.state;
+    } else if (doorDev != null) {
+      _isSlidingDoorUnlocked = doorDev.isActive;
     }
+
     final curtainState = MqttService().getDeviceState('gorden');
+    final curtainDev = DeviceManagerService().getDevice('gorden');
     if (curtainState != null) {
       _isCurtainOpen = curtainState.state;
+    } else if (curtainDev != null) {
+      _isCurtainOpen = curtainDev.isActive;
     }
 
     // Dengarkan pesan /state dari broker MQTT (Single Source of Truth)
@@ -64,10 +77,31 @@ class _BentoGridState extends State<BentoGrid> {
         });
       }
     });
+
+    // Dengarkan sinkronisasi instan dari DeviceManagerService
+    _deviceSub = DeviceManagerService().devicesStream.listen((devs) {
+      if (!mounted) return;
+      for (var d in devs) {
+        if (d.id == 'lampu_teras') {
+          setState(() {
+            _terraceLightBrightness = d.isActive ? (d.value / 100.0).clamp(0.0, 1.0) : 0.0;
+          });
+        } else if (d.id == 'pintu_geser') {
+          setState(() {
+            _isSlidingDoorUnlocked = d.isActive;
+          });
+        } else if (d.id == 'gorden') {
+          setState(() {
+            _isCurtainOpen = d.isActive;
+          });
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
+    _deviceSub?.cancel();
     _mqttSub?.cancel();
     super.dispose();
   }
@@ -188,11 +222,7 @@ class _BentoGridState extends State<BentoGrid> {
                       }
                     });
 
-                    if (MqttService().isConnected) {
-                      MqttService().publishSet('lampu_teras', state: nextState, value: nextState ? 80 : 0);
-                    } else {
-                      showOfflineWarning(context, 'lampu teras');
-                    }
+                    MqttService().publishSet('lampu_teras', state: nextState, value: nextState ? 80 : 0);
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
@@ -287,12 +317,8 @@ class _BentoGridState extends State<BentoGrid> {
           _isSlidingDoorUnlocked = nextState;
         });
 
-        // Cek koneksi server/MQTT
-        if (MqttService().isConnected) {
-          MqttService().publishSet('pintu_geser', state: nextState);
-        } else {
-          showOfflineWarning(context, 'pintu geser');
-        }
+        // Sync instan ke MqttService & DeviceManager
+        MqttService().publishSet('pintu_geser', state: nextState);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
@@ -385,11 +411,8 @@ class _BentoGridState extends State<BentoGrid> {
         });
 
         // Cek koneksi server/MQTT
-        if (MqttService().isConnected) {
-          MqttService().publishSet('gorden', state: nextState);
-        } else {
-          showOfflineWarning(context, 'gorden');
-        }
+        // Sync instan ke MqttService & DeviceManager
+        MqttService().publishSet('gorden', state: nextState);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),

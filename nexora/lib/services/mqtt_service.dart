@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:nexora/core/config/mqtt_config.dart';
+import 'package:nexora/services/device_manager_service.dart';
 
 /// Model payload pesan MQTT NEXORA: {"state": bool, "value": num?}
 class DevicePayload {
@@ -223,6 +224,16 @@ class MqttService {
 
           // Siarkan event ke listener UI
           _stateController.add(DeviceStateEvent(deviceId: deviceId, payload: payload));
+
+          // Sinkronkan ke DeviceManagerService
+          DeviceManagerService().updateState(
+            deviceId,
+            isActive: payload.state,
+            value: payload.value?.toDouble(),
+            statusText: (deviceId.contains('pagar') || deviceId.contains('gate') || deviceId.contains('pintu'))
+                ? (payload.state ? 'Terbuka' : 'Terkunci')
+                : (payload.state ? 'Menyala' : 'Mati'),
+          );
         } catch (e) {
           debugPrint('⚠️ [MQTT] Format JSON tidak valid pada topik $topic: $e');
         }
@@ -240,20 +251,38 @@ class MqttService {
 
     debugPrint('🚀 [MQTT PUBLISH] Topik: $topic | Payload: $jsonString');
 
+    // 1. Siarkan langsung ke seluruh listener UI di seluruh aplikasi SEKETIKA (Zero-delay Optimistic UI)
+    _stateController.add(DeviceStateEvent(deviceId: deviceId, payload: payload));
+
+    // 2. Sinkronkan ke DeviceManagerService seketika agar semua tab (Beranda, Ruangan, CCTV) langsung terupdate
+    DeviceManagerService().updateState(
+      deviceId,
+      isActive: state,
+      value: value?.toDouble(),
+      statusText: (deviceId.contains('pagar') || deviceId.contains('gate') || deviceId.contains('pintu'))
+          ? (state ? 'Terbuka' : 'Terkunci')
+          : (state ? 'Menyala' : 'Mati'),
+    );
+
+    // 3. Teruskan ke broker MQTT jika terhubung
     if (_client == null || _client?.connectionStatus?.state != MqttConnectionState.connected) {
       debugPrint('⚠️ [MQTT] Status: Belum terhubung (state: ${_client?.connectionStatus?.state}). Mencoba connect ulang...');
       connect();
       return;
     }
 
-    final builder = MqttClientPayloadBuilder();
-    builder.addString(jsonString);
+    try {
+      final builder = MqttClientPayloadBuilder();
+      builder.addString(jsonString);
 
-    _client!.publishMessage(
-      topic,
-      MqttQos.atLeastOnce,
-      builder.payload!,
-    );
+      _client!.publishMessage(
+        topic,
+        MqttQos.atLeastOnce,
+        builder.payload!,
+      );
+    } catch (e) {
+      debugPrint('⚠️ [MQTT] Gagal publish: $e');
+    }
   }
 
   /// Reconnect manual untuk tombol di Halaman Pengaturan

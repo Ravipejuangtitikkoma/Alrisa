@@ -195,7 +195,7 @@ class _CctvCarouselState extends State<CctvCarousel> {
         hasMultiple
             ? SizedBox(
                 // Ukuran dinamis pas dengan isi CctvCard (header + 16:9 viewport + toolbar)
-                height: 390,
+                height: 318,
                 child: PageView.builder(
                   controller: _pageController,
                   physics: const BouncingScrollPhysics(),
@@ -209,13 +209,19 @@ class _CctvCarouselState extends State<CctvCarousel> {
                   itemBuilder: (ctx, index) {
                     final cam = widget.cameras[index];
                     return RepaintBoundary(
-                      child: CctvCard(camera: cam),
+                      child: CctvCard(
+                        key: ValueKey('cctv_${cam.id}_${cam.rtspUrl}'),
+                        camera: cam,
+                      ),
                     );
                   },
                 ),
               )
             : RepaintBoundary(
-                child: CctvCard(camera: widget.cameras.first),
+                child: CctvCard(
+                  key: ValueKey('cctv_${widget.cameras.first.id}_${widget.cameras.first.rtspUrl}'),
+                  camera: widget.cameras.first,
+                ),
               ),
 
         // Dot Indicator di Bawah Slider jika kamera > 1

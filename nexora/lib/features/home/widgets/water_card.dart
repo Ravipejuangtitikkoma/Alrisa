@@ -3,9 +3,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nexora/core/design_tokens.dart';
-import 'package:nexora/core/utils/snackbar_utils.dart';
 import 'package:nexora/services/mqtt_service.dart';
 
+import 'package:nexora/services/device_manager_service.dart';
 import 'package:nexora/features/water_level/presentation/screens/water_level_screen.dart';
 
 /// Kartu Sedang Pompa Toren dengan Gelombang Air Animasi 82%
@@ -28,6 +28,7 @@ class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMix
   late AnimationController _waveController;
   final double _waterLevel = 0.82; // 82%
   StreamSubscription<DeviceStateEvent>? _mqttSub;
+  StreamSubscription<List<CustomDeviceItem>>? _deviceSub;
 
   @override
   void initState() {
@@ -35,8 +36,11 @@ class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMix
     _isActive = widget.initialActive;
 
     final initialPayload = MqttService().getDeviceState('pompa_toren');
+    final initialDev = DeviceManagerService().getDevice('pompa_toren');
     if (initialPayload != null) {
       _isActive = initialPayload.state;
+    } else if (initialDev != null) {
+      _isActive = initialDev.isActive;
     }
 
     _mqttSub = MqttService().stateStream.listen((event) {
@@ -47,6 +51,16 @@ class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMix
       }
     });
 
+    _deviceSub = DeviceManagerService().devicesStream.listen((devs) {
+      if (!mounted) return;
+      try {
+        final d = devs.firstWhere((item) => item.id == 'pompa_toren');
+        if (_isActive != d.isActive) {
+          setState(() => _isActive = d.isActive);
+        }
+      } catch (_) {}
+    });
+
     _waveController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2400),
@@ -55,6 +69,7 @@ class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMix
 
   @override
   void dispose() {
+    _deviceSub?.cancel();
     _mqttSub?.cancel();
     _waveController.dispose();
     super.dispose();
@@ -69,11 +84,12 @@ class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMix
     });
     widget.onActiveChanged?.call(_isActive);
 
-    if (MqttService().isConnected) {
-      MqttService().publishSet('pompa_toren', state: nextState);
-    } else {
-      showOfflineWarning(context, 'pompa toren');
-    }
+    MqttService().publishSet('pompa_toren', state: nextState);
+    DeviceManagerService().updateState(
+      'pompa_toren',
+      isActive: nextState,
+      statusText: nextState ? 'Mengalir' : 'Mati',
+    );
   }
 
   void _openWaterDetails() {

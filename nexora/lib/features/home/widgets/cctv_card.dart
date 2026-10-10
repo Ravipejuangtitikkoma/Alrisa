@@ -27,14 +27,17 @@ class CctvCard extends StatefulWidget {
 class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin {
   bool _isSnapshotTaken = false;
   bool _isGateOpen = false;
-  bool _isGateLoading = false;
+  bool _isStreamOnline = false;
+  bool _isConnecting = false;
   late AnimationController _pulseController;
   Timer? _timer;
+  Timer? _connectTimeoutTimer;
   String _timestamp = '';
   VlcPlayerController? _vlcViewController;
   String? _selectedGateId;
   StreamSubscription<void>? _refreshSub;
   StreamSubscription<DeviceStateEvent>? _mqttSub;
+  StreamSubscription<List<CustomDeviceItem>>? _deviceSub;
 
   @override
   void initState() {
@@ -48,10 +51,9 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateTime());
 
     _selectedGateId = widget.camera.boundGateId ?? 'pagar';
-    final initialGateState = MqttService().getDeviceState(_selectedGateId!);
-    if (initialGateState != null) {
-      _isGateOpen = initialGateState.state;
-    }
+    final initialGateState = MqttService().getDeviceState(_selectedGateId!)?.state ??
+        DeviceManagerService().getDevice(_selectedGateId!)?.isActive ?? false;
+    _isGateOpen = initialGateState;
 
     _initVlcPlayer();
 
@@ -61,9 +63,21 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
       if (event.deviceId == activeGateId && mounted) {
         setState(() {
           _isGateOpen = event.payload.state;
-          _isGateLoading = false;
         });
       }
+    });
+
+    // Dengarkan perubahan status gerbang secara realtime dari DeviceManagerService
+    _deviceSub = DeviceManagerService().devicesStream.listen((devs) {
+      final activeGateId = _selectedGateId ?? widget.camera.boundGateId ?? 'pagar';
+      try {
+        final dev = devs.firstWhere((item) => item.id == activeGateId);
+        if (mounted && _isGateOpen != dev.isActive) {
+          setState(() {
+            _isGateOpen = dev.isActive;
+          });
+        }
+      } catch (_) {}
     });
 
     // Dengarkan trigger refresh dari Pull-to-Refresh layar
@@ -103,27 +117,79 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
   }
 
   void _initVlcPlayer() {
+    _connectTimeoutTimer?.cancel();
+
+    // Lepas controller lama dari widget tree terlebih dahulu untuk mencegah duplikasi texture Android
+    final oldController = _vlcViewController;
+    _vlcViewController = null;
+    if (mounted) {
+      setState(() {
+        _isConnecting = true;
+        _isStreamOnline = false;
+      });
+    }
+
     try {
-      _vlcViewController?.stopRendererScanning();
-      _vlcViewController?.dispose();
+      oldController?.removeListener(_vlcListener);
+      oldController?.stopRendererScanning();
+      oldController?.dispose();
     } catch (_) {}
 
     try {
-      _vlcViewController = VlcPlayerController.network(
+      final controller = VlcPlayerController.network(
         widget.camera.rtspUrl,
         hwAcc: HwAcc.full,
         autoPlay: true,
         options: VlcPlayerOptions(
           advanced: VlcAdvancedOptions([
-            VlcAdvancedOptions.networkCaching(100), // Ultra low-latency 100ms
+            VlcAdvancedOptions.networkCaching(150), // Ultra low-latency 150ms
           ]),
           rtp: VlcRtpOptions([
             VlcRtpOptions.rtpOverRtsp(true),
           ]),
         ),
       );
+
+      _vlcViewController = controller;
+      controller.addListener(_vlcListener);
+
+      // Batas waktu timeout 3.5 detik untuk deteksi offline jika stream RTSP tidak merespons
+      _connectTimeoutTimer = Timer(const Duration(milliseconds: 3500), () {
+        if (mounted && !_isStreamOnline) {
+          setState(() {
+            _isConnecting = false;
+          });
+        }
+      });
+
       if (mounted) setState(() {});
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isConnecting = false;
+          _isStreamOnline = false;
+        });
+      }
+    }
+  }
+
+  void _vlcListener() {
+    if (!mounted || _vlcViewController == null) return;
+    final isPlaying = _vlcViewController!.value.isPlaying;
+    final hasError = _vlcViewController!.value.hasError;
+
+    if (isPlaying && !_isStreamOnline) {
+      _connectTimeoutTimer?.cancel();
+      setState(() {
+        _isStreamOnline = true;
+        _isConnecting = false;
+      });
+    } else if (hasError && (_isStreamOnline || _isConnecting)) {
+      setState(() {
+        _isStreamOnline = false;
+        _isConnecting = false;
+      });
+    }
   }
 
   void _updateTime() {
@@ -140,11 +206,14 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
 
   @override
   void dispose() {
+    _deviceSub?.cancel();
+    _connectTimeoutTimer?.cancel();
     _refreshSub?.cancel();
     _mqttSub?.cancel();
     _timer?.cancel();
     _pulseController.dispose();
     try {
+      _vlcViewController?.removeListener(_vlcListener);
       _vlcViewController?.stopRendererScanning();
       _vlcViewController?.dispose();
     } catch (_) {}
@@ -195,23 +264,22 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<void> _toggleGate() async {
+  Future<void> _setGate(bool open) async {
+    if (_isGateOpen == open) return;
     HapticFeedback.heavyImpact();
     final gateId = _selectedGateId ?? widget.camera.boundGateId ?? 'pagar';
-    final newActive = !_isGateOpen;
 
-    // Langsung update state lokal agar responsif seketika
+    // Langsung update state lokal agar responsif seketika tanpa delay
     setState(() {
-      _isGateOpen = newActive;
-      _isGateLoading = false;
+      _isGateOpen = open;
     });
 
     // Kirim sinyal MQTT ke ESP8266 / PLC & sync DeviceManager
-    MqttService().publishSet(gateId, state: newActive);
+    MqttService().publishSet(gateId, state: open);
     DeviceManagerService().updateState(
       gateId,
-      isActive: newActive,
-      statusText: newActive ? 'Terbuka' : 'Terkunci',
+      isActive: open,
+      statusText: open ? 'Terbuka' : 'Terkunci',
     );
 
     if (mounted) {
@@ -513,476 +581,650 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
         ],
       ),
       padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 1. Header Card CCTV: Judul, Lokasi, Tombol Edit Config, & Status REC LIVE
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.videocam_rounded, size: 14, color: NexoraTokens.brandCyan),
-              ),
-              const SizedBox(width: 8),
-
-              // Info Nama & Lokasi (Flexible agar tidak overflow)
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          lang.isIndonesian ? 'PANTAUAN CCTV' : 'SURVEILLANCE',
-                          style: NexoraTokens.sectionLabel.copyWith(fontSize: 9.5),
-                        ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              cam.location,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontFamily: NexoraTokens.fontFamilySans,
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF2563EB),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      cam.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: NexoraTokens.fontFamilySans,
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w700,
-                        color: NexoraTokens.ink,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(width: 6),
-
-              // Tombol Segarkan Stream Kamera
-              InkWell(
-                onTap: _manualRefresh,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. Header Card CCTV: Judul, Lokasi, Tombol Edit Config, & Status Stream
+            Row(
+              children: [
+                Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
+                    color: const Color(0xFF0F172A),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
-                  child: const Icon(Icons.refresh_rounded, size: 14, color: Color(0xFF475569)),
+                  child: const Icon(Icons.videocam_rounded, size: 14, color: NexoraTokens.brandCyan),
                 ),
-              ),
+                const SizedBox(width: 8),
 
-              const SizedBox(width: 6),
-
-              // Tombol Edit Konfigurasi IP/Port/Codec
-              InkWell(
-                onTap: _showEditConfigDialog,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: const Icon(Icons.tune_rounded, size: 14, color: Color(0xFF475569)),
-                ),
-              ),
-
-              const SizedBox(width: 6),
-
-              // Badge Indikator REC LIVE Merah Berdenyut
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF2F2),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFFECACA)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    FadeTransition(
-                      opacity: _pulseController,
-                      child: Container(
-                        width: 6.5,
-                        height: 6.5,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFEF4444),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Text(
-                      'REC LIVE',
-                      style: TextStyle(
-                        fontFamily: 'JetBrains Mono',
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFFDC2626),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          // 2. Layar Live Stream Viewport (Rasio Aspek 16:9 Langsung Putar Video)
-          GestureDetector(
-            onTap: _openFullScreen,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: RepaintBoundary(
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // A. Live RTSP Video Player (VLC Engine Langsung Auto-play)
-                    if (_vlcViewController != null)
-                      VlcPlayer(
-                        controller: _vlcViewController!,
-                        aspectRatio: 16 / 9,
-                        placeholder: Container(
-                          width: double.infinity,
-                          height: double.infinity,
-                          color: const Color(0xFF0F172A),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              CustomPaint(
-                                size: Size.infinite,
-                                painter: _CctvCardViewportPainter(),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.7),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: const [
-                                    SizedBox(
-                                      width: 12,
-                                      height: 12,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation(NexoraTokens.brandCyan),
-                                      ),
-                                    ),
-                                    SizedBox(width: 6),
-                                    Text(
-                                      'Menghubungkan RTSP...',
-                                      style: TextStyle(
-                                        fontFamily: NexoraTokens.fontFamilySans,
-                                        fontSize: 10,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      Container(
-                        width: double.infinity,
-                        height: double.infinity,
-                        color: const Color(0xFF0F172A),
-                        child: CustomPaint(
-                          painter: _CctvCardViewportPainter(),
-                        ),
-                      ),
-
-                    // Efek Flash Shutter saat Snapshot diambil
-                    if (_isSnapshotTaken)
-                      AnimatedOpacity(
-                        duration: const Duration(milliseconds: 150),
-                        opacity: _isSnapshotTaken ? 0.8 : 0.0,
-                        child: Container(color: Colors.white),
-                      ),
-
-                    // B. Overlay Atas: Info Stream & Jam Detik
-                    Positioned(
-                      top: 8,
-                      left: 10,
-                      right: 10,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // Info Nama & Lokasi (Flexible agar tidak overflow)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.65),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.videocam, size: 10, color: Color(0xFF38BDF8)),
-                                const SizedBox(width: 4),
-                                Text(
-                                  cam.resolution,
-                                  style: const TextStyle(
-                                    fontFamily: 'JetBrains Mono',
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
+                          Text(
+                            lang.isIndonesian ? 'PANTAUAN CCTV' : 'SURVEILLANCE',
+                            style: NexoraTokens.sectionLabel.copyWith(fontSize: 9.5),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.65),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: Text(
-                              _timestamp,
-                              style: const TextStyle(
-                                fontFamily: 'JetBrains Mono',
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFFE2E8F0),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                cam.location,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: NexoraTokens.fontFamilySans,
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF2563EB),
+                                ),
                               ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-
-                    // D. Overlay Bawah: Badge Info Protokol RTSP & IP
-                    Positioned(
-                      bottom: 8,
-                      left: 10,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.6),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.wifi_tethering, size: 9, color: Color(0xFF10B981)),
-                            const SizedBox(width: 4),
-                            Text(
-                              'RTSP • ${cam.onvifHost}:${cam.onvifPort}',
-                              style: const TextStyle(
-                                fontFamily: 'JetBrains Mono',
-                                fontSize: 8,
-                                color: Color(0xFF94A3B8),
-                              ),
-                            ),
-                          ],
+                      const SizedBox(height: 1),
+                      Text(
+                        cam.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: NexoraTokens.fontFamilySans,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: NexoraTokens.ink,
+                          letterSpacing: -0.3,
                         ),
                       ),
-                    ),
+                    ],
+                  ),
+                ),
 
-                    // Tombol Expand Fullscreen di Pojok Kanan Bawah Viewport
-                    Positioned(
-                      bottom: 6,
-                      right: 6,
+                const SizedBox(width: 6),
+
+                // Tombol Segarkan Stream Kamera
+                InkWell(
+                  onTap: _manualRefresh,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: const Icon(Icons.refresh_rounded, size: 14, color: Color(0xFF475569)),
+                  ),
+                ),
+
+                const SizedBox(width: 6),
+
+                // Tombol Edit Konfigurasi IP/Port/Codec
+                InkWell(
+                  onTap: _showEditConfigDialog,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: const Icon(Icons.tune_rounded, size: 14, color: Color(0xFF475569)),
+                  ),
+                ),
+
+                const SizedBox(width: 6),
+
+                // Badge Indikator Status Kamera (REC LIVE / CONNECTING / OFFLINE)
+                _buildStreamStatusBadge(),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            // 2. Layar Live Stream Viewport (Rasio Aspek 16:9)
+            GestureDetector(
+              onTap: _openFullScreen,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: (_isStreamOnline && _vlcViewController != null)
+                      ? _buildLiveViewport(cam)
+                      : _buildOfflineViewport(cam, isConnecting: _isConnecting),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            // 3. Toolbar Ringkas: Tombol Snapshot & Kontrol Buka/Kunci Gerbang
+            Row(
+              children: [
+                // ── Tombol Snapshot Foto ──
+                OutlinedButton.icon(
+                  onPressed: _isStreamOnline ? _takeSnapshot : null,
+                  icon: const Icon(Icons.camera_alt_outlined, size: 13),
+                  label: const Text('Snapshot'),
+                  style: OutlinedButton.styleFrom(
+                    primary: NexoraTokens.ink,
+                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    textStyle: const TextStyle(
+                      fontFamily: NexoraTokens.fontFamilySans,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 6),
+
+                // ── Pemilih Pilihan Gerbang (Slide/Selector Pagar Dinamis) ──
+                StreamBuilder<List<CustomDeviceItem>>(
+                  stream: DeviceManagerService().devicesStream,
+                  initialData: DeviceManagerService().allDevices,
+                  builder: (context, snapshot) {
+                    final gates = DeviceManagerService().gates;
+                    final validSelectedGate = gates.any((g) => g.id == _selectedGateId)
+                        ? _selectedGateId
+                        : (gates.isNotEmpty ? gates.first.id : null);
+
+                    return Expanded(
                       child: Container(
-                        padding: const EdgeInsets.all(5),
+                        height: 36,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.55),
-                          shape: BoxShape.circle,
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
                         ),
-                        child: const Icon(Icons.fullscreen_rounded, size: 16, color: Colors.white),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: validSelectedGate,
+                            isExpanded: true,
+                            icon: const Icon(Icons.arrow_drop_down_rounded, size: 18, color: Color(0xFF64748B)),
+                            items: gates.map((g) {
+                              return DropdownMenuItem<String>(
+                                value: g.id,
+                                child: Text(
+                                  '🚪 ${g.name}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: NexoraTokens.fontFamilySans,
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: NexoraTokens.ink,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                HapticFeedback.selectionClick();
+                                final gateState = MqttService().getDeviceState(val)?.state ??
+                                    DeviceManagerService().getDevice(val)?.isActive ?? false;
+                                setState(() {
+                                  _selectedGateId = val;
+                                  _isGateOpen = gateState;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                             // ── Tombol Buka / Kunci Gerbang ──
+                Container(
+                  height: 36,
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Tombol BUKA
+                      InkWell(
+                        onTap: () => _setGate(true),
+                        borderRadius: BorderRadius.circular(8),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _isGateOpen ? const Color(0xFF059669) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: _isGateOpen
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFF059669).withOpacity(0.3),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 1),
+                                    )
+                                  ]
+                                : null,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.lock_open_rounded,
+                                size: 12.5,
+                                color: _isGateOpen ? Colors.white : const Color(0xFF64748B),
+                              ),
+                              const SizedBox(width: 3.5),
+                              Text(
+                                lang.isIndonesian ? 'Buka' : 'Open',
+                                style: TextStyle(
+                                  fontFamily: NexoraTokens.fontFamilySans,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: _isGateOpen ? Colors.white : const Color(0xFF475569),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Tombol KUNCI
+                      InkWell(
+                        onTap: () => _setGate(false),
+                        borderRadius: BorderRadius.circular(8),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: !_isGateOpen ? const Color(0xFF0F172A) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: !_isGateOpen
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFF0F172A).withOpacity(0.25),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 1),
+                                    )
+                                  ]
+                                : null,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.lock_rounded,
+                                size: 12.5,
+                                color: !_isGateOpen ? Colors.white : const Color(0xFF64748B),
+                              ),
+                              const SizedBox(width: 3.5),
+                              Text(
+                                lang.isIndonesian ? 'Kunci' : 'Lock',
+                                style: TextStyle(
+                                  fontFamily: NexoraTokens.fontFamilySans,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: !_isGateOpen ? Colors.white : const Color(0xFF475569),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Badge Indikator Status Header: Hijau/Merah REC LIVE jika aktif, Kuning jika memuat, Abu jika offline
+  Widget _buildStreamStatusBadge() {
+    if (_isStreamOnline) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEF2F2),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFFECACA)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FadeTransition(
+              opacity: _pulseController,
+              child: Container(
+                width: 6.5,
+                height: 6.5,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEF4444),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Text(
+              'REC LIVE',
+              style: TextStyle(
+                fontFamily: 'JetBrains Mono',
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFFDC2626),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (_isConnecting) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEF3C7),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFFDE68A)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            SizedBox(
+              width: 7,
+              height: 7,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                valueColor: AlwaysStoppedAnimation(Color(0xFFD97706)),
+              ),
+            ),
+            SizedBox(width: 4),
+            Text(
+              'MEMUAT',
+              style: TextStyle(
+                fontFamily: 'JetBrains Mono',
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFFD97706),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFCBD5E1)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.videocam_off_rounded, size: 10, color: Color(0xFF64748B)),
+            SizedBox(width: 4),
+            Text(
+              'OFFLINE',
+              style: TextStyle(
+                fontFamily: 'JetBrains Mono',
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF64748B),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  /// Viewport saat kamera online & aktif memutar video RTSP
+  Widget _buildLiveViewport(CctvCameraItem cam) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        VlcPlayer(
+          controller: _vlcViewController!,
+          aspectRatio: 16 / 9,
+          placeholder: _buildOfflineViewport(cam, isConnecting: true),
+        ),
+
+        // Efek Flash Shutter saat Snapshot diambil
+        if (_isSnapshotTaken)
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 150),
+            opacity: _isSnapshotTaken ? 0.8 : 0.0,
+            child: Container(color: Colors.white),
+          ),
+
+        // Overlay Atas: Resolusi & Jam Detik
+        Positioned(
+          top: 8,
+          left: 10,
+          right: 10,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.65),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.videocam, size: 10, color: Color(0xFF38BDF8)),
+                    const SizedBox(width: 4),
+                    Text(
+                      cam.resolution,
+                      style: const TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 8,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
                       ),
                     ),
                   ],
                 ),
               ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.65),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(
+                  _timestamp,
+                  style: const TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFE2E8F0),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Overlay Bawah: Badge Info Protokol RTSP & IP
+        Positioned(
+          bottom: 8,
+          left: 10,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.6),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.wifi_tethering, size: 9, color: Color(0xFF10B981)),
+                const SizedBox(width: 4),
+                Text(
+                  'RTSP • ${cam.onvifHost}:${cam.onvifPort}',
+                  style: const TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 8,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
 
-          const SizedBox(height: 10),
+        // Tombol Expand Fullscreen di Pojok Kanan Bawah Viewport
+        Positioned(
+          bottom: 6,
+          right: 6,
+          child: Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.55),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.fullscreen_rounded, size: 16, color: Colors.white),
+          ),
+        ),
+      ],
+    );
+  }
 
-          // 3. Toolbar Ringkas: Tombol Snapshot & Kontrol Buka/Kunci Gerbang
-          Row(
-            children: [
-              // ── Tombol Snapshot Foto ──
-              OutlinedButton.icon(
-                onPressed: _takeSnapshot,
-                icon: const Icon(Icons.camera_alt_outlined, size: 13),
-                label: const Text('Snapshot'),
-                style: OutlinedButton.styleFrom(
-                  primary: NexoraTokens.ink,
-                  side: const BorderSide(color: Color(0xFFCBD5E1)),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  textStyle: const TextStyle(
-                    fontFamily: NexoraTokens.fontFamilySans,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
+  /// Viewport saat kamera CCTV OFF / belum aktif: Latar abu-abu gelap slate + Ikon CCTV dicoret di tengah
+  Widget _buildOfflineViewport(CctvCameraItem cam, {bool isConnecting = false}) {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF334155), // Slate 700 Elegant Grey
+            Color(0xFF1E293B), // Slate 800 Dark Grey
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Background garis grid pengawas teknikal
+          CustomPaint(
+            painter: _CctvGridBackgroundPainter(),
+          ),
+
+          // Konten Tengah: Ikon Kamera CCTV Dicoret + Status Teks Elegan
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Lingkaran Frosted Glass dengan Ikon CCTV Dicoret
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.18),
+                      width: 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: isConnecting
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              valueColor: AlwaysStoppedAnimation(Color(0xFF38BDF8)),
+                            ),
+                          )
+                        : const Icon(
+                            Icons.videocam_off_rounded,
+                            size: 26,
+                            color: Color(0xFFCBD5E1),
+                          ),
                   ),
                 ),
-              ),
+                const SizedBox(height: 7),
 
-              const SizedBox(width: 6),
-
-              // ── Pemilih Pilihan Gerbang (Slide/Selector Pagar Dinamis) ──
-              StreamBuilder<List<CustomDeviceItem>>(
-                stream: DeviceManagerService().devicesStream,
-                initialData: DeviceManagerService().allDevices,
-                builder: (context, snapshot) {
-                  final gates = DeviceManagerService().gates;
-                  final validSelectedGate = gates.any((g) => g.id == _selectedGateId)
-                      ? _selectedGateId
-                      : (gates.isNotEmpty ? gates.first.id : null);
-
-                  return Expanded(
-                    child: Container(
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: validSelectedGate,
-                          isExpanded: true,
-                          icon: const Icon(Icons.arrow_drop_down_rounded, size: 18, color: const Color(0xFF64748B)),
-                          items: gates.map((g) {
-                            return DropdownMenuItem<String>(
-                              value: g.id,
-                              child: Text(
-                                '🚪 ${g.name}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontFamily: NexoraTokens.fontFamilySans,
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: NexoraTokens.ink,
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              HapticFeedback.selectionClick();
-                              final gateState = MqttService().getDeviceState(val);
-                              setState(() {
-                                _selectedGateId = val;
-                                if (gateState != null) {
-                                  _isGateOpen = gateState.state;
-                                }
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(width: 6),
-
-              // ── Tombol Buka / Kunci Gerbang ──
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                height: 36,
-                decoration: BoxDecoration(
-                  gradient: _isGateOpen
-                      ? const LinearGradient(
-                          colors: [Color(0xFF059669), Color(0xFF047857)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        )
-                      : const LinearGradient(
-                          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (_isGateOpen
-                              ? const Color(0xFF059669)
-                              : const Color(0xFF0F172A))
-                          .withOpacity(0.25),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                // Judul Status Kamera
+                Text(
+                  isConnecting ? 'Menghubungkan RTSP...' : 'Kamera CCTV Offline',
+                  style: const TextStyle(
+                    fontFamily: NexoraTokens.fontFamilySans,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: -0.2,
+                  ),
                 ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: _isGateLoading ? null : _toggleGate,
-                    borderRadius: BorderRadius.circular(10),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                const SizedBox(height: 2),
+
+                // Subtitle Alamat RTSP
+                Text(
+                  isConnecting
+                      ? 'Menunggu sinyal video...'
+                      : 'Stream belum aktif • ${cam.onvifHost}:${cam.onvifPort}',
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF94A3B8).withOpacity(0.9),
+                  ),
+                ),
+                const SizedBox(height: 6),
+
+                // Tombol Coba Sambungkan jika tidak sedang connecting
+                if (!isConnecting)
+                  InkWell(
+                    onTap: _manualRefresh,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withOpacity(0.15)),
+                      ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _isGateLoading
-                              ? const SizedBox(
-                                  width: 12,
-                                  height: 12,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation(Colors.white),
-                                  ),
-                                )
-                              : Icon(
-                                  _isGateOpen
-                                      ? Icons.lock_open_rounded
-                                      : Icons.lock_rounded,
-                                  size: 13,
-                                  color: Colors.white,
-                                ),
-                          const SizedBox(width: 4),
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.refresh_rounded, size: 11, color: Color(0xFF38BDF8)),
+                          SizedBox(width: 4),
                           Text(
-                            _isGateLoading
-                                ? '...'
-                                : _isGateOpen
-                                    ? (lang.isIndonesian ? 'Kunci' : 'Lock')
-                                    : (lang.isIndonesian ? 'Buka' : 'Open'),
-                            style: const TextStyle(
+                            'Coba Sambungkan',
+                            style: TextStyle(
                               fontFamily: NexoraTokens.fontFamilySans,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w600,
                               color: Colors.white,
                             ),
                           ),
@@ -990,9 +1232,76 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                       ),
                     ),
                   ),
+              ],
+            ),
+          ),
+
+          // Overlay Atas: Badge Status STANDBY / CONNECTING + Jam Detik Realtime
+          Positioned(
+            top: 8,
+            left: 10,
+            right: 10,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.45),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.circle,
+                        size: 6,
+                        color: isConnecting ? const Color(0xFFF59E0B) : const Color(0xFF94A3B8),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isConnecting ? 'CONNECTING...' : 'STANDBY',
+                        style: const TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFE2E8F0),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.45),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    _timestamp,
+                    style: const TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFE2E8F0),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Tombol Expand Fullscreen di Pojok Kanan Bawah Viewport
+          Positioned(
+            bottom: 6,
+            right: 6,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.45),
+                shape: BoxShape.circle,
               ),
-            ],
+              child: const Icon(Icons.fullscreen_rounded, size: 16, color: Colors.white70),
+            ),
           ),
         ],
       ),
@@ -1000,32 +1309,24 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
   }
 }
 
-/// Canvas Painter simulasi kamera pengawas gerbang saat loading
-class _CctvCardViewportPainter extends CustomPainter {
+/// Canvas Painter grid monitor teknikal berlatar abu-abu untuk kamera CCTV offline
+class _CctvGridBackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final skyPaint = Paint()..color = const Color(0xFF1E293B);
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height * 0.45), skyPaint);
+    final gridPaint = Paint()
+      ..color = Colors.white.withOpacity(0.04)
+      ..strokeWidth = 1.0;
 
-    final roadPaint = Paint()..color = const Color(0xFF334155);
-    final path = Path()
-      ..moveTo(size.width * 0.25, size.height)
-      ..lineTo(size.width * 0.45, size.height * 0.45)
-      ..lineTo(size.width * 0.55, size.height * 0.45)
-      ..lineTo(size.width * 0.75, size.height)
-      ..close();
-    canvas.drawPath(path, roadPaint);
-
-    final gatePaint = Paint()
-      ..color = const Color(0xFFE2E8F0).withOpacity(0.3)
-      ..strokeWidth = 1.5;
-
-    canvas.drawLine(Offset(size.width * 0.15, size.height * 0.25), Offset(size.width * 0.15, size.height * 0.85), gatePaint..strokeWidth = 2.5);
-    canvas.drawLine(Offset(size.width * 0.85, size.height * 0.25), Offset(size.width * 0.85, size.height * 0.85), gatePaint..strokeWidth = 2.5);
-    canvas.drawLine(Offset(size.width * 0.15, size.height * 0.40), Offset(size.width * 0.85, size.height * 0.40), gatePaint..strokeWidth = 1.5);
-    canvas.drawLine(Offset(size.width * 0.15, size.height * 0.75), Offset(size.width * 0.85, size.height * 0.75), gatePaint..strokeWidth = 1.5);
+    const step = 24.0;
+    for (double y = step; y < size.height; y += step) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+    for (double x = step; x < size.width; x += step) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
+    }
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+

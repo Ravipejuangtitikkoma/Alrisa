@@ -166,15 +166,11 @@ class _RoomsViewState extends State<RoomsView> {
       device.isActive = nextState;
     });
 
-    if (MqttService().isConnected) {
-      MqttService().publishSet(
-        device.id,
-        state: nextState,
-        value: device.value.round(),
-      );
-    } else {
-      showOfflineWarning(context, device.name.toLowerCase());
-    }
+    MqttService().publishSet(
+      device.id,
+      state: nextState,
+      value: device.value.round(),
+    );
   }
 
   @override
@@ -231,12 +227,8 @@ class _RoomsViewState extends State<RoomsView> {
                   }
                 });
 
-                if (MqttService().isConnected) {
-                  for (var d in filteredDevices) {
-                    MqttService().publishSet(d.id, state: targetState, value: d.value.round());
-                  }
-                } else {
-                  showOfflineWarning(context, 'perangkat');
+                for (var d in filteredDevices) {
+                  MqttService().publishSet(d.id, state: targetState, value: d.value.round());
                 }
 
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -591,26 +583,34 @@ class _RoomsViewState extends State<RoomsView> {
             ),
           ],
 
-          // Jika Pagar / Gerbang -> Berikan Tombol Cepat Buka / Tutup
+          // Jika Pagar / Gerbang -> Berikan Tombol Cepat Buka / Kunci
           if (isGate) ...[
             const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: ElevatedButton.icon(
                     onPressed: () {
                       HapticFeedback.mediumImpact();
                       setState(() => dev.isActive = true);
-                      if (MqttService().isConnected) {
-                        MqttService().publishSet(dev.id, state: true);
-                      } else {
-                        showOfflineWarning(context, dev.name.toLowerCase());
-                      }
+                      MqttService().publishSet(dev.id, state: true);
                     },
-                    icon: const Icon(Icons.lock_open_rounded, size: 14),
-                    label: const Text('Buka', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                    style: OutlinedButton.styleFrom(
-                      primary: dev.isActive ? NexoraTokens.brandCyan : NexoraTokens.inkSecondary,
+                    icon: Icon(
+                      Icons.lock_open_rounded,
+                      size: 14,
+                      color: dev.isActive ? Colors.white : NexoraTokens.inkSecondary,
+                    ),
+                    label: Text(
+                      'Buka',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: dev.isActive ? Colors.white : NexoraTokens.ink,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      primary: dev.isActive ? NexoraTokens.brandCyan : Colors.white,
+                      elevation: dev.isActive ? 2 : 0,
                       side: BorderSide(
                         color: dev.isActive ? NexoraTokens.brandCyan : NexoraTokens.cardBorder,
                       ),
@@ -621,20 +621,100 @@ class _RoomsViewState extends State<RoomsView> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: ElevatedButton.icon(
                     onPressed: () {
                       HapticFeedback.mediumImpact();
                       setState(() => dev.isActive = false);
-                      if (MqttService().isConnected) {
-                        MqttService().publishSet(dev.id, state: false);
-                      } else {
-                        showOfflineWarning(context, dev.name.toLowerCase());
-                      }
+                      MqttService().publishSet(dev.id, state: false);
                     },
-                    icon: const Icon(Icons.lock_rounded, size: 14),
-                    label: const Text('Kunci', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                    style: OutlinedButton.styleFrom(
-                      primary: !dev.isActive ? NexoraTokens.ink : NexoraTokens.inkSecondary,
+                    icon: Icon(
+                      Icons.lock_rounded,
+                      size: 14,
+                      color: !dev.isActive ? Colors.white : NexoraTokens.inkSecondary,
+                    ),
+                    label: Text(
+                      'Kunci',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: !dev.isActive ? Colors.white : NexoraTokens.ink,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      primary: !dev.isActive ? NexoraTokens.ink : Colors.white,
+                      elevation: !dev.isActive ? 2 : 0,
+                      side: BorderSide(
+                        color: !dev.isActive ? NexoraTokens.ink : NexoraTokens.cardBorder,
+                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          // Jika Gorden -> Berikan Tombol Cepat Buka / Tutup
+          if (dev.type == DeviceType.curtain) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      setState(() => dev.isActive = true);
+                      MqttService().publishSet(dev.id, state: true);
+                    },
+                    icon: Icon(
+                      Icons.meeting_room_outlined,
+                      size: 14,
+                      color: dev.isActive ? Colors.white : NexoraTokens.inkSecondary,
+                    ),
+                    label: Text(
+                      'Buka',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: dev.isActive ? Colors.white : NexoraTokens.ink,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      primary: dev.isActive ? NexoraTokens.brandCyan : Colors.white,
+                      elevation: dev.isActive ? 2 : 0,
+                      side: BorderSide(
+                        color: dev.isActive ? NexoraTokens.brandCyan : NexoraTokens.cardBorder,
+                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      setState(() => dev.isActive = false);
+                      MqttService().publishSet(dev.id, state: false);
+                    },
+                    icon: Icon(
+                      Icons.door_sliding_outlined,
+                      size: 14,
+                      color: !dev.isActive ? Colors.white : NexoraTokens.inkSecondary,
+                    ),
+                    label: Text(
+                      'Tutup',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: !dev.isActive ? Colors.white : NexoraTokens.ink,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      primary: !dev.isActive ? NexoraTokens.ink : Colors.white,
+                      elevation: !dev.isActive ? 2 : 0,
                       side: BorderSide(
                         color: !dev.isActive ? NexoraTokens.ink : NexoraTokens.cardBorder,
                       ),
