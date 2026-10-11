@@ -19,7 +19,7 @@ class PillNav extends StatelessWidget {
     return [
       {'title': lang.tr('nav_home'), 'icon': Icons.home_outlined},
       {'title': lang.tr('nav_rooms'), 'icon': Icons.grid_view_outlined},
-      {'title': lang.tr('nav_energy'), 'icon': Icons.bolt_outlined},
+      {'title': lang.tr('nav_presets'), 'icon': Icons.tune_rounded},
       {'title': lang.tr('nav_settings'), 'icon': Icons.settings_outlined},
     ];
   }

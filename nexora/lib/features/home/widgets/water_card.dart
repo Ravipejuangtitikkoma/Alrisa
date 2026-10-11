@@ -4,11 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nexora/core/design_tokens.dart';
 import 'package:nexora/services/mqtt_service.dart';
-
 import 'package:nexora/services/device_manager_service.dart';
 import 'package:nexora/features/water_level/presentation/screens/water_level_screen.dart';
 
-/// Kartu Sedang Pompa Toren dengan Gelombang Air Animasi 82%
+/// Kartu Sedang Pompa Air Dinamis dengan Gelombang Air Animasi (Mendukung Multi-Pompa)
 class WaterCard extends StatefulWidget {
   final bool initialActive;
   final ValueChanged<bool>? onActiveChanged;
@@ -24,69 +23,90 @@ class WaterCard extends StatefulWidget {
 }
 
 class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMixin {
-  late bool _isActive;
   late AnimationController _waveController;
   final double _waterLevel = 0.82; // 82%
+  late PageController _pageController;
+  int _currentIndex = 0;
+
+  List<CustomDeviceItem> _pumps = [];
   StreamSubscription<DeviceStateEvent>? _mqttSub;
   StreamSubscription<List<CustomDeviceItem>>? _deviceSub;
 
   @override
   void initState() {
     super.initState();
-    _isActive = widget.initialActive;
+    _pageController = PageController();
 
-    final initialPayload = MqttService().getDeviceState('pompa_toren');
-    final initialDev = DeviceManagerService().getDevice('pompa_toren');
-    if (initialPayload != null) {
-      _isActive = initialPayload.state;
-    } else if (initialDev != null) {
-      _isActive = initialDev.isActive;
-    }
-
-    _mqttSub = MqttService().stateStream.listen((event) {
-      if (event.deviceId == 'pompa_toren' && mounted) {
-        setState(() {
-          _isActive = event.payload.state;
-        });
-      }
-    });
-
-    _deviceSub = DeviceManagerService().devicesStream.listen((devs) {
-      if (!mounted) return;
-      try {
-        final d = devs.firstWhere((item) => item.id == 'pompa_toren');
-        if (_isActive != d.isActive) {
-          setState(() => _isActive = d.isActive);
-        }
-      } catch (_) {}
-    });
+    _loadPumps();
 
     _waveController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2400),
     )..repeat();
+
+    _mqttSub = MqttService().stateStream.listen((event) {
+      if (!mounted) return;
+      bool matched = false;
+      for (var p in _pumps) {
+        if (p.id == event.deviceId) {
+          p.isActive = event.payload.state;
+          matched = true;
+        }
+      }
+      if (matched) {
+        setState(() {});
+      }
+    });
+
+    _deviceSub = DeviceManagerService().devicesStream.listen((_) {
+      if (!mounted) return;
+      _loadPumps();
+    });
+  }
+
+  void _loadPumps() {
+    final devPumps = DeviceManagerService().waterPumps;
+    setState(() {
+      if (devPumps.isNotEmpty) {
+        _pumps = List.from(devPumps);
+      } else {
+        _pumps = [
+          CustomDeviceItem(
+            id: 'pompa_toren',
+            name: 'Pompa Toren',
+            type: DeviceType.waterPump,
+            isActive: true,
+            hardwarePin: 'GPIO 19 (%QX0.4)',
+          ),
+        ];
+      }
+      if (_currentIndex >= _pumps.length) {
+        _currentIndex = math.max(0, _pumps.length - 1);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _pageController.dispose();
     _deviceSub?.cancel();
     _mqttSub?.cancel();
     _waveController.dispose();
     super.dispose();
   }
 
-  void _togglePump() {
+  void _togglePump(CustomDeviceItem pump) {
     HapticFeedback.lightImpact();
-    final nextState = !_isActive;
+    final nextState = !pump.isActive;
 
     setState(() {
-      _isActive = nextState;
+      pump.isActive = nextState;
     });
-    widget.onActiveChanged?.call(_isActive);
+    widget.onActiveChanged?.call(nextState);
 
-    MqttService().publishSet('pompa_toren', state: nextState);
+    MqttService().publishSet(pump.id, state: nextState);
     DeviceManagerService().updateState(
-      'pompa_toren',
+      pump.id,
       isActive: nextState,
       statusText: nextState ? 'Mengalir' : 'Mati',
     );
@@ -102,6 +122,39 @@ class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
+    if (_pumps.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    if (_pumps.length == 1) {
+      return _buildPumpCard(_pumps[0], showDots: false);
+    }
+
+    return Stack(
+      children: [
+        SizedBox(
+          height: 196,
+          child: PageView.builder(
+            controller: _pageController,
+            physics: const BouncingScrollPhysics(),
+            itemCount: _pumps.length,
+            onPageChanged: (idx) {
+              setState(() {
+                _currentIndex = idx;
+              });
+            },
+            itemBuilder: (context, index) {
+              return _buildPumpCard(_pumps[index], showDots: true);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPumpCard(CustomDeviceItem pump, {required bool showDots}) {
+    final bool isActive = pump.isActive;
+
     return GestureDetector(
       onTap: _openWaterDetails,
       child: AnimatedContainer(
@@ -109,13 +162,13 @@ class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMix
         curve: Curves.easeOutCubic,
         height: 196,
         decoration: BoxDecoration(
-          color: _isActive ? NexoraTokens.brandCyanSubtle : NexoraTokens.surface,
+          color: isActive ? NexoraTokens.brandCyanSubtle : NexoraTokens.surface,
           borderRadius: NexoraTokens.borderRadiusCard,
           border: Border.all(
-            color: _isActive ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
-            width: _isActive ? 1.5 : 1.0,
+            color: isActive ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
+            width: isActive ? 1.5 : 1.0,
           ),
-          boxShadow: _isActive
+          boxShadow: isActive
               ? NexoraTokens.cardShadowActive(NexoraTokens.brandCyan)
               : NexoraTokens.cardShadow,
         ),
@@ -129,24 +182,26 @@ class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMix
                 right: 0,
                 bottom: 0,
                 height: 196 * _waterLevel,
-                child: AnimatedBuilder(
-                  animation: _waveController,
-                  builder: (context, child) {
-                    return CustomPaint(
-                      painter: _SmoothWavePainter(
-                        progress: _waveController.value,
-                        waterColor: _isActive
-                            ? const Color(0xFFC7ECF9).withOpacity(0.55)
-                            : const Color(0xFFE2E8F0).withOpacity(0.4),
-                      ),
-                    );
-                  },
+                child: RepaintBoundary(
+                  child: AnimatedBuilder(
+                    animation: _waveController,
+                    builder: (context, child) {
+                      return CustomPaint(
+                        painter: _SmoothWavePainter(
+                          progress: _waveController.value,
+                          waterColor: isActive
+                              ? const Color(0xFFC7ECF9).withOpacity(0.55)
+                              : const Color(0xFFE2E8F0).withOpacity(0.4),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
 
               // Konten Teks & Kontrol
               Padding(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -165,28 +220,48 @@ class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMix
                           child: Icon(
                             Icons.opacity,
                             size: 18,
-                            color: _isActive ? NexoraTokens.brandCyan : NexoraTokens.inkMuted,
+                            color: isActive ? NexoraTokens.brandCyan : NexoraTokens.inkMuted,
                           ),
                         ),
-                        GestureDetector(
-                          onTap: _togglePump,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: NexoraTokens.cardBorder),
-                            ),
-                            child: Text(
-                              _isActive ? 'Mengalir' : 'Siaga',
-                              style: TextStyle(
-                                fontFamily: NexoraTokens.fontFamilySans,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: _isActive ? NexoraTokens.brandCyan : NexoraTokens.statusGray,
+                        Row(
+                          children: [
+                            if (showDots) ...[
+                              Row(
+                                children: List.generate(_pumps.length, (i) {
+                                  return Container(
+                                    margin: const EdgeInsets.only(right: 3),
+                                    width: i == _currentIndex ? 10 : 4,
+                                    height: 4,
+                                    decoration: BoxDecoration(
+                                      color: i == _currentIndex ? NexoraTokens.brandCyan : Colors.grey.shade300,
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  );
+                                }),
+                              ),
+                              const SizedBox(width: 6),
+                            ],
+                            GestureDetector(
+                              onTap: () => _togglePump(pump),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: NexoraTokens.cardBorder),
+                                ),
+                                child: Text(
+                                  isActive ? 'Mengalir' : 'Siaga',
+                                  style: TextStyle(
+                                    fontFamily: NexoraTokens.fontFamilySans,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: isActive ? NexoraTokens.brandCyan : NexoraTokens.statusGray,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ),
                       ],
                     ),
@@ -197,42 +272,48 @@ class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMix
                       children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: const [
-                            Text(
-                              'Pompa Toren',
-                              style: TextStyle(
-                                fontFamily: NexoraTokens.fontFamilySans,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: NexoraTokens.ink,
-                                letterSpacing: -0.2,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                pump.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: NexoraTokens.fontFamilySans,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: NexoraTokens.ink,
+                                  letterSpacing: -0.2,
+                                ),
                               ),
                             ),
-                            Icon(
+                            const Icon(
                               Icons.arrow_forward_ios_rounded,
-                              size: 12,
+                              size: 11,
                               color: NexoraTokens.inkMuted,
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Row(
                           children: [
                             Text(
                               'Penuh 82%',
                               style: TextStyle(
                                 fontFamily: NexoraTokens.fontFamilySans,
-                                fontSize: 13,
+                                fontSize: 12.5,
                                 fontWeight: FontWeight.w800,
-                                color: _isActive ? NexoraTokens.brandCyan : NexoraTokens.inkSecondary,
+                                color: isActive ? NexoraTokens.brandCyan : NexoraTokens.inkSecondary,
                               ),
                             ),
                             const SizedBox(width: 6),
-                            const Text(
-                              '• 820 L',
-                              style: TextStyle(
+                            Text(
+                              '• ${pump.hardwarePin}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
                                 fontFamily: NexoraTokens.fontFamilySans,
-                                fontSize: 11,
+                                fontSize: 10.5,
                                 fontWeight: FontWeight.w500,
                                 color: NexoraTokens.inkMuted,
                               ),

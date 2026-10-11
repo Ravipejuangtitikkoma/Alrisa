@@ -19,6 +19,20 @@ class RoomCategory {
   });
 }
 
+class _DeviceSectionGroup {
+  final String title;
+  final IconData icon;
+  final Color accentColor;
+  final List<CustomDeviceItem> devices;
+
+  _DeviceSectionGroup({
+    required this.title,
+    required this.icon,
+    required this.accentColor,
+    required this.devices,
+  });
+}
+
 class RoomsView extends StatefulWidget {
   const RoomsView({Key? key}) : super(key: key);
 
@@ -353,7 +367,7 @@ class _RoomsViewState extends State<RoomsView> {
 
         const SizedBox(height: 20),
 
-        // 3. Grid Kartu Perangkat
+        // 3. Grid Kartu Perangkat Berdasarkan Seksi Berurutan (Lampu, Gerbang, Pintu, Gorden, Pompa, AC)
         if (filteredDevices.isEmpty)
           Container(
             width: double.infinity,
@@ -380,17 +394,138 @@ class _RoomsViewState extends State<RoomsView> {
             ),
           )
         else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: filteredDevices.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final dev = filteredDevices[index];
-              return _buildDeviceCard(dev);
-            },
-          ),
+          ..._buildGroupedSections(filteredDevices),
       ],
+    );
+  }
+
+  List<Widget> _buildGroupedSections(List<CustomDeviceItem> filteredDevices) {
+    final lights = filteredDevices.where((d) => d.type == DeviceType.light && d.id != 'ac_kamar').toList();
+    final gates = filteredDevices.where((d) => d.type == DeviceType.gate).toList();
+    final slidingDoors = filteredDevices.where((d) => d.type == DeviceType.slidingDoor).toList();
+    final curtains = filteredDevices.where((d) => d.type == DeviceType.curtain).toList();
+    final waterPumps = filteredDevices.where((d) => d.type == DeviceType.waterPump).toList();
+    final climates = filteredDevices.where((d) => d.id == 'ac_kamar').toList();
+
+    final sections = [
+      if (lights.isNotEmpty)
+        _DeviceSectionGroup(
+          title: 'Lampu Pintar',
+          icon: Icons.lightbulb_outline_rounded,
+          accentColor: const Color(0xFFEAB308),
+          devices: lights,
+        ),
+      if (gates.isNotEmpty)
+        _DeviceSectionGroup(
+          title: 'Gerbang & Pagar Otomatis',
+          icon: Icons.fence_rounded,
+          accentColor: NexoraTokens.brandCyan,
+          devices: gates,
+        ),
+      if (slidingDoors.isNotEmpty)
+        _DeviceSectionGroup(
+          title: 'Pintu Geser',
+          icon: Icons.meeting_room_outlined,
+          accentColor: const Color(0xFF8B5CF6),
+          devices: slidingDoors,
+        ),
+      if (curtains.isNotEmpty)
+        _DeviceSectionGroup(
+          title: 'Gorden Otomatis',
+          icon: Icons.view_column_outlined,
+          accentColor: const Color(0xFFEC4899),
+          devices: curtains,
+        ),
+      if (waterPumps.isNotEmpty)
+        _DeviceSectionGroup(
+          title: 'Pompa Air & Toren',
+          icon: Icons.opacity_rounded,
+          accentColor: const Color(0xFF0EA5E9),
+          devices: waterPumps,
+        ),
+      if (climates.isNotEmpty)
+        _DeviceSectionGroup(
+          title: 'Kontrol Suhu & AC',
+          icon: Icons.ac_unit_rounded,
+          accentColor: const Color(0xFF06B6D4),
+          devices: climates,
+        ),
+    ];
+
+    return sections.map((sec) => _buildDeviceSection(sec)).toList();
+  }
+
+  Widget _buildDeviceSection(_DeviceSectionGroup section) {
+    final activeCount = section.devices.where((d) => d.isActive).length;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Seksi Kategori
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: section.accentColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        section.icon,
+                        size: 15,
+                        color: section.accentColor,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      section.title.toUpperCase(),
+                      style: const TextStyle(
+                        fontFamily: NexoraTokens.fontFamilySans,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: NexoraTokens.inkSecondary,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: activeCount > 0
+                        ? section.accentColor.withOpacity(0.12)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$activeCount/${section.devices.length} Aktif',
+                    style: TextStyle(
+                      fontFamily: NexoraTokens.fontFamilySans,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: activeCount > 0 ? section.accentColor : NexoraTokens.inkMuted,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Daftar Perangkat Dalam Seksi Ini
+          ...section.devices.map((dev) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildDeviceCard(dev),
+              )),
+        ],
+      ),
     );
   }
 

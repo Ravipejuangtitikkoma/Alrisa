@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:nexora/core/design_tokens.dart';
 import 'package:nexora/services/weather_service.dart';
 import 'package:nexora/services/language_service.dart';
+import 'package:nexora/services/auth_service.dart';
+import 'package:nexora/services/preset_manager_service.dart';
+import 'package:nexora/features/home/widgets/quick_add_device_sheet.dart';
 
 /// Ambient Header: Sapaan editorial kontras putih tajam di atas langit pekat atmosferik
 class AmbientHeader extends StatelessWidget {
@@ -13,6 +16,7 @@ class AmbientHeader extends StatelessWidget {
   final String? weatherDesc;
   final String? locationName;
   final VoidCallback? onWeatherTap;
+  final VoidCallback? onAddTap;
 
   const AmbientHeader({
     Key? key,
@@ -23,6 +27,7 @@ class AmbientHeader extends StatelessWidget {
     this.weatherDesc,
     this.locationName,
     this.onWeatherTap,
+    this.onAddTap,
   }) : super(key: key);
 
   String _getGreeting() {
@@ -58,7 +63,7 @@ class AmbientHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 0. TOP ROW: SWITCH BAHASA (DI PALING ATAS SEBELAH KIRI)
+        // 0. TOP ROW: SWITCH BAHASA (KIRI) & TOMBOL CEPAT TAMBAH PERANGKAT (KANAN)
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -129,6 +134,56 @@ class AmbientHeader extends StatelessWidget {
                 ),
               ),
             ),
+
+            // Tombol Cepat Tambah Perangkat '+' (Paling Atas Sebelah Kanan)
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                if (onAddTap != null) {
+                  onAddTap!();
+                } else {
+                  QuickAddDeviceSheet.show(context);
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.24),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.45),
+                    width: 1.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.add_rounded,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isEn ? 'Add' : 'Tambah',
+                      style: const TextStyle(
+                        fontFamily: NexoraTokens.fontFamilySans,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
 
@@ -140,37 +195,133 @@ class AmbientHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: RichText(
-                text: TextSpan(
-                  children: [
-                    TextSpan(
-                      text: _getGreeting(),
-                      style: NexoraTokens.greetingText.copyWith(
-                        color: Colors.white,
-                        shadows: const [
-                          Shadow(
-                            color: Colors.black38,
-                            blurRadius: 10,
-                            offset: Offset(0, 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: _getGreeting(),
+                          style: NexoraTokens.greetingText.copyWith(
+                            color: Colors.white,
+                            shadows: const [
+                              Shadow(
+                                color: Colors.black38,
+                                blurRadius: 10,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                    TextSpan(
-                      text: '$userName.',
-                      style: NexoraTokens.greetingAccent.copyWith(
-                        color: Colors.white,
-                        shadows: const [
-                          Shadow(
-                            color: Colors.black38,
-                            blurRadius: 10,
-                            offset: Offset(0, 2),
+                        ),
+                        TextSpan(
+                          text: '${AuthService().isLoggedIn ? AuthService().currentUserName : userName}.',
+                          style: NexoraTokens.greetingAccent.copyWith(
+                            color: Colors.white,
+                            shadows: const [
+                              Shadow(
+                                color: Colors.black38,
+                                blurRadius: 10,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 5),
+                  // Row Badge: Super Admin + Mode Rumah Live (Preset / Manual)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Badge Role
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AuthService().isSuperAdmin
+                              ? Colors.purple.withOpacity(0.4)
+                              : Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: AuthService().isSuperAdmin
+                                ? Colors.purpleAccent.withOpacity(0.6)
+                                : Colors.white38,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              AuthService().isSuperAdmin ? Icons.stars_rounded : Icons.person_rounded,
+                              size: 12,
+                              color: AuthService().isSuperAdmin ? Colors.amberAccent : Colors.white,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              AuthService().isSuperAdmin ? 'ADMIN' : 'USER',
+                              style: TextStyle(
+                                fontFamily: NexoraTokens.fontFamilySans,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                                color: AuthService().isSuperAdmin ? Colors.amberAccent : Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      // Indicator Mode Rumah Aktif Live (Mode Santai / Mode Keluar / Mode Manual)
+                      StreamBuilder<String>(
+                        stream: PresetManagerService().activeModeStream,
+                        initialData: PresetManagerService().activeModeName,
+                        builder: (context, snap) {
+                          final modeName = snap.data ?? 'Mode Manual';
+                          final isManual = modeName == 'Mode Manual';
+                          final modeColor = isManual ? Colors.white70 : const Color(0xFF34D399);
+
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: isManual ? Colors.black.withOpacity(0.25) : const Color(0xFF064E3B).withOpacity(0.65),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isManual ? Colors.white24 : const Color(0xFF34D399).withOpacity(0.5),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: modeColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  modeName.toUpperCase(),
+                                  style: TextStyle(
+                                    fontFamily: NexoraTokens.fontFamilySans,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.6,
+                                    color: modeColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
 

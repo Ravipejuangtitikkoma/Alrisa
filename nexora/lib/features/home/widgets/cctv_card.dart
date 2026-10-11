@@ -86,17 +86,18 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
     });
   }
 
+  int _playerEpoch = 0;
+
   @override
   void didUpdateWidget(covariant CctvCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.camera.rtspUrl != widget.camera.rtspUrl) {
-      _initVlcPlayer();
+      _refreshStream();
     }
   }
 
   void _manualRefresh() {
     HapticFeedback.mediumImpact();
-    _initVlcPlayer();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
@@ -114,14 +115,13 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
         duration: const Duration(seconds: 1),
       ),
     );
+    _refreshStream();
   }
 
-  void _initVlcPlayer() {
+  Future<void> _refreshStream() async {
+    if (!mounted) return;
     _connectTimeoutTimer?.cancel();
 
-    // Lepas controller lama dari widget tree terlebih dahulu untuk mencegah duplikasi texture Android
-    final oldController = _vlcViewController;
-    _vlcViewController = null;
     if (mounted) {
       setState(() {
         _isConnecting = true;
@@ -129,6 +129,44 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
       });
     }
 
+    // Jika controller sudah aktif terpasang di AndroidView, ganti media via setMediaFromNetwork
+    // agar TextureView/SurfaceView Android tidak dihancurkan dan dibuat ulang (mencegah bug duplikasi viewport)
+    if (_vlcViewController != null) {
+      try {
+        await _vlcViewController!.stop();
+        await _vlcViewController!.setMediaFromNetwork(
+          widget.camera.rtspUrl.trim(),
+          autoPlay: true,
+          hwAcc: HwAcc.auto,
+        );
+        _startTimeoutTimer();
+        return;
+      } catch (_) {
+        // Jika gagal, buat ulang controller dari awal
+      }
+    }
+
+    _initVlcPlayer();
+  }
+
+  void _startTimeoutTimer() {
+    _connectTimeoutTimer?.cancel();
+    _connectTimeoutTimer = Timer(const Duration(milliseconds: 15000), () {
+      if (mounted && !_isStreamOnline) {
+        setState(() {
+          _isConnecting = false;
+        });
+      }
+    });
+  }
+
+  void _initVlcPlayer() {
+    if (!mounted) return;
+    _connectTimeoutTimer?.cancel();
+    _playerEpoch++;
+
+    // Lepas listener dan dispose controller lama
+    final oldController = _vlcViewController;
     try {
       oldController?.removeListener(_vlcListener);
       oldController?.stopRendererScanning();
@@ -136,36 +174,44 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
     } catch (_) {}
 
     try {
+      final url = widget.camera.rtspUrl.trim();
+      final isLocal = url.contains('192.168.') ||
+          url.contains('10.') ||
+          url.contains('127.0.0.1') ||
+          url.contains('localhost') ||
+          url.contains('172.16.');
+
+      // Cloud / Internet RTSP stream (misal rtsplink.com) butuh caching 2000ms untuk mencegah packet-drop
+      final cacheMs = isLocal ? 500 : 2000;
+
       final controller = VlcPlayerController.network(
-        widget.camera.rtspUrl,
-        hwAcc: HwAcc.full,
+        url,
+        hwAcc: HwAcc.auto, // Otomatis fallback ke software jika hardware decoding HP menolak bitstream
         autoPlay: true,
         options: VlcPlayerOptions(
           advanced: VlcAdvancedOptions([
-            VlcAdvancedOptions.networkCaching(150), // Ultra low-latency 150ms
+            VlcAdvancedOptions.networkCaching(cacheMs),
           ]),
           rtp: VlcRtpOptions([
-            VlcRtpOptions.rtpOverRtsp(true),
+            VlcRtpOptions.rtpOverRtsp(true), // TCP interleaved untuk tembus firewall/NAT internet
           ]),
         ),
       );
 
-      _vlcViewController = controller;
       controller.addListener(_vlcListener);
+      _startTimeoutTimer();
 
-      // Batas waktu timeout 3.5 detik untuk deteksi offline jika stream RTSP tidak merespons
-      _connectTimeoutTimer = Timer(const Duration(milliseconds: 3500), () {
-        if (mounted && !_isStreamOnline) {
-          setState(() {
-            _isConnecting = false;
-          });
-        }
-      });
-
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {
+          _vlcViewController = controller;
+          _isConnecting = true;
+          _isStreamOnline = false;
+        });
+      }
     } catch (_) {
       if (mounted) {
         setState(() {
+          _vlcViewController = null;
           _isConnecting = false;
           _isStreamOnline = false;
         });
@@ -177,8 +223,9 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
     if (!mounted || _vlcViewController == null) return;
     final isPlaying = _vlcViewController!.value.isPlaying;
     final hasError = _vlcViewController!.value.hasError;
+    final position = _vlcViewController!.value.position;
 
-    if (isPlaying && !_isStreamOnline) {
+    if ((isPlaying || position > Duration.zero) && !_isStreamOnline) {
       _connectTimeoutTimer?.cancel();
       setState(() {
         _isStreamOnline = true;
@@ -378,19 +425,39 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                   ),
                   const SizedBox(height: 14),
 
-                  // IP Address & Port
+                  // URL Lengkap RTSP Stream (Prioritas Utama)
+                  _buildTextField(
+                    controller: urlController,
+                    label: 'URL Stream RTSP Lengkap (Lokal / Cloud Internet)',
+                    hint: 'rtsp://rtsp.rtsplink.com/live/... atau rtsp://192.168.0.104:8554/',
+                    icon: Icons.link_rounded,
+                    onChanged: (val) {
+                      try {
+                        final uri = Uri.parse(val.trim());
+                        if (uri.host.isNotEmpty) {
+                          ipController.text = uri.host;
+                          portController.text = uri.hasPort && uri.port != 0 ? uri.port.toString() : '554';
+                        }
+                      } catch (_) {}
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // IP / Host Address & Port
                   Row(
                     children: [
                       Expanded(
                         flex: 3,
                         child: _buildTextField(
                           controller: ipController,
-                          label: 'Alamat IP Kamera / HP',
-                          hint: 'Contoh: 192.168.0.104',
+                          label: 'Host / IP Kamera',
+                          hint: 'Contoh: rtsp.rtsplink.com / 192.168.0.104',
                           icon: Icons.wifi_rounded,
                           onChanged: (val) {
-                            final port = portController.text.trim();
-                            urlController.text = 'rtsp://${val.trim()}:$port/';
+                            if (urlController.text.isEmpty) {
+                              final port = portController.text.trim().isNotEmpty ? portController.text.trim() : '554';
+                              urlController.text = 'rtsp://${val.trim()}:$port/';
+                            }
                           },
                         ),
                       ),
@@ -399,25 +466,12 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                         flex: 2,
                         child: _buildTextField(
                           controller: portController,
-                          label: 'Port (RTSP)',
-                          hint: '8554 / 554',
+                          label: 'Port RTSP',
+                          hint: '554 / 8554',
                           icon: Icons.tag_rounded,
-                          onChanged: (val) {
-                            final ip = ipController.text.trim();
-                            urlController.text = 'rtsp://$ip:${val.trim()}/';
-                          },
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // URL Lengkap RTSP Stream
-                  _buildTextField(
-                    controller: urlController,
-                    label: 'URL Stream RTSP Lengkap',
-                    hint: 'rtsp://192.168.0.104:8554/',
-                    icon: Icons.link_rounded,
                   ),
                   const SizedBox(height: 12),
 
@@ -451,11 +505,21 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                     child: ElevatedButton.icon(
                       onPressed: () {
                         HapticFeedback.heavyImpact();
-                        final ip = ipController.text.trim();
-                        final port = int.tryParse(portController.text.trim()) ?? 8554;
                         final url = urlController.text.trim();
+                        String ip = ipController.text.trim();
+                        int port = int.tryParse(portController.text.trim()) ?? 554;
                         final name = nameController.text.trim();
                         final loc = locationController.text.trim();
+
+                        if (ip.isEmpty && url.isNotEmpty) {
+                          try {
+                            final uri = Uri.parse(url);
+                            if (uri.host.isNotEmpty) ip = uri.host;
+                            if (uri.hasPort && uri.port != 0) port = uri.port;
+                          } catch (_) {}
+                        }
+
+                        Navigator.of(context).pop();
 
                         CctvManagerService().updateCamera(
                           widget.camera.id,
@@ -466,17 +530,16 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                           rtspUrl: url.isNotEmpty ? url : null,
                         );
 
-                        Navigator.pop(context);
-                        _initVlcPlayer();
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            behavior: SnackBarBehavior.floating,
-                            backgroundColor: const Color(0xFF059669),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            content: const Text('✅ Konfigurasi CCTV berhasil diperbarui!'),
-                          ),
-                        );
+                        if (mounted) {
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(
+                              behavior: SnackBarBehavior.floating,
+                              backgroundColor: const Color(0xFF059669),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              content: const Text('✅ Konfigurasi CCTV berhasil diperbarui!'),
+                            ),
+                          );
+                        }
                       },
                       icon: const Icon(Icons.check_circle_rounded, size: 18),
                       label: const Text('Simpan & Terapkan Stream'),
@@ -701,9 +764,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                 borderRadius: BorderRadius.circular(14),
                 child: AspectRatio(
                   aspectRatio: 16 / 9,
-                  child: (_isStreamOnline && _vlcViewController != null)
-                      ? _buildLiveViewport(cam)
-                      : _buildOfflineViewport(cam, isConnecting: _isConnecting),
+                  child: _buildVideoViewport(cam),
                 ),
               ),
             ),
@@ -995,18 +1056,30 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
     }
   }
 
-  /// Viewport saat kamera online & aktif memutar video RTSP
-  Widget _buildLiveViewport(CctvCameraItem cam) {
+  /// Viewport video: VlcPlayer selalu terpasang di widget tree jika controller ada, agar TextureView Android aktif
+  Widget _buildVideoViewport(CctvCameraItem cam) {
+    if (_vlcViewController == null) {
+      return _buildOfflineViewport(cam, isConnecting: _isConnecting);
+    }
+
     return Stack(
       fit: StackFit.expand,
       children: [
+        // 1. Native VLC Player TextureView dengan key unik per-epoch
         VlcPlayer(
+          key: ValueKey('vlc_player_${widget.camera.id}_$_playerEpoch'),
           controller: _vlcViewController!,
           aspectRatio: 16 / 9,
-          placeholder: _buildOfflineViewport(cam, isConnecting: true),
+          placeholder: Container(color: const Color(0xFF1E293B)),
         ),
 
-        // Efek Flash Shutter saat Snapshot diambil
+        // 2. Tampilan offline / loading menutupi viewport selama video belum memutar
+        if (!_isStreamOnline)
+          Positioned.fill(
+            child: _buildOfflineViewport(cam, isConnecting: _isConnecting),
+          ),
+
+        // 3. Efek Flash Shutter saat Snapshot diambil
         if (_isSnapshotTaken)
           AnimatedOpacity(
             duration: const Duration(milliseconds: 150),
@@ -1014,83 +1087,86 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
             child: Container(color: Colors.white),
           ),
 
-        // Overlay Atas: Resolusi & Jam Detik
-        Positioned(
-          top: 8,
-          left: 10,
-          right: 10,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.65),
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.videocam, size: 10, color: Color(0xFF38BDF8)),
-                    const SizedBox(width: 4),
-                    Text(
-                      cam.resolution,
-                      style: const TextStyle(
-                        fontFamily: 'JetBrains Mono',
-                        fontSize: 8,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+        // 4. Overlay status LIVE saat stream aktif
+        if (_isStreamOnline) ...[
+          // Overlay Atas: Resolusi & Jam Detik
+          Positioned(
+            top: 8,
+            left: 10,
+            right: 10,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.65),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.videocam, size: 10, color: Color(0xFF38BDF8)),
+                      const SizedBox(width: 4),
+                      Text(
+                        cam.resolution,
+                        style: const TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 8,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.65),
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Text(
-                  _timestamp,
-                  style: const TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFFE2E8F0),
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-
-        // Overlay Bawah: Badge Info Protokol RTSP & IP
-        Positioned(
-          bottom: 8,
-          left: 10,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.6),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.wifi_tethering, size: 9, color: Color(0xFF10B981)),
-                const SizedBox(width: 4),
-                Text(
-                  'RTSP • ${cam.onvifHost}:${cam.onvifPort}',
-                  style: const TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 8,
-                    color: Color(0xFF94A3B8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.65),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    _timestamp,
+                    style: const TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFE2E8F0),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-        ),
+
+          // Overlay Bawah: Badge Info Protokol RTSP & Host
+          Positioned(
+            bottom: 8,
+            left: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.wifi_tethering, size: 9, color: Color(0xFF10B981)),
+                  const SizedBox(width: 4),
+                  Text(
+                    'RTSP • ${cam.hostDisplay}',
+                    style: const TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 8,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
 
         // Tombol Expand Fullscreen di Pojok Kanan Bawah Viewport
         Positioned(

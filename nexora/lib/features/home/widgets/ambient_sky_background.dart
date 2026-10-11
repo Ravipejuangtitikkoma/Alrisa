@@ -18,15 +18,15 @@ class _AmbientSkyBackgroundState extends State<AmbientSkyBackground>
   late WeatherCondition _currentWeather;
   StreamSubscription<WeatherCondition>? _weatherSub;
 
-  // 75 Partikel hujan miring dengan berbagai kecepatan dan panjang
+  // 45 Partikel hujan miring optimal: sangat halus, tanpa beban CPU/GPU
   final List<_RainParticle> _rainParticles = List.generate(
-    75,
+    45,
     (i) => _RainParticle(
-      xPercent: (i * 0.0137) % 1.0,
-      initialY: (i * 11.3) % 480.0,
-      length: 14.0 + (i % 6) * 4.0,
-      speed: 1.6 + (i % 5) * 0.5,
-      opacity: 0.35 + (i % 4) * 0.15,
+      xPercent: (i * 0.0223) % 1.0,
+      initialY: (i * 14.3) % 480.0,
+      length: 14.0 + (i % 5) * 4.0,
+      speed: 1.6 + (i % 4) * 0.5,
+      opacity: 0.35 + (i % 3) * 0.15,
       thickness: 1.0 + (i % 3) * 0.4,
     ),
   );
@@ -93,49 +93,55 @@ class _AmbientSkyBackgroundState extends State<AmbientSkyBackground>
     return RepaintBoundary(
       child: Stack(
         children: [
-          // 1. Lapisan Awan Beneran (Fotografi Langit Nyata dengan Animasi Ken-Burns Perlahan)
+          // 1. Lapisan Awan Beneran (Fotografi Langit Nyata dengan Animasi Ken-Burns Perlahan yang di-cache child-nya)
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             height: skyHeight,
-            child: AnimatedBuilder(
-              animation: _animController,
-              builder: (context, child) {
-                final p = reduceMotion ? 0.0 : _animController.value;
-                // Gerakan mengalir sangat halus (Ken-Burns slow pan & drift)
-                final panX = math.sin(p * 2 * math.pi) * 14.0;
-                final panY = math.cos(p * 2 * math.pi) * 6.0;
-                final scale = 1.08 + (math.sin(p * 2 * math.pi) * 0.03);
+            child: RepaintBoundary(
+              child: AnimatedBuilder(
+                animation: _animController,
+                child: Image.asset(
+                  _getSkyAssetPath(_currentWeather),
+                  fit: BoxFit.cover,
+                  cacheWidth: 800, // Memory image caching hemat RAM & GPU
+                  errorBuilder: (ctx, err, stack) {
+                    return Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Color(0xFF4C6377),
+                            Color(0xFF869DAF),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                builder: (context, cachedImage) {
+                  if (reduceMotion) {
+                    return cachedImage!;
+                  }
+                  final p = _animController.value;
+                  // Gerakan mengalir Ken-Burns sangat hemat matrix
+                  final panX = math.sin(p * 2 * math.pi) * 12.0;
+                  final panY = math.cos(p * 2 * math.pi) * 5.0;
+                  final scale = 1.06 + (math.sin(p * 2 * math.pi) * 0.02);
 
-                return ClipRect(
-                  child: Transform.scale(
-                    scale: scale,
-                    child: Transform.translate(
-                      offset: Offset(panX, panY),
-                      child: Image.asset(
-                        _getSkyAssetPath(_currentWeather),
-                        fit: BoxFit.cover,
-                        errorBuilder: (ctx, err, stack) {
-                          // Fallback ke gradien jika asset belum termuat
-                          return Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  const Color(0xFF4C6377),
-                                  const Color(0xFF869DAF),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+                  return ClipRect(
+                    child: Transform.scale(
+                      scale: scale,
+                      child: Transform.translate(
+                        offset: Offset(panX, panY),
+                        child: cachedImage,
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
 
@@ -145,19 +151,21 @@ class _AmbientSkyBackgroundState extends State<AmbientSkyBackground>
             left: 0,
             right: 0,
             height: skyHeight + 2,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [0.0, 0.40, 0.72, 0.90, 1.0],
-                  colors: [
-                    Colors.black.withOpacity(0.18), // Vignette atas tipis agar teks putih sangat kontras
-                    Colors.transparent,
-                    NexoraTokens.background.withOpacity(0.40),
-                    NexoraTokens.background.withOpacity(0.85),
-                    NexoraTokens.background,
-                  ],
+            child: IgnorePointer(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: const [0.0, 0.40, 0.72, 0.90, 1.0],
+                    colors: [
+                      Colors.black.withOpacity(0.18),
+                      Colors.transparent,
+                      NexoraTokens.background.withOpacity(0.40),
+                      NexoraTokens.background.withOpacity(0.85),
+                      NexoraTokens.background,
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -169,19 +177,21 @@ class _AmbientSkyBackgroundState extends State<AmbientSkyBackground>
             left: 0,
             right: 0,
             height: skyHeight,
-            child: AnimatedBuilder(
-              animation: _animController,
-              builder: (context, child) {
-                return CustomPaint(
-                  size: Size.infinite,
-                  painter: _WeatherParticleOverlayPainter(
-                    condition: _currentWeather,
-                    progress: reduceMotion ? 0.0 : _animController.value,
-                    rainParticles: _rainParticles,
-                    stars: _stars,
-                  ),
-                );
-              },
+            child: RepaintBoundary(
+              child: AnimatedBuilder(
+                animation: _animController,
+                builder: (context, child) {
+                  return CustomPaint(
+                    size: Size.infinite,
+                    painter: _WeatherParticleOverlayPainter(
+                      condition: _currentWeather,
+                      progress: reduceMotion ? 0.0 : _animController.value,
+                      rainParticles: _rainParticles,
+                      stars: _stars,
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -243,22 +253,27 @@ class _WeatherParticleOverlayPainter extends CustomPainter {
     canvas.drawCircle(sunCenter, size.width * 0.7, sunPaint);
   }
 
+  static final Paint _sharedRainPaint = Paint()
+    ..color = const Color(0xFFD0E8FF)
+    ..strokeCap = StrokeCap.round;
+
   void _drawCinematicRain(Canvas canvas, Size size, double p) {
     final travelY = size.height + 40;
 
-    for (final drop in rainParticles) {
+    for (int i = 0; i < rainParticles.length; i++) {
+      final drop = rainParticles[i];
       final currentY = ((drop.initialY + (p * 40 * 240 * drop.speed)) % travelY) - 30;
       final currentX = (drop.xPercent * size.width) + (currentY * 0.18);
 
-      final rainPaint = Paint()
-        ..color = const Color(0xFFD0E8FF).withOpacity(drop.opacity * 0.85)
-        ..strokeWidth = drop.thickness
-        ..strokeCap = StrokeCap.round;
+      _sharedRainPaint
+        ..color = const Color(0xFFD0E8FF).withOpacity(drop.opacity * 0.75)
+        ..strokeWidth = drop.thickness;
 
-      final start = Offset(currentX, currentY);
-      final end = Offset(currentX + (drop.length * 0.18), currentY + drop.length);
-
-      canvas.drawLine(start, end, rainPaint);
+      canvas.drawLine(
+        Offset(currentX, currentY),
+        Offset(currentX + (drop.length * 0.18), currentY + drop.length),
+        _sharedRainPaint,
+      );
     }
   }
 

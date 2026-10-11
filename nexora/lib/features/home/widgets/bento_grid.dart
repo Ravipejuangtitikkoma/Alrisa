@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nexora/core/design_tokens.dart';
@@ -8,137 +9,40 @@ import 'package:nexora/services/device_manager_service.dart';
 import 'water_card.dart';
 import 'energy_card.dart';
 
-/// Bento Grid Asimetris dengan Animasi Vektor Minimalis untuk Semua Perangkat
-class BentoGrid extends StatefulWidget {
+/// Bento Grid Asimetris dengan Animasi Vektor Minimalis & Dukungan Penuh Multi-Perangkat (Lampu, Pompa, Pintu, Gorden)
+class BentoGrid extends StatelessWidget {
   const BentoGrid({Key? key}) : super(key: key);
-
-  @override
-  _BentoGridState createState() => _BentoGridState();
-}
-
-class _BentoGridState extends State<BentoGrid> {
-  // Status Lampu Teras (0.0 sampai 1.0)
-  double _terraceLightBrightness = 0.80; // Default 80%
-
-  bool _isSlidingDoorUnlocked = false; // Pintu Geser (default Terkunci)
-  bool _isCurtainOpen = false;         // Gorden (default Tertutup)
-
-  StreamSubscription<DeviceStateEvent>? _mqttSub;
-  StreamSubscription<List<CustomDeviceItem>>? _deviceSub;
-
-  @override
-  void initState() {
-    super.initState();
-
-    // Inisialisasi dari status MQTT / DeviceManager tersimpan
-    final lampState = MqttService().getDeviceState('lampu_teras');
-    final lampDev = DeviceManagerService().getDevice('lampu_teras');
-    if (lampState != null) {
-      _terraceLightBrightness = (lampState.value ?? (lampState.state ? 80 : 0)) / 100.0;
-    } else if (lampDev != null) {
-      _terraceLightBrightness = lampDev.isActive ? (lampDev.value / 100.0) : 0.0;
-    }
-
-    final doorState = MqttService().getDeviceState('pintu_geser');
-    final doorDev = DeviceManagerService().getDevice('pintu_geser');
-    if (doorState != null) {
-      _isSlidingDoorUnlocked = doorState.state;
-    } else if (doorDev != null) {
-      _isSlidingDoorUnlocked = doorDev.isActive;
-    }
-
-    final curtainState = MqttService().getDeviceState('gorden');
-    final curtainDev = DeviceManagerService().getDevice('gorden');
-    if (curtainState != null) {
-      _isCurtainOpen = curtainState.state;
-    } else if (curtainDev != null) {
-      _isCurtainOpen = curtainDev.isActive;
-    }
-
-    // Dengarkan pesan /state dari broker MQTT (Single Source of Truth)
-    _mqttSub = MqttService().stateStream.listen((event) {
-      if (!mounted) return;
-
-      if (event.deviceId == 'lampu_teras') {
-        setState(() {
-          if (event.payload.value != null) {
-            _terraceLightBrightness = (event.payload.value! / 100.0).clamp(0.0, 1.0);
-          } else {
-            _terraceLightBrightness = event.payload.state ? 0.80 : 0.0;
-          }
-        });
-      } else if (event.deviceId == 'pintu_geser') {
-        setState(() {
-          _isSlidingDoorUnlocked = event.payload.state;
-        });
-      } else if (event.deviceId == 'gorden') {
-        setState(() {
-          _isCurtainOpen = event.payload.state;
-        });
-      }
-    });
-
-    // Dengarkan sinkronisasi instan dari DeviceManagerService
-    _deviceSub = DeviceManagerService().devicesStream.listen((devs) {
-      if (!mounted) return;
-      for (var d in devs) {
-        if (d.id == 'lampu_teras') {
-          setState(() {
-            _terraceLightBrightness = d.isActive ? (d.value / 100.0).clamp(0.0, 1.0) : 0.0;
-          });
-        } else if (d.id == 'pintu_geser') {
-          setState(() {
-            _isSlidingDoorUnlocked = d.isActive;
-          });
-        } else if (d.id == 'gorden') {
-          setState(() {
-            _isCurtainOpen = d.isActive;
-          });
-        }
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _deviceSub?.cancel();
-    _mqttSub?.cancel();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Baris 1: Water Card (Pompa Toren) & Lampu Teras dengan Slider Dimmer + Live Radial Glow
+        // Baris 1: Water Card (Multi-Pompa) & Dynamic Light Card (Multi-Lampu dengan Dimmer & Glow)
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Expanded(
+          children: const [
+            Expanded(
               child: WaterCard(),
             ),
-            const SizedBox(width: 14),
+            SizedBox(width: 14),
             Expanded(
-              child: _buildDimmerLightCard(),
+              child: DynamicLightSlot(),
             ),
           ],
         ),
 
         const SizedBox(height: 14),
 
-        // Baris 2: Dua Kartu Mini Scene Animasi (Pintu Geser & Gorden)
+        // Baris 2: Dua Kartu Mini Scene Animasi (Pintu Geser Dinamis & Gorden Dinamis)
         Row(
-          children: [
-            // Pintu Geser dengan Animasi Geser 700ms
+          children: const [
             Expanded(
-              child: _buildSlidingDoorCard(),
+              child: DynamicSlidingDoorSlot(),
             ),
-            const SizedBox(width: 14),
-
-            // Gorden dengan Animasi Menyibak 800ms
+            SizedBox(width: 14),
             Expanded(
-              child: _buildCurtainCard(),
+              child: DynamicCurtainSlot(),
             ),
           ],
         ),
@@ -150,188 +54,559 @@ class _BentoGridState extends State<BentoGrid> {
       ],
     );
   }
+}
 
-  /// 1. Kartu Lampu Teras dengan Radial Glow Halus Mengikuti Slider Secara Live
-  Widget _buildDimmerLightCard() {
-    final bool isLightOn = _terraceLightBrightness > 0.0;
-    final int brightnessPercentage = (_terraceLightBrightness * 100).round();
+// =========================================================================
+// 1. SLOT LAMPU PINTAR DINAMIS (Mendukung Multi-Lampu dengan Slider Dimmer)
+// =========================================================================
+class DynamicLightSlot extends StatefulWidget {
+  const DynamicLightSlot({Key? key}) : super(key: key);
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOutCubic,
+  @override
+  State<DynamicLightSlot> createState() => _DynamicLightSlotState();
+}
+
+class _DynamicLightSlotState extends State<DynamicLightSlot> {
+  late PageController _pageController;
+  int _currentIndex = 0;
+  List<CustomDeviceItem> _lights = [];
+  StreamSubscription<List<CustomDeviceItem>>? _deviceSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _loadLights();
+
+    _deviceSub = DeviceManagerService().devicesStream.listen((_) {
+      if (!mounted) return;
+      _loadLights();
+    });
+  }
+
+  void _loadLights() {
+    final devLights = DeviceManagerService().lights;
+    setState(() {
+      if (devLights.isNotEmpty) {
+        _lights = List.from(devLights);
+      } else {
+        _lights = [
+          CustomDeviceItem(
+            id: 'lampu_teras',
+            name: 'Lampu Teras Depan',
+            type: DeviceType.light,
+            hardwarePin: 'GPIO 4 (%QX0.3)',
+            value: 80.0,
+            isActive: true,
+          ),
+        ];
+      }
+      if (_currentIndex >= _lights.length) {
+        _currentIndex = math.max(0, _lights.length - 1);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _deviceSub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_lights.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    if (_lights.length == 1) {
+      return _SingleDimmerLightCard(
+        device: _lights[0],
+        showDots: false,
+        currentIndex: 0,
+        total: 1,
+      );
+    }
+
+    return SizedBox(
       height: 196,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isLightOn ? NexoraTokens.brandCyanSubtle : NexoraTokens.surface,
-        borderRadius: NexoraTokens.borderRadiusCard,
-        border: Border.all(
-          color: isLightOn ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
-          width: isLightOn ? 1.5 : 1.0,
-        ),
-        boxShadow: isLightOn
-            ? NexoraTokens.cardShadowActive(NexoraTokens.brandCyan)
-            : NexoraTokens.cardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Ikon Bohlam dengan Live Radial Glow di Belakangnya
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isLightOn ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
-                  ),
-                  boxShadow: [
-                    if (isLightOn)
-                      BoxShadow(
-                        color: NexoraTokens.brandCyan.withOpacity(0.35 * _terraceLightBrightness),
-                        blurRadius: 18 * _terraceLightBrightness,
-                        spreadRadius: 3 * _terraceLightBrightness,
-                      ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.lightbulb_outline,
-                  size: 20,
-                  color: isLightOn ? NexoraTokens.brandCyan : NexoraTokens.inkMuted,
-                ),
-              ),
-
-              const SizedBox(width: 6),
-
-              // Badge: "Mati" jika slider = 0, "Menyala <nilai>%" jika slider > 0
-              Flexible(
-                child: GestureDetector(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    final nextState = !isLightOn;
-                    setState(() {
-                      if (isLightOn) {
-                        _terraceLightBrightness = 0.0;
-                      } else {
-                        _terraceLightBrightness = 0.80;
-                      }
-                    });
-
-                    MqttService().publishSet('lampu_teras', state: nextState, value: nextState ? 80 : 0);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isLightOn ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
-                      ),
-                    ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        isLightOn ? 'Menyala $brightnessPercentage%' : 'Mati',
-                        maxLines: 1,
-                        style: TextStyle(
-                          fontFamily: NexoraTokens.fontFamilySans,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: isLightOn ? NexoraTokens.brandCyan : NexoraTokens.statusGray,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          // Slider Dimmer Halus
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SliderTheme(
-                data: SliderThemeData(
-                  trackHeight: 4,
-                  activeTrackColor: NexoraTokens.brandCyan,
-                  inactiveTrackColor: NexoraTokens.cardBorder,
-                  thumbColor: Colors.white,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 9),
-                  overlayColor: NexoraTokens.brandCyan.withOpacity(0.12),
-                ),
-                child: Slider(
-                  value: _terraceLightBrightness,
-                  min: 0.0,
-                  max: 1.0,
-                  onChanged: (val) {
-                    setState(() {
-                      _terraceLightBrightness = (val < 0.02) ? 0.0 : val;
-                    });
-                  },
-                  onChangeEnd: (val) {
-                    final cleanVal = (val < 0.02) ? 0.0 : val;
-                    final state = cleanVal > 0.0;
-                    final brightness = (cleanVal * 100).round();
-                    if (MqttService().isConnected) {
-                      MqttService().publishSet('lampu_teras', state: state, value: brightness);
-                    } else {
-                      showOfflineWarning(context, 'lampu teras');
-                    }
-                  },
-                ),
-              ),
-              const Text(
-                'Lampu Teras',
-                style: TextStyle(
-                  fontFamily: NexoraTokens.fontFamilySans,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: NexoraTokens.ink,
-                  letterSpacing: -0.2,
-                ),
-              ),
-            ],
-          ),
-        ],
+      child: PageView.builder(
+        controller: _pageController,
+        physics: const BouncingScrollPhysics(),
+        itemCount: _lights.length,
+        onPageChanged: (idx) {
+          setState(() {
+            _currentIndex = idx;
+          });
+        },
+        itemBuilder: (context, index) {
+          return _SingleDimmerLightCard(
+            device: _lights[index],
+            showDots: true,
+            currentIndex: index,
+            total: _lights.length,
+          );
+        },
       ),
     );
   }
+}
 
-  /// 2. Kartu Pintu Geser: Mini-Scene Panel Pintu Geser 700ms
-  Widget _buildSlidingDoorCard() {
-    final bool isOpen = _isSlidingDoorUnlocked;
+/// Kartu Dimmer Lampu Tunggal Terisolasi (Performa Tinggi, Drag 60-120 FPS Buttery Smooth)
+class _SingleDimmerLightCard extends StatefulWidget {
+  final CustomDeviceItem device;
+  final bool showDots;
+  final int currentIndex;
+  final int total;
 
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        final nextState = !_isSlidingDoorUnlocked;
+  const _SingleDimmerLightCard({
+    Key? key,
+    required this.device,
+    required this.showDots,
+    required this.currentIndex,
+    required this.total,
+  }) : super(key: key);
 
-        // Selalu ubah state dan jalankan animasi seketika di layar
+  @override
+  State<_SingleDimmerLightCard> createState() => _SingleDimmerLightCardState();
+}
+
+class _SingleDimmerLightCardState extends State<_SingleDimmerLightCard> {
+  double _brightness = 0.80; // 0.0 - 1.0
+  StreamSubscription<DeviceStateEvent>? _mqttSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncInitialState();
+
+    _mqttSub = MqttService().stateStream.listen((event) {
+      if (event.deviceId == widget.device.id && mounted) {
         setState(() {
-          _isSlidingDoorUnlocked = nextState;
+          if (event.payload.value != null) {
+            _brightness = (event.payload.value! / 100.0).clamp(0.0, 1.0);
+          } else {
+            _brightness = event.payload.state ? 0.80 : 0.0;
+          }
         });
+      }
+    });
+  }
 
-        // Sync instan ke MqttService & DeviceManager
-        MqttService().publishSet('pintu_geser', state: nextState);
-      },
+  void _syncInitialState() {
+    final mqttState = MqttService().getDeviceState(widget.device.id);
+    if (mqttState != null) {
+      _brightness = (mqttState.value ?? (mqttState.state ? 80 : 0)) / 100.0;
+    } else {
+      _brightness = widget.device.isActive ? (widget.device.value / 100.0).clamp(0.0, 1.0) : 0.0;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _SingleDimmerLightCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.device.id != widget.device.id) {
+      _syncInitialState();
+    }
+  }
+
+  @override
+  void dispose() {
+    _mqttSub?.cancel();
+    super.dispose();
+  }
+
+  void _toggleLight() {
+    HapticFeedback.lightImpact();
+    final bool isLightOn = _brightness > 0.0;
+    final nextState = !isLightOn;
+
+    setState(() {
+      _brightness = nextState ? 0.80 : 0.0;
+    });
+
+    final brightnessVal = nextState ? 80 : 0;
+    MqttService().publishSet(widget.device.id, state: nextState, value: brightnessVal);
+    DeviceManagerService().updateState(
+      widget.device.id,
+      isActive: nextState,
+      value: brightnessVal.toDouble(),
+      statusText: nextState ? 'Menyala $brightnessVal%' : 'Mati',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isLightOn = _brightness > 0.0;
+    final int brightnessPercentage = (_brightness * 100).round();
+
+    return RepaintBoundary(
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
+        height: 196,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isOpen ? NexoraTokens.brandCyanSubtle : NexoraTokens.surface,
+          color: isLightOn ? NexoraTokens.brandCyanSubtle : NexoraTokens.surface,
           borderRadius: NexoraTokens.borderRadiusCard,
           border: Border.all(
-            color: isOpen ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
-            width: isOpen ? 1.5 : 1.0,
+            color: isLightOn ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
+            width: isLightOn ? 1.5 : 1.0,
           ),
-          boxShadow: isOpen
+          boxShadow: isLightOn
+              ? NexoraTokens.cardShadowActive(NexoraTokens.brandCyan)
+              : NexoraTokens.cardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Baris Atas: Ikon Bohlam & Status / Dots Indikator
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Ikon Bohlam dengan Live Radial Glow
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isLightOn ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
+                    ),
+                    boxShadow: [
+                      if (isLightOn)
+                        BoxShadow(
+                          color: NexoraTokens.brandCyan.withOpacity(0.35 * _brightness),
+                          blurRadius: 18 * _brightness,
+                          spreadRadius: 3 * _brightness,
+                        ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.lightbulb_outline,
+                    size: 20,
+                    color: isLightOn ? NexoraTokens.brandCyan : NexoraTokens.inkMuted,
+                  ),
+                ),
+
+                const SizedBox(width: 6),
+
+                // Dots & Badge Status
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.showDots) ...[
+                        Row(
+                          children: List.generate(widget.total, (i) {
+                            return Container(
+                              margin: const EdgeInsets.only(right: 3),
+                              width: i == widget.currentIndex ? 10 : 4,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: i == widget.currentIndex
+                                    ? NexoraTokens.brandCyan
+                                    : Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            );
+                          }),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      GestureDetector(
+                        onTap: _toggleLight,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isLightOn ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
+                            ),
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              isLightOn ? 'Menyala $brightnessPercentage%' : 'Mati',
+                              maxLines: 1,
+                              style: TextStyle(
+                                fontFamily: NexoraTokens.fontFamilySans,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: isLightOn ? NexoraTokens.brandCyan : NexoraTokens.statusGray,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            // Slider Dimmer Halus Terisolasi
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SliderTheme(
+                  data: SliderThemeData(
+                    trackHeight: 4,
+                    activeTrackColor: NexoraTokens.brandCyan,
+                    inactiveTrackColor: NexoraTokens.cardBorder,
+                    thumbColor: Colors.white,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 9),
+                    overlayColor: NexoraTokens.brandCyan.withOpacity(0.12),
+                  ),
+                  child: Slider(
+                    value: _brightness,
+                    min: 0.0,
+                    max: 1.0,
+                    onChanged: (val) {
+                      setState(() {
+                        _brightness = (val < 0.02) ? 0.0 : val;
+                      });
+                    },
+                    onChangeEnd: (val) {
+                      final cleanVal = (val < 0.02) ? 0.0 : val;
+                      final state = cleanVal > 0.0;
+                      final brightnessInt = (cleanVal * 100).round();
+                      if (MqttService().isConnected) {
+                        MqttService().publishSet(widget.device.id, state: state, value: brightnessInt);
+                        DeviceManagerService().updateState(
+                          widget.device.id,
+                          isActive: state,
+                          value: brightnessInt.toDouble(),
+                          statusText: state ? 'Menyala $brightnessInt%' : 'Mati',
+                        );
+                      } else {
+                        showOfflineWarning(context, widget.device.name);
+                      }
+                    },
+                  ),
+                ),
+                Text(
+                  widget.device.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: NexoraTokens.fontFamilySans,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: NexoraTokens.ink,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                Text(
+                  widget.device.hardwarePin,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: NexoraTokens.fontFamilySans,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: NexoraTokens.inkMuted,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =========================================================================
+// 2. SLOT PINTU GESER DINAMIS (Mendukung Multi-Pintu Geser)
+// =========================================================================
+class DynamicSlidingDoorSlot extends StatefulWidget {
+  const DynamicSlidingDoorSlot({Key? key}) : super(key: key);
+
+  @override
+  State<DynamicSlidingDoorSlot> createState() => _DynamicSlidingDoorSlotState();
+}
+
+class _DynamicSlidingDoorSlotState extends State<DynamicSlidingDoorSlot> {
+  late PageController _pageController;
+  int _currentIndex = 0;
+  List<CustomDeviceItem> _doors = [];
+  StreamSubscription<List<CustomDeviceItem>>? _deviceSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _loadDoors();
+
+    _deviceSub = DeviceManagerService().devicesStream.listen((_) {
+      if (!mounted) return;
+      _loadDoors();
+    });
+  }
+
+  void _loadDoors() {
+    final devDoors = DeviceManagerService().slidingDoors;
+    setState(() {
+      if (devDoors.isNotEmpty) {
+        _doors = List.from(devDoors);
+      } else {
+        _doors = [
+          CustomDeviceItem(
+            id: 'pintu_geser',
+            name: 'Pintu Geser Ruang Tamu',
+            type: DeviceType.slidingDoor,
+            hardwarePin: 'GPIO 5 (%QX0.1)',
+            statusText: 'Terkunci',
+          ),
+        ];
+      }
+      if (_currentIndex >= _doors.length) {
+        _currentIndex = math.max(0, _doors.length - 1);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _deviceSub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_doors.isEmpty) return const SizedBox.shrink();
+
+    if (_doors.length == 1) {
+      return _SingleSlidingDoorCard(
+        device: _doors[0],
+        showDots: false,
+        currentIndex: 0,
+        total: 1,
+      );
+    }
+
+    return SizedBox(
+      height: 78,
+      child: PageView.builder(
+        controller: _pageController,
+        physics: const BouncingScrollPhysics(),
+        itemCount: _doors.length,
+        onPageChanged: (idx) {
+          setState(() {
+            _currentIndex = idx;
+          });
+        },
+        itemBuilder: (context, index) {
+          return _SingleSlidingDoorCard(
+            device: _doors[index],
+            showDots: true,
+            currentIndex: index,
+            total: _doors.length,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SingleSlidingDoorCard extends StatefulWidget {
+  final CustomDeviceItem device;
+  final bool showDots;
+  final int currentIndex;
+  final int total;
+
+  const _SingleSlidingDoorCard({
+    Key? key,
+    required this.device,
+    required this.showDots,
+    required this.currentIndex,
+    required this.total,
+  }) : super(key: key);
+
+  @override
+  State<_SingleSlidingDoorCard> createState() => _SingleSlidingDoorCardState();
+}
+
+class _SingleSlidingDoorCardState extends State<_SingleSlidingDoorCard> {
+  bool _isOpen = false;
+  StreamSubscription<DeviceStateEvent>? _mqttSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncInitialState();
+
+    _mqttSub = MqttService().stateStream.listen((event) {
+      if (event.deviceId == widget.device.id && mounted) {
+        setState(() {
+          _isOpen = event.payload.state;
+        });
+      }
+    });
+  }
+
+  void _syncInitialState() {
+    final mqttState = MqttService().getDeviceState(widget.device.id);
+    if (mqttState != null) {
+      _isOpen = mqttState.state;
+    } else {
+      _isOpen = widget.device.isActive;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _SingleSlidingDoorCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.device.id != widget.device.id) {
+      _syncInitialState();
+    }
+  }
+
+  @override
+  void dispose() {
+    _mqttSub?.cancel();
+    super.dispose();
+  }
+
+  void _toggleDoor() {
+    HapticFeedback.lightImpact();
+    final nextState = !_isOpen;
+
+    setState(() {
+      _isOpen = nextState;
+    });
+
+    MqttService().publishSet(widget.device.id, state: nextState);
+    DeviceManagerService().updateState(
+      widget.device.id,
+      isActive: nextState,
+      statusText: nextState ? 'Terbuka' : 'Terkunci',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _toggleDoor,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: _isOpen ? NexoraTokens.brandCyanSubtle : NexoraTokens.surface,
+          borderRadius: NexoraTokens.borderRadiusCard,
+          border: Border.all(
+            color: _isOpen ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
+            width: _isOpen ? 1.5 : 1.0,
+          ),
+          boxShadow: _isOpen
               ? NexoraTokens.cardShadowActive(NexoraTokens.brandCyan)
               : NexoraTokens.cardShadow,
         ),
@@ -345,12 +620,12 @@ class _BentoGridState extends State<BentoGrid> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isOpen ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
+                  color: _isOpen ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
                 ),
               ),
               child: Center(
                 child: TweenAnimationBuilder<double>(
-                  tween: Tween<double>(begin: 0.0, end: isOpen ? 1.0 : 0.0),
+                  tween: Tween<double>(begin: 0.0, end: _isOpen ? 1.0 : 0.0),
                   duration: const Duration(milliseconds: 700),
                   curve: Curves.easeInOutCubic,
                   builder: (context, progress, child) {
@@ -362,30 +637,54 @@ class _BentoGridState extends State<BentoGrid> {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Pintu Geser',
-                    style: TextStyle(
+                  Text(
+                    widget.device.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
                       fontFamily: NexoraTokens.fontFamilySans,
-                      fontSize: 13,
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                       color: NexoraTokens.ink,
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    isOpen ? 'Terbuka' : 'Terkunci',
-                    style: TextStyle(
-                      fontFamily: NexoraTokens.fontFamilySans,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isOpen ? NexoraTokens.brandCyan : NexoraTokens.statusGray,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        _isOpen ? 'Terbuka' : 'Terkunci',
+                        style: TextStyle(
+                          fontFamily: NexoraTokens.fontFamilySans,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _isOpen ? NexoraTokens.brandCyan : NexoraTokens.statusGray,
+                        ),
+                      ),
+                      if (widget.showDots) ...[
+                        const SizedBox(width: 6),
+                        Row(
+                          children: List.generate(widget.total, (i) {
+                            return Container(
+                              margin: const EdgeInsets.only(right: 2.5),
+                              width: i == widget.currentIndex ? 8 : 3,
+                              height: 3,
+                              decoration: BoxDecoration(
+                                color: i == widget.currentIndex
+                                    ? NexoraTokens.brandCyan
+                                    : Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            );
+                          }),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -395,37 +694,193 @@ class _BentoGridState extends State<BentoGrid> {
       ),
     );
   }
+}
 
-  /// 3. Kartu Gorden: Mini-Scene Dua Panel Gorden Menyibak 800ms
-  Widget _buildCurtainCard() {
-    final bool isOpen = _isCurtainOpen;
+// =========================================================================
+// 3. SLOT GORDEN DINAMIS (Mendukung Multi-Gorden)
+// =========================================================================
+class DynamicCurtainSlot extends StatefulWidget {
+  const DynamicCurtainSlot({Key? key}) : super(key: key);
 
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        final nextState = !_isCurtainOpen;
+  @override
+  State<DynamicCurtainSlot> createState() => _DynamicCurtainSlotState();
+}
 
-        // Selalu ubah state dan jalankan animasi seketika di layar
+class _DynamicCurtainSlotState extends State<DynamicCurtainSlot> {
+  late PageController _pageController;
+  int _currentIndex = 0;
+  List<CustomDeviceItem> _curtains = [];
+  StreamSubscription<List<CustomDeviceItem>>? _deviceSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _loadCurtains();
+
+    _deviceSub = DeviceManagerService().devicesStream.listen((_) {
+      if (!mounted) return;
+      _loadCurtains();
+    });
+  }
+
+  void _loadCurtains() {
+    final devCurtains = DeviceManagerService().curtains;
+    setState(() {
+      if (devCurtains.isNotEmpty) {
+        _curtains = List.from(devCurtains);
+      } else {
+        _curtains = [
+          CustomDeviceItem(
+            id: 'gorden',
+            name: 'Gorden Otomatis',
+            type: DeviceType.curtain,
+            hardwarePin: 'GPIO 18 (%QX0.2)',
+            statusText: 'Tertutup',
+          ),
+        ];
+      }
+      if (_currentIndex >= _curtains.length) {
+        _currentIndex = math.max(0, _curtains.length - 1);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _deviceSub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_curtains.isEmpty) return const SizedBox.shrink();
+
+    if (_curtains.length == 1) {
+      return _SingleCurtainCard(
+        device: _curtains[0],
+        showDots: false,
+        currentIndex: 0,
+        total: 1,
+      );
+    }
+
+    return SizedBox(
+      height: 78,
+      child: PageView.builder(
+        controller: _pageController,
+        physics: const BouncingScrollPhysics(),
+        itemCount: _curtains.length,
+        onPageChanged: (idx) {
+          setState(() {
+            _currentIndex = idx;
+          });
+        },
+        itemBuilder: (context, index) {
+          return _SingleCurtainCard(
+            device: _curtains[index],
+            showDots: true,
+            currentIndex: index,
+            total: _curtains.length,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SingleCurtainCard extends StatefulWidget {
+  final CustomDeviceItem device;
+  final bool showDots;
+  final int currentIndex;
+  final int total;
+
+  const _SingleCurtainCard({
+    Key? key,
+    required this.device,
+    required this.showDots,
+    required this.currentIndex,
+    required this.total,
+  }) : super(key: key);
+
+  @override
+  State<_SingleCurtainCard> createState() => _SingleCurtainCardState();
+}
+
+class _SingleCurtainCardState extends State<_SingleCurtainCard> {
+  bool _isOpen = false;
+  StreamSubscription<DeviceStateEvent>? _mqttSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncInitialState();
+
+    _mqttSub = MqttService().stateStream.listen((event) {
+      if (event.deviceId == widget.device.id && mounted) {
         setState(() {
-          _isCurtainOpen = nextState;
+          _isOpen = event.payload.state;
         });
+      }
+    });
+  }
 
-        // Cek koneksi server/MQTT
-        // Sync instan ke MqttService & DeviceManager
-        MqttService().publishSet('gorden', state: nextState);
-      },
+  void _syncInitialState() {
+    final mqttState = MqttService().getDeviceState(widget.device.id);
+    if (mqttState != null) {
+      _isOpen = mqttState.state;
+    } else {
+      _isOpen = widget.device.isActive;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _SingleCurtainCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.device.id != widget.device.id) {
+      _syncInitialState();
+    }
+  }
+
+  @override
+  void dispose() {
+    _mqttSub?.cancel();
+    super.dispose();
+  }
+
+  void _toggleCurtain() {
+    HapticFeedback.lightImpact();
+    final nextState = !_isOpen;
+
+    setState(() {
+      _isOpen = nextState;
+    });
+
+    MqttService().publishSet(widget.device.id, state: nextState);
+    DeviceManagerService().updateState(
+      widget.device.id,
+      isActive: nextState,
+      statusText: nextState ? 'Terbuka' : 'Tertutup',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _toggleCurtain,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isOpen ? NexoraTokens.brandCyanSubtle : NexoraTokens.surface,
+          color: _isOpen ? NexoraTokens.brandCyanSubtle : NexoraTokens.surface,
           borderRadius: NexoraTokens.borderRadiusCard,
           border: Border.all(
-            color: isOpen ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
-            width: isOpen ? 1.5 : 1.0,
+            color: _isOpen ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
+            width: _isOpen ? 1.5 : 1.0,
           ),
-          boxShadow: isOpen
+          boxShadow: _isOpen
               ? NexoraTokens.cardShadowActive(NexoraTokens.brandCyan)
               : NexoraTokens.cardShadow,
         ),
@@ -439,12 +894,12 @@ class _BentoGridState extends State<BentoGrid> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isOpen ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
+                  color: _isOpen ? NexoraTokens.brandCyanBorder : NexoraTokens.cardBorder,
                 ),
               ),
               child: Center(
                 child: TweenAnimationBuilder<double>(
-                  tween: Tween<double>(begin: 0.0, end: isOpen ? 1.0 : 0.0),
+                  tween: Tween<double>(begin: 0.0, end: _isOpen ? 1.0 : 0.0),
                   duration: const Duration(milliseconds: 800),
                   curve: Curves.easeInOutCubic,
                   builder: (context, progress, child) {
@@ -456,30 +911,54 @@ class _BentoGridState extends State<BentoGrid> {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Gorden',
-                    style: TextStyle(
+                  Text(
+                    widget.device.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
                       fontFamily: NexoraTokens.fontFamilySans,
-                      fontSize: 13,
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                       color: NexoraTokens.ink,
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    isOpen ? 'Terbuka' : 'Tertutup',
-                    style: TextStyle(
-                      fontFamily: NexoraTokens.fontFamilySans,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isOpen ? NexoraTokens.brandCyan : NexoraTokens.statusGray,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        _isOpen ? 'Terbuka' : 'Tertutup',
+                        style: TextStyle(
+                          fontFamily: NexoraTokens.fontFamilySans,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _isOpen ? NexoraTokens.brandCyan : NexoraTokens.statusGray,
+                        ),
+                      ),
+                      if (widget.showDots) ...[
+                        const SizedBox(width: 6),
+                        Row(
+                          children: List.generate(widget.total, (i) {
+                            return Container(
+                              margin: const EdgeInsets.only(right: 2.5),
+                              width: i == widget.currentIndex ? 8 : 3,
+                              height: 3,
+                              decoration: BoxDecoration(
+                                color: i == widget.currentIndex
+                                    ? NexoraTokens.brandCyan
+                                    : Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            );
+                          }),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -600,8 +1079,6 @@ class _CurtainsPainter extends CustomPainter {
 
     // Panel Gorden Kiri & Kanan
     final halfWidth = size.width / 2 - 1.5;
-    // Saat progress = 0 (tertutup): lebar gorden = halfWidth
-    // Saat progress = 1 (menyibak): lebar gorden menyusut ke samping
     final currentPanelWidth = halfWidth - (halfWidth * 0.65 * progress);
 
     final curtainStroke = Paint()

@@ -2,11 +2,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nexora/core/design_tokens.dart';
+import 'package:nexora/core/config/mqtt_config.dart';
 import 'package:nexora/services/mqtt_service.dart';
 import 'package:nexora/services/weather_service.dart';
 import 'package:nexora/services/device_manager_service.dart';
 import 'package:nexora/services/language_service.dart';
 import 'package:nexora/services/cctv_manager_service.dart';
+import 'package:nexora/services/auth_service.dart';
+import 'package:nexora/features/auth/presentation/screens/auth_view.dart';
 import 'package:nexora/features/home/widgets/cctv_stream_sheet.dart';
 
 class SettingsView extends StatefulWidget {
@@ -21,6 +24,15 @@ class _SettingsViewState extends State<SettingsView> {
   bool _torenDryProtection = true;
   bool _biometricLock = false;
   bool _isReconnecting = false;
+
+  // State Super Admin
+  bool _isSuperAdminUnlocked = false;
+  final TextEditingController _brokerController = TextEditingController(text: MqttConfig.broker);
+  final TextEditingController _portController = TextEditingController(text: MqttConfig.port.toString());
+  final TextEditingController _prefixController = TextEditingController(text: MqttConfig.topicPrefix);
+  final TextEditingController _usernameController = TextEditingController(text: MqttConfig.username ?? '');
+  final TextEditingController _passwordController = TextEditingController(text: MqttConfig.password ?? '');
+  bool _isSavingBroker = false;
 
   StreamSubscription<bool>? _connSub;
   bool _isConnected = MqttService().isConnected;
@@ -41,6 +53,11 @@ class _SettingsViewState extends State<SettingsView> {
   @override
   void dispose() {
     _connSub?.cancel();
+    _brokerController.dispose();
+    _portController.dispose();
+    _prefixController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -114,69 +131,133 @@ class _SettingsViewState extends State<SettingsView> {
             border: Border.all(color: NexoraTokens.cardBorder),
             boxShadow: NexoraTokens.cardShadow,
           ),
-          child: Row(
+          child: Column(
             children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: const BoxDecoration(
-                  color: NexoraTokens.brandCyan,
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Text(
-                    'Fi',
-                    style: TextStyle(
-                      fontFamily: NexoraTokens.fontFamilySans,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
+              Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      gradient: AuthService().isSuperAdmin
+                          ? const LinearGradient(colors: [Colors.purple, Colors.deepPurpleAccent])
+                          : const LinearGradient(colors: [NexoraTokens.brandCyan, Color(0xFF0077B6)]),
+                      shape: BoxShape.circle,
                     ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Fi (Pemilik Rumah)',
-                      style: TextStyle(
-                        fontFamily: NexoraTokens.fontFamilySans,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: NexoraTokens.ink,
+                    child: Center(
+                      child: Icon(
+                        AuthService().isSuperAdmin ? Icons.stars_rounded : Icons.person_rounded,
+                        color: Colors.white,
+                        size: 26,
                       ),
                     ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Master Administrator • Rumah Utama',
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AuthService().isLoggedIn ? AuthService().currentUserName : 'Ravi Armanza',
+                          style: const TextStyle(
+                            fontFamily: NexoraTokens.fontFamilySans,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: NexoraTokens.ink,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          AuthService().isSuperAdmin
+                              ? '👑 Super Admin • Full IoT & Cloud Control'
+                              : '👤 Penghuni Rumah • Kendali Perangkat',
+                          style: TextStyle(
+                            fontFamily: NexoraTokens.fontFamilySans,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AuthService().isSuperAdmin ? Colors.purple : NexoraTokens.inkSecondary,
+                          ),
+                        ),
+                        if (AuthService().currentUser != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            AuthService().currentUser!.email,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: NexoraTokens.inkMuted,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AuthService().isSuperAdmin ? Colors.purple.withOpacity(0.1) : NexoraTokens.brandCyanSubtle,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      AuthService().isSuperAdmin ? 'ADMIN' : 'USER',
                       style: TextStyle(
                         fontFamily: NexoraTokens.fontFamilySans,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: AuthService().isSuperAdmin ? Colors.purple : NexoraTokens.brandCyan,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Divider(height: 1, color: NexoraTokens.cardBorder),
+              const SizedBox(height: 10),
+              // Tombol Keluar Akun (Logout)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          title: const Text('Keluar dari Akun?'),
+                          content: const Text('Anda akan diarahkan kembali ke layar Login.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('Batal'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () {
+                                AuthService().logout();
+                                Navigator.pop(ctx);
+                                Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const AuthView()),
+                                  (route) => false,
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(primary: Colors.redAccent, elevation: 0),
+                              child: const Text('Keluar', style: TextStyle(color: Colors.white)),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.logout_rounded, size: 16, color: Colors.redAccent),
+                    label: const Text(
+                      'Keluar Akun (Logout)',
+                      style: TextStyle(
                         fontSize: 12.5,
-                        fontWeight: FontWeight.w500,
-                        color: NexoraTokens.inkSecondary,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.redAccent,
                       ),
                     ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: NexoraTokens.brandCyanSubtle,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'Aktif',
-                  style: TextStyle(
-                    fontFamily: NexoraTokens.fontFamilySans,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: NexoraTokens.brandCyan,
                   ),
-                ),
+                ],
               ),
             ],
           ),
@@ -287,6 +368,40 @@ class _SettingsViewState extends State<SettingsView> {
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,
                       ),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Tombol Akses Super Admin
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _openSuperAdminModal,
+                  icon: Icon(
+                    _isSuperAdminUnlocked ? Icons.admin_panel_settings : Icons.lock_outline_rounded,
+                    size: 18,
+                    color: _isSuperAdminUnlocked ? Colors.purple : NexoraTokens.inkSecondary,
+                  ),
+                  label: Text(
+                    _isSuperAdminUnlocked ? '⚙️ Panel Super Admin (Aktif)' : '🔐 Mode Super Admin (Ubah Cloud via HP)',
+                    style: TextStyle(
+                      fontFamily: NexoraTokens.fontFamilySans,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: _isSuperAdminUnlocked ? Colors.purple : NexoraTokens.inkSecondary,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: BorderSide(
+                      color: _isSuperAdminUnlocked ? Colors.purple.withOpacity(0.5) : NexoraTokens.cardBorder,
+                      width: 1.2,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: NexoraTokens.borderRadiusButton,
                     ),
                   ),
                 ),
@@ -1605,6 +1720,19 @@ class _SettingsViewState extends State<SettingsView> {
                   TextField(
                     controller: rtspCtrl,
                     style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
+                    onChanged: (val) {
+                      try {
+                        final uri = Uri.parse(val.trim());
+                        if (uri.host.isNotEmpty) {
+                          onvifHostCtrl.text = uri.host;
+                          if (uri.hasPort && uri.port != 0) {
+                            onvifPortCtrl.text = uri.port.toString();
+                          } else {
+                            onvifPortCtrl.text = '554';
+                          }
+                        }
+                      } catch (_) {}
+                    },
                     decoration: InputDecoration(
                       hintText: 'rtsp://user:pass@ip:554/live/ch0',
                       filled: true,
@@ -1861,6 +1989,19 @@ class _SettingsViewState extends State<SettingsView> {
                   TextField(
                     controller: rtspCtrl,
                     style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
+                    onChanged: (val) {
+                      try {
+                        final uri = Uri.parse(val.trim());
+                        if (uri.host.isNotEmpty) {
+                          onvifHostCtrl.text = uri.host;
+                          if (uri.hasPort && uri.port != 0) {
+                            onvifPortCtrl.text = uri.port.toString();
+                          } else {
+                            onvifPortCtrl.text = '554';
+                          }
+                        }
+                      } catch (_) {}
+                    },
                     decoration: InputDecoration(
                       hintText: 'rtsp://192.168.0.104:8554/',
                       filled: true,
@@ -2032,6 +2173,443 @@ class _SettingsViewState extends State<SettingsView> {
             child: const Text('Hapus', style: TextStyle(color: Colors.white)),
           ),
         ],
+      ),
+    );
+  }
+
+  // =========================================================================
+  // 🔐 LOGIK & UI SUPER ADMIN (UBAH BROKER / CLOUD LANGSUNG DARI HP)
+  // =========================================================================
+  void _openSuperAdminModal() {
+    // Jika sudah login dengan akun Ravi (Super Admin), langsung buka tanpa PIN lagi!
+    if (AuthService().isSuperAdmin || _isSuperAdminUnlocked) {
+      _showBrokerConfigSheet();
+    } else {
+      _showPinDialog();
+    }
+  }
+
+  void _showPinDialog() {
+    final pinController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.shield_rounded, color: Colors.purple, size: 24),
+            SizedBox(width: 10),
+            Text(
+              'Akses Super Admin',
+              style: TextStyle(
+                fontFamily: NexoraTokens.fontFamilySans,
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+                color: NexoraTokens.ink,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Masukkan PIN Keamanan untuk membuka akses pengaturan Cloud Broker & IoT Hardware.',
+              style: TextStyle(
+                fontFamily: NexoraTokens.fontFamilySans,
+                fontSize: 13,
+                color: NexoraTokens.inkSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: pinController,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              autofocus: true,
+              maxLength: 6,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 8,
+              ),
+              decoration: InputDecoration(
+                counterText: '',
+                hintText: '••••',
+                filled: true,
+                fillColor: const Color(0xFFF1F3F5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Center(
+              child: Text(
+                'PIN Default: 2026 atau 1234',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final pin = pinController.text.trim();
+              if (pin == '2026' || pin == '1234' || pin == '0000') {
+                Navigator.pop(ctx);
+                setState(() {
+                  _isSuperAdminUnlocked = true;
+                });
+                HapticFeedback.heavyImpact();
+                _showBrokerConfigSheet();
+              } else {
+                HapticFeedback.vibrate();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: Colors.redAccent,
+                    content: Text('❌ PIN salah! Akses ditolak.'),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              primary: Colors.purple,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Buka Kunci', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBrokerConfigSheet() {
+    _brokerController.text = MqttConfig.broker;
+    _portController.text = MqttConfig.port.toString();
+    _prefixController.text = MqttConfig.topicPrefix;
+    _usernameController.text = MqttConfig.username ?? '';
+    _passwordController.text = MqttConfig.password ?? '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (modalContext, setModalState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: MediaQuery.of(modalContext).viewInsets.bottom + 24,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.sync_rounded, color: Colors.purple, size: 28),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Konfigurasi Cloud & Broker',
+                          style: const TextStyle(
+                            fontFamily: NexoraTokens.fontFamilySans,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: NexoraTokens.ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => Navigator.pop(modalContext),
+                    ),
+                  ],
+                ),
+                const Text(
+                  'Ubah alamat Cloud MQTT langsung dari HP tanpa perlu membuka laptop atau build ulang APK.',
+                  style: TextStyle(
+                    fontFamily: NexoraTokens.fontFamilySans,
+                    fontSize: 12.5,
+                    color: NexoraTokens.inkSecondary,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Preset Cepat
+                const Text(
+                  'PRESET CEPAT:',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ActionChip(
+                      label: const Text('EMQX Publik', style: TextStyle(fontSize: 11.5)),
+                      avatar: const Icon(Icons.cloud_queue, size: 14),
+                      onPressed: () {
+                        setModalState(() {
+                          _brokerController.text = 'broker.emqx.io';
+                          _portController.text = '1883';
+                        });
+                      },
+                    ),
+                    ActionChip(
+                      label: const Text('HiveMQ Cloud', style: TextStyle(fontSize: 11.5)),
+                      avatar: const Icon(Icons.speed, size: 14),
+                      onPressed: () {
+                        setModalState(() {
+                          _brokerController.text = 'broker.hivemq.com';
+                          _portController.text = '1883';
+                        });
+                      },
+                    ),
+                    ActionChip(
+                      label: const Text('Local PC / Emulator (10.0.2.2)', style: TextStyle(fontSize: 11.5)),
+                      avatar: const Icon(Icons.laptop_mac, size: 14),
+                      onPressed: () {
+                        setModalState(() {
+                          _brokerController.text = '10.0.2.2';
+                          _portController.text = '1883';
+                        });
+                      },
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 18),
+
+                // Field Broker & Port
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Alamat Broker / Cloud Domain', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _brokerController,
+                            decoration: InputDecoration(
+                              hintText: 'misal: iot.domainanda.com',
+                              filled: true,
+                              fillColor: const Color(0xFFF1F3F5),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 1,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Port', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _portController,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              hintText: '1883',
+                              filled: true,
+                              fillColor: const Color(0xFFF1F3F5),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 14),
+
+                // Topic Prefix
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Topic Prefix (Default: nexora)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _prefixController,
+                      decoration: InputDecoration(
+                        hintText: 'nexora',
+                        filled: true,
+                        fillColor: const Color(0xFFF1F3F5),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 14),
+
+                // Username & Password (Opsional)
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Username (Opsional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _usernameController,
+                            decoration: InputDecoration(
+                              hintText: 'user_mqtt',
+                              filled: true,
+                              fillColor: const Color(0xFFF1F3F5),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Password (Opsional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _passwordController,
+                            obscureText: true,
+                            decoration: InputDecoration(
+                              hintText: '••••••',
+                              filled: true,
+                              fillColor: const Color(0xFFF1F3F5),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+
+                // Tombol Simpan & Hubungkan
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSavingBroker
+                        ? null
+                        : () async {
+                            final newHost = _brokerController.text.trim();
+                            final newPort = int.tryParse(_portController.text.trim()) ?? 1883;
+                            final newPrefix = _prefixController.text.trim();
+                            final newUsername = _usernameController.text.trim();
+                            final newPassword = _passwordController.text.trim();
+
+                            if (newHost.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('⚠️ Alamat broker tidak boleh kosong!')),
+                              );
+                              return;
+                            }
+
+                            setModalState(() {
+                              _isSavingBroker = true;
+                            });
+
+                            HapticFeedback.mediumImpact();
+
+                            final success = await MqttService().updateBrokerAndReconnect(
+                              newBroker: newHost,
+                              newPort: newPort,
+                              newPrefix: newPrefix,
+                              newUsername: newUsername,
+                              newPassword: newPassword,
+                            );
+
+                            setModalState(() {
+                              _isSavingBroker = false;
+                            });
+
+                            if (mounted) {
+                              setState(() {
+                                _isConnected = success;
+                              });
+                              Navigator.pop(modalContext);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  behavior: SnackBarBehavior.floating,
+                                  backgroundColor: success ? NexoraTokens.statusGreen : NexoraTokens.statusAmber,
+                                  content: Text(
+                                    success
+                                        ? '✅ Terhubung ke broker baru: $newHost:$newPort'
+                                        : '⚠️ Berhasil disimpan, sedang mencoba terhubung ke $newHost:$newPort...',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                    icon: _isSavingBroker
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.save_rounded, size: 20),
+                    label: Text(
+                      _isSavingBroker ? 'Menghubungkan ke Broker Baru...' : 'Simpan & Terapkan Koneksi',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      primary: Colors.purple,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

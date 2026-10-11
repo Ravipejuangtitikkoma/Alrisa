@@ -210,7 +210,7 @@ class _CctvCarouselState extends State<CctvCarousel> {
                     final cam = widget.cameras[index];
                     return RepaintBoundary(
                       child: CctvCard(
-                        key: ValueKey('cctv_${cam.id}_${cam.rtspUrl}'),
+                        key: ValueKey('cctv_${cam.id}'),
                         camera: cam,
                       ),
                     );
@@ -219,7 +219,7 @@ class _CctvCarouselState extends State<CctvCarousel> {
               )
             : RepaintBoundary(
                 child: CctvCard(
-                  key: ValueKey('cctv_${widget.cameras.first.id}_${widget.cameras.first.rtspUrl}'),
+                  key: ValueKey('cctv_${widget.cameras.first.id}'),
                   camera: widget.cameras.first,
                 ),
               ),

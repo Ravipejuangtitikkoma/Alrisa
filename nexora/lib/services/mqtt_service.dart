@@ -6,6 +6,7 @@ import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:nexora/core/config/mqtt_config.dart';
 import 'package:nexora/services/device_manager_service.dart';
+import 'package:nexora/services/preset_manager_service.dart';
 
 /// Model payload pesan MQTT NEXORA: {"state": bool, "value": num?}
 class DevicePayload {
@@ -114,12 +115,51 @@ class MqttService {
     _client!.onDisconnected = _onDisconnected;
     _client!.onSubscribed = _onSubscribed;
 
-    final connMessage = MqttConnectMessage()
+    var connMessage = MqttConnectMessage()
         .withClientIdentifier(_clientId)
         .startClean();
+
+    if (MqttConfig.username != null && MqttConfig.password != null) {
+      connMessage = connMessage.authenticateAs(MqttConfig.username!, MqttConfig.password!);
+    }
     _client!.connectionMessage = connMessage;
 
     await connect();
+  }
+
+  /// Ganti konfigurasi broker secara instan dan sambungkan ulang (untuk Super Admin)
+  Future<bool> updateBrokerAndReconnect({
+    required String newBroker,
+    required int newPort,
+    String? newPrefix,
+    String? newUsername,
+    String? newPassword,
+  }) async {
+    _isManualDisconnect = true;
+    _reconnectTimer?.cancel();
+    _reconnectAttempts = 0;
+
+    try {
+      if (_client != null) {
+        _client!.disconnect();
+      }
+    } catch (_) {}
+
+    _isConnected = false;
+    _connectionController.add(false);
+
+    // Update config global
+    MqttConfig.updateConfig(
+      newBroker: newBroker,
+      newPort: newPort,
+      newPrefix: newPrefix,
+      newUsername: newUsername,
+      newPassword: newPassword,
+    );
+
+    // Inisialisasi ulang client dengan host baru
+    await _initAndConnect();
+    return _isConnected;
   }
 
   StreamSubscription<List<MqttReceivedMessage<MqttMessage>>>? _updatesSub;
@@ -243,7 +283,12 @@ class MqttService {
 
   /// Publish perintah ke topik "nexora/<device_id>/set"
   /// Payload: {"state": bool, "value": num?}
-  void publishSet(String deviceId, {required bool state, num? value}) {
+  void publishSet(String deviceId, {required bool state, num? value, bool fromPreset = false}) {
+    if (!fromPreset) {
+      // Jika dipicu manual dari tombol Home / Switch individu -> Otomatis beralih ke Mode Manual!
+      PresetManagerService().setManualMode();
+    }
+
     final topic = MqttConfig.setTopic(deviceId);
     final payload = DevicePayload(state: state, value: value);
     _deviceStates[deviceId] = payload;

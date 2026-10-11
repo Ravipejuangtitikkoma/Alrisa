@@ -11,7 +11,7 @@ import 'package:nexora/features/home/widgets/gate_carousel.dart';
 import 'package:nexora/features/home/widgets/bento_grid.dart';
 import 'package:nexora/features/home/widgets/pill_nav.dart';
 import 'package:nexora/features/rooms/presentation/screens/rooms_view.dart';
-import 'package:nexora/features/energy/presentation/screens/energy_view.dart';
+import 'package:nexora/features/presets/presentation/screens/presets_view.dart';
 import 'package:nexora/features/settings/presentation/screens/settings_view.dart';
 import 'package:nexora/services/device_manager_service.dart';
 import 'package:nexora/services/language_service.dart';
@@ -401,6 +401,68 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
                   const SizedBox(height: 14),
                   Text(
+                    'PILIH WILAYAH BMKG INDONESIA',
+                    style: NexoraTokens.sectionLabel,
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Horizontal Chips Pilihan Kota BMKG (Jambi, Palembang, Jakarta, dll)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: WeatherService.supportedCities.entries.map((entry) {
+                        final cityKey = entry.key;
+                        final cityName = entry.value['name']!;
+                        final isCityActive = WeatherService().currentCityKey == cityKey;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: GestureDetector(
+                            onTap: () async {
+                              HapticFeedback.selectionClick();
+                              await WeatherService().setLocationCity(cityKey);
+                              setModalState(() {});
+                              setState(() {});
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                              decoration: BoxDecoration(
+                                color: isCityActive ? NexoraTokens.brandCyan : Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isCityActive ? NexoraTokens.brandCyan : NexoraTokens.cardBorder,
+                                  width: 1.2,
+                                ),
+                                boxShadow: isCityActive
+                                    ? [
+                                        BoxShadow(
+                                          color: NexoraTokens.brandCyan.withOpacity(0.3),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        )
+                                      ]
+                                    : null,
+                              ),
+                              child: Text(
+                                cityName,
+                                style: TextStyle(
+                                  fontFamily: NexoraTokens.fontFamilySans,
+                                  fontSize: 11.5,
+                                  fontWeight: isCityActive ? FontWeight.w800 : FontWeight.w600,
+                                  color: isCityActive ? Colors.white : NexoraTokens.ink,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+                  Text(
                     'PILIHAN SIMULASI MANUAL',
                     style: NexoraTokens.sectionLabel,
                   ),
@@ -722,7 +784,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                   ),
                 ),
 
-                // Tab 2: Energi
+                // Tab 2: Skenario & Preset Pintar (Pengganti Energi)
                 SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 100),
@@ -730,7 +792,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (_isOffline) _buildOfflineBanner(),
-                      const EnergyView(),
+                      const PresetsView(),
                     ],
                   ),
                 ),

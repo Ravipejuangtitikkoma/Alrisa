@@ -34,7 +34,7 @@ class LanguageService {
       // Navigasi
       'nav_home': {AppLanguage.id: 'Beranda', AppLanguage.en: 'Home'},
       'nav_rooms': {AppLanguage.id: 'Ruangan', AppLanguage.en: 'Rooms'},
-      'nav_energy': {AppLanguage.id: 'Energi', AppLanguage.en: 'Energy'},
+      'nav_presets': {AppLanguage.id: 'Preset', AppLanguage.en: 'Presets'},
       'nav_settings': {AppLanguage.id: 'Pengaturan', AppLanguage.en: 'Settings'},
 
       // Sapaan

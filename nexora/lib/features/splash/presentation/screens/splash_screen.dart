@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:nexora/core/constants/app_strings.dart';
 import 'package:nexora/core/design_tokens.dart';
+import 'package:nexora/services/auth_service.dart';
+import 'package:nexora/features/auth/presentation/screens/auth_view.dart';
 import 'package:nexora/features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../widgets/nexora_logo.dart';
 
@@ -56,12 +58,15 @@ class _SplashScreenState extends State<SplashScreen>
   void _navigateToHome() {
     if (!mounted) return;
     _navTimer?.cancel();
+
+    final isLoggedIn = AuthService().isLoggedIn;
+    final targetScreen = isLoggedIn ? const DashboardScreen() : const AuthView();
+
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const DashboardScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) => targetScreen,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },

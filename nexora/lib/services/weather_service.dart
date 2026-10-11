@@ -11,12 +11,13 @@ enum WeatherCondition {
 }
 
 /// WeatherService Singleton: Terintegrasi langsung dengan API Resmi BMKG Indonesia
+/// Dilengkapi Auto-Detect Lokasi Pengguna (Jambi, Palembang, Jakarta, dll) & Pilihan Kota Dinamis
 class WeatherService {
   static final WeatherService _instance = WeatherService._internal();
   factory WeatherService() => _instance;
   WeatherService._internal() {
-    // Otomatis fetch data cuaca riil BMKG saat service diinisialisasi
-    fetchBMKGWeather();
+    // Otomatis deteksi lokasi pengguna dan muat data BMKG yang sesuai
+    initLocationAndWeather();
   }
 
   final _controller = StreamController<WeatherCondition>.broadcast();
@@ -24,9 +25,10 @@ class WeatherService {
 
   double _temperature = 27.0;
   int _humidity = 81;
-  String _locationName = 'Kemayoran, Jakarta Pusat';
+  String _locationName = 'Kota Jambi';
   String _bmkgWeatherDesc = 'Berawan';
   bool _isLoading = false;
+  String _currentCityKey = 'jambi';
 
   WeatherCondition get currentCondition => _currentCondition;
   Stream<WeatherCondition> get weatherStream => _controller.stream;
@@ -36,16 +38,123 @@ class WeatherService {
   String get locationName => _locationName;
   String get bmkgWeatherDesc => _bmkgWeatherDesc;
   bool get isLoading => _isLoading;
+  String get currentCityKey => _currentCityKey;
+
+  /// Daftar Kode Wilayah Resmi BMKG (adm4) untuk berbagai kota/provinsi di Indonesia
+  static const Map<String, Map<String, String>> supportedCities = {
+    'jambi': {
+      'name': 'Kota Jambi, Jambi',
+      'adm4': '15.71.01.1001',
+    },
+    'palembang': {
+      'name': 'Kota Palembang, Sumsel',
+      'adm4': '16.71.01.1001',
+    },
+    'jakarta': {
+      'name': 'Jakarta Pusat, DKI Jakarta',
+      'adm4': '31.71.03.1001',
+    },
+    'bandung': {
+      'name': 'Kota Bandung, Jawa Barat',
+      'adm4': '32.73.01.1001',
+    },
+    'surabaya': {
+      'name': 'Kota Surabaya, Jawa Timur',
+      'adm4': '35.78.01.1001',
+    },
+    'medan': {
+      'name': 'Kota Medan, Sumatera Utara',
+      'adm4': '12.71.01.1001',
+    },
+    'semarang': {
+      'name': 'Kota Semarang, Jawa Tengah',
+      'adm4': '33.74.01.1001',
+    },
+    'makassar': {
+      'name': 'Kota Makassar, Sulawesi Selatan',
+      'adm4': '73.71.01.1001',
+    },
+    'denpasar': {
+      'name': 'Kota Denpasar, Bali',
+      'adm4': '51.71.01.1001',
+    },
+    'padang': {
+      'name': 'Kota Padang, Sumatera Barat',
+      'adm4': '13.71.01.1001',
+    },
+    'pekanbaru': {
+      'name': 'Kota Pekanbaru, Riau',
+      'adm4': '14.71.01.1001',
+    },
+    'lampung': {
+      'name': 'Bandar Lampung, Lampung',
+      'adm4': '18.71.01.1001',
+    },
+    'yogyakarta': {
+      'name': 'Yogyakarta, D.I. Yogyakarta',
+      'adm4': '34.71.01.1001',
+    },
+  };
+
+  /// Inisialisasi otomatis lokasi berdasarkan IP/jaringan perangkat
+  Future<void> initLocationAndWeather() async {
+    _isLoading = true;
+    String detectedAdm4 = '15.71.01.1001'; // Default Kota Jambi
+    String matchedCityKey = 'jambi';
+
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 4);
+      final req = await client.getUrl(Uri.parse('https://ipwho.is/'));
+      final res = await req.close();
+
+      if (res.statusCode == 200) {
+        final body = await res.transform(utf8.decoder).join();
+        final data = jsonDecode(body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          final city = (data['city'] as String? ?? '').toLowerCase();
+          final region = (data['region'] as String? ?? '').toLowerCase();
+
+          // Cocokkan kota pengguna
+          for (final entry in supportedCities.entries) {
+            final key = entry.key;
+            final label = entry.value['name']!.toLowerCase();
+            if (city.contains(key) || region.contains(key) || label.contains(city)) {
+              matchedCityKey = key;
+              detectedAdm4 = entry.value['adm4']!;
+              break;
+            }
+          }
+        }
+      }
+      client.close();
+    } catch (_) {
+      // Jika offline, gunakan default jambi
+    }
+
+    _currentCityKey = matchedCityKey;
+    await fetchBMKGWeather(adm4: detectedAdm4);
+  }
+
+  /// Ganti Lokasi BMKG secara manual oleh pengguna (misal Jambi, Palembang, Jakarta)
+  Future<void> setLocationCity(String cityKey) async {
+    if (supportedCities.containsKey(cityKey)) {
+      _currentCityKey = cityKey;
+      final adm4 = supportedCities[cityKey]!['adm4']!;
+      await fetchBMKGWeather(adm4: adm4);
+    }
+  }
 
   /// Fetch Cuaca Riil dari API Resmi BMKG Publik
-  /// adm4 default: 31.71.03.1001 (Jakarta Pusat). Dapat diganti dengan kode desa/wilayah mana saja di Indonesia
-  Future<void> fetchBMKGWeather({String adm4 = '31.71.03.1001'}) async {
+  Future<void> fetchBMKGWeather({String? adm4}) async {
     _isLoading = true;
+    final targetAdm4 = adm4 ?? supportedCities[_currentCityKey]?['adm4'] ?? '15.71.01.1001';
+
     try {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 8);
 
-      final url = Uri.parse('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=$adm4');
+      final url = Uri.parse('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=$targetAdm4');
       final request = await client.getUrl(url);
       final response = await request.close();
 

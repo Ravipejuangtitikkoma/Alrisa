@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:nexora/services/auth_service.dart';
 
 enum DeviceType {
   gate,        // Pagar / Gerbang
@@ -56,11 +57,20 @@ class DeviceManagerService {
   factory DeviceManagerService() => _instance;
   DeviceManagerService._internal() {
     _initDefaults();
+    // Dengarkan perubahan login untuk otomatis ganti data perangkat per akun
+    AuthService().authStream.listen((user) {
+      final userKey = user?.email.toLowerCase() ?? 'default';
+      loadUserDevices(userKey);
+    });
   }
 
   final StreamController<List<CustomDeviceItem>> _devicesController =
       StreamController<List<CustomDeviceItem>>.broadcast();
   Stream<List<CustomDeviceItem>> get devicesStream => _devicesController.stream;
+
+  // Database Perangkat per Akun (Key = email akun)
+  final Map<String, List<CustomDeviceItem>> _userDevicesDb = {};
+  String _activeUserKey = 'default';
 
   final List<CustomDeviceItem> _devices = [];
   List<CustomDeviceItem> get allDevices => List.unmodifiable(_devices);
@@ -68,11 +78,21 @@ class DeviceManagerService {
   List<CustomDeviceItem> get gates =>
       _devices.where((d) => d.type == DeviceType.gate).toList();
 
+  List<CustomDeviceItem> get lights =>
+      _devices.where((d) => d.type == DeviceType.light).toList();
+
+  List<CustomDeviceItem> get slidingDoors =>
+      _devices.where((d) => d.type == DeviceType.slidingDoor).toList();
+
+  List<CustomDeviceItem> get curtains =>
+      _devices.where((d) => d.type == DeviceType.curtain).toList();
+
+  List<CustomDeviceItem> get waterPumps =>
+      _devices.where((d) => d.type == DeviceType.waterPump).toList();
+
   void _initDefaults() {
-    if (_devices.isNotEmpty) return;
-    
-    // Perangkat Bawaan (Default)
-    _devices.addAll([
+    // 1. Data Lengkap Super Admin Ravi Armanza
+    final raviDevices = [
       CustomDeviceItem(
         id: 'pagar',
         name: 'Gerbang Utama Depan',
@@ -117,11 +137,72 @@ class DeviceManagerService {
         hardwarePin: 'GPIO 19 (%QX0.4)',
         statusText: 'Mati',
       ),
-    ]);
+    ];
+    _userDevicesDb['raviarmanza149@gmail.com'] = raviDevices;
+
+    // 2. Data Pengguna Biasa Demo (Keluarga)
+    _userDevicesDb['user@nexora.id'] = [
+      CustomDeviceItem(
+        id: 'pagar_keluarga',
+        name: 'Gerbang Depan Rumah',
+        type: DeviceType.gate,
+        hardwarePin: 'GPIO 2 (%QX0.0)',
+        statusText: 'Terkunci',
+      ),
+      CustomDeviceItem(
+        id: 'lampu_teras_keluarga',
+        name: 'Lampu Teras',
+        type: DeviceType.light,
+        hardwarePin: 'GPIO 4 (%QX0.3)',
+        value: 100.0,
+        isActive: true,
+        statusText: 'Menyala 100%',
+      ),
+      CustomDeviceItem(
+        id: 'pintu_utama_keluarga',
+        name: 'Pintu Depan',
+        type: DeviceType.slidingDoor,
+        hardwarePin: 'GPIO 5 (%QX0.1)',
+        statusText: 'Terkunci',
+      ),
+    ];
+
+    final currentEmail = AuthService().currentUser?.email.toLowerCase() ?? 'raviarmanza149@gmail.com';
+    loadUserDevices(currentEmail);
+  }
+
+  /// Ganti dataset perangkat saat berganti akun
+  void loadUserDevices(String userKey) {
+    _activeUserKey = userKey;
+    if (!_userDevicesDb.containsKey(_activeUserKey)) {
+      // User baru mendaftar diberikan setup awal standar yang dapat diedit/ditambah
+      _userDevicesDb[_activeUserKey] = [
+        CustomDeviceItem(
+          id: 'pagar_${_activeUserKey.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}',
+          name: 'Gerbang Utama',
+          type: DeviceType.gate,
+          hardwarePin: 'GPIO 2 (%QX0.0)',
+          statusText: 'Terkunci',
+        ),
+        CustomDeviceItem(
+          id: 'lampu_${_activeUserKey.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}',
+          name: 'Lampu Teras',
+          type: DeviceType.light,
+          hardwarePin: 'GPIO 4 (%QX0.3)',
+          value: 100.0,
+          isActive: false,
+          statusText: 'Mati',
+        ),
+      ];
+    }
+
+    _devices.clear();
+    _devices.addAll(_userDevicesDb[_activeUserKey]!);
     _notify();
   }
 
   void _notify() {
+    _userDevicesDb[_activeUserKey] = List.from(_devices);
     _devicesController.add(List.unmodifiable(_devices));
   }
 
@@ -189,10 +270,23 @@ class DeviceManagerService {
   void updateState(String id, {bool? isActive, double? value, String? statusText}) {
     final idx = _devices.indexWhere((d) => d.id == id);
     if (idx != -1) {
-      if (isActive != null) _devices[idx].isActive = isActive;
-      if (value != null) _devices[idx].value = value;
-      if (statusText != null) _devices[idx].statusText = statusText;
-      _notify();
+      final dev = _devices[idx];
+      bool changed = false;
+      if (isActive != null && dev.isActive != isActive) {
+        dev.isActive = isActive;
+        changed = true;
+      }
+      if (value != null && dev.value != value) {
+        dev.value = value;
+        changed = true;
+      }
+      if (statusText != null && dev.statusText != statusText) {
+        dev.statusText = statusText;
+        changed = true;
+      }
+      if (changed) {
+        _notify();
+      }
     }
   }
 

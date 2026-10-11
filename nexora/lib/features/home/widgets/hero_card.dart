@@ -311,26 +311,28 @@ class _HeroCardState extends State<HeroCard> with TickerProviderStateMixin {
           const SizedBox(height: 12),
 
           // 2. VIEWPORT GERBANG DEDIKASI (TIDAK BERTUBRUKAN DENGAN TEKS APAPUN)
-          Container(
-            height: 64,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFEDF2F7)),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: AnimatedBuilder(
-                animation: _gateCurve,
-                builder: (context, child) {
-                  return CustomPaint(
-                    painter: _GateDedicatedScenePainter(
-                      progress: _gateCurve.value,
-                      isLocked: _status == GateStatus.locked,
-                    ),
-                  );
-                },
+          RepaintBoundary(
+            child: Container(
+              height: 64,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFEDF2F7)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: AnimatedBuilder(
+                  animation: _gateCurve,
+                  builder: (context, child) {
+                    return CustomPaint(
+                      painter: _GateDedicatedScenePainter(
+                        progress: _gateCurve.value,
+                        isLocked: _status == GateStatus.locked,
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ),

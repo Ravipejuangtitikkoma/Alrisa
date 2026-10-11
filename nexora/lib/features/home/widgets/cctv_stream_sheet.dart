@@ -91,16 +91,51 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
     _initVlcPlayer();
   }
 
-  void _initVlcPlayer() {
+  int _playerEpoch = 0;
+
+  Future<void> _refreshStream() async {
+    if (!mounted) return;
     _connectTimeoutTimer?.cancel();
-    final oldController = _vlcViewController;
-    _vlcViewController = null;
+
     if (mounted) {
       setState(() {
         _isConnecting = true;
         _isStreamOnline = false;
       });
     }
+
+    if (_vlcViewController != null) {
+      try {
+        await _vlcViewController!.stop();
+        await _vlcViewController!.setMediaFromNetwork(
+          widget.camera.rtspUrl.trim(),
+          autoPlay: true,
+          hwAcc: HwAcc.auto,
+        );
+        _startTimeoutTimer();
+        return;
+      } catch (_) {}
+    }
+
+    _initVlcPlayer();
+  }
+
+  void _startTimeoutTimer() {
+    _connectTimeoutTimer?.cancel();
+    _connectTimeoutTimer = Timer(const Duration(milliseconds: 15000), () {
+      if (mounted && !_isStreamOnline) {
+        setState(() {
+          _isConnecting = false;
+        });
+      }
+    });
+  }
+
+  void _initVlcPlayer() {
+    if (!mounted) return;
+    _connectTimeoutTimer?.cancel();
+    _playerEpoch++;
+    final oldController = _vlcViewController;
 
     try {
       oldController?.removeListener(_vlcListener);
@@ -109,33 +144,43 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
     } catch (_) {}
 
     try {
+      final url = widget.camera.rtspUrl.trim();
+      final isLocal = url.contains('192.168.') ||
+          url.contains('10.') ||
+          url.contains('127.0.0.1') ||
+          url.contains('localhost') ||
+          url.contains('172.16.');
+
+      // Cloud / Internet RTSP butuh cache 2000ms untuk mencegah packet-drop
+      final cacheMs = isLocal ? 500 : 2000;
+
       final controller = VlcPlayerController.network(
-        widget.camera.rtspUrl,
-        hwAcc: HwAcc.full,
+        url,
+        hwAcc: HwAcc.auto, // Otomatis fallback ke software jika hardware decoding HP bermasalah
         autoPlay: true,
         options: VlcPlayerOptions(
           advanced: VlcAdvancedOptions([
-            VlcAdvancedOptions.networkCaching(150),
+            VlcAdvancedOptions.networkCaching(cacheMs),
           ]),
           rtp: VlcRtpOptions([
-            VlcRtpOptions.rtpOverRtsp(true),
+            VlcRtpOptions.rtpOverRtsp(true), // TCP interleaved untuk tembus NAT / firewall
           ]),
         ),
       );
-      _vlcViewController = controller;
       controller.addListener(_vlcListener);
+      _startTimeoutTimer();
 
-      _connectTimeoutTimer = Timer(const Duration(milliseconds: 3500), () {
-        if (mounted && !_isStreamOnline) {
-          setState(() {
-            _isConnecting = false;
-          });
-        }
-      });
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {
+          _vlcViewController = controller;
+          _isConnecting = true;
+          _isStreamOnline = false;
+        });
+      }
     } catch (_) {
       if (mounted) {
         setState(() {
+          _vlcViewController = null;
           _isConnecting = false;
           _isStreamOnline = false;
         });
@@ -147,8 +192,9 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
     if (!mounted || _vlcViewController == null) return;
     final isPlaying = _vlcViewController!.value.isPlaying;
     final hasError = _vlcViewController!.value.hasError;
+    final position = _vlcViewController!.value.position;
 
-    if (isPlaying && !_isStreamOnline) {
+    if ((isPlaying || position > Duration.zero) && !_isStreamOnline) {
       _connectTimeoutTimer?.cancel();
       setState(() {
         _isStreamOnline = true;
@@ -335,110 +381,7 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: (_isStreamOnline && _vlcViewController != null)
-                  ? Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        VlcPlayer(
-                          controller: _vlcViewController!,
-                          aspectRatio: 16 / 9,
-                          placeholder: _buildOfflineSheetViewport(cam, isConnecting: true),
-                        ),
-
-                        // Flash Efek saat Snapshot Foto
-                        if (_isSnapshotTaken)
-                          Container(color: Colors.white.withOpacity(0.85)),
-
-                        // Overlay Top Bar LIVE
-                        Positioned(
-                          top: 12,
-                          left: 14,
-                          right: 14,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  FadeTransition(
-                                    opacity: _pulseController,
-                                    child: Container(
-                                      width: 9,
-                                      height: 9,
-                                      decoration: const BoxDecoration(
-                                        color: Colors.redAccent,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  const Text(
-                                    'REC • RTSP STREAM',
-                                    style: TextStyle(
-                                      fontFamily: 'JetBrains Mono',
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: Colors.white,
-                                      letterSpacing: 0.6,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.6),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  _timestamp,
-                                  style: const TextStyle(
-                                    fontFamily: 'JetBrains Mono',
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Overlay Bottom Info (Protokol RTSP & Resolusi)
-                        Positioned(
-                          bottom: 12,
-                          left: 14,
-                          right: 14,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  cam.rtspUrl,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontFamily: 'JetBrains Mono',
-                                    fontSize: 9.5,
-                                    color: Colors.white.withOpacity(0.7),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                cam.resolution,
-                                style: const TextStyle(
-                                  fontFamily: 'JetBrains Mono',
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF38BDF8),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    )
-                  : _buildOfflineSheetViewport(cam, isConnecting: _isConnecting),
+              child: _buildVideoSheetViewport(cam),
             ),
           ),
 
@@ -566,6 +509,128 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
     );
   }
 
+  Widget _buildVideoSheetViewport(CctvCameraItem cam) {
+    if (_vlcViewController == null) {
+      return _buildOfflineSheetViewport(cam, isConnecting: _isConnecting);
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 1. TextureView VlcPlayer selalu dipasang di widget tree agar proses inisialisasi native berjalan
+        VlcPlayer(
+          key: ValueKey('vlc_sheet_${widget.camera.id}_$_playerEpoch'),
+          controller: _vlcViewController!,
+          aspectRatio: 16 / 9,
+          placeholder: Container(color: const Color(0xFF1E293B)),
+        ),
+
+        // 2. Overlay offline / connecting saat stream belum siap
+        if (!_isStreamOnline)
+          Positioned.fill(
+            child: _buildOfflineSheetViewport(cam, isConnecting: _isConnecting),
+          ),
+
+        // 3. Flash Efek saat Snapshot Foto
+        if (_isSnapshotTaken)
+          Positioned.fill(
+            child: Container(color: Colors.white.withOpacity(0.85)),
+          ),
+
+        // 4. Overlay status LIVE saat aktif
+        if (_isStreamOnline) ...[
+          // Overlay Top Bar LIVE
+          Positioned(
+            top: 12,
+            left: 14,
+            right: 14,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    FadeTransition(
+                      opacity: _pulseController,
+                      child: Container(
+                        width: 9,
+                        height: 9,
+                        decoration: const BoxDecoration(
+                          color: Colors.redAccent,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'REC • RTSP STREAM',
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _timestamp,
+                    style: const TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Overlay Bottom Info (Protokol RTSP & Resolusi)
+          Positioned(
+            bottom: 12,
+            left: 14,
+            right: 14,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Text(
+                    cam.rtspUrl,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 9.5,
+                      color: Colors.white.withOpacity(0.7),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  cam.resolution,
+                  style: const TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF38BDF8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _buildOfflineSheetViewport(CctvCameraItem cam, {bool isConnecting = false}) {
     return Container(
       width: double.infinity,
@@ -652,7 +717,7 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
                   InkWell(
                     onTap: () {
                       HapticFeedback.mediumImpact();
-                      _initVlcPlayer();
+                      _refreshStream();
                     },
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
