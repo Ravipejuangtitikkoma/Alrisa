@@ -3,7 +3,7 @@
 class MqttConfig {
   static String broker = 'broker.emqx.io';
   static int port = 1883;
-  static String topicPrefix = 'nexora';
+  static String topicPrefix = 'alrisa';
   static String? username;
   static String? password;
 

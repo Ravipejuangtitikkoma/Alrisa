@@ -402,20 +402,26 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: const [
-                          Icon(Icons.settings_suggest_rounded, color: Color(0xFF38BDF8), size: 22),
-                          SizedBox(width: 8),
-                          Text(
-                            'Edit Konfigurasi Kamera CCTV',
-                            style: TextStyle(
-                              fontFamily: NexoraTokens.fontFamilySans,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
+                      Expanded(
+                        child: Row(
+                          children: const [
+                            Icon(Icons.settings_suggest_rounded, color: Color(0xFF38BDF8), size: 22),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Edit Konfigurasi Kamera CCTV',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: NexoraTokens.fontFamilySans,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
@@ -645,7 +651,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
       ),
       padding: const EdgeInsets.all(12),
       child: SingleChildScrollView(
-        physics: const NeverScrollableScrollPhysics(),
+        physics: const BouncingScrollPhysics(),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -782,7 +788,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                   style: OutlinedButton.styleFrom(
                     primary: NexoraTokens.ink,
                     side: const BorderSide(color: Color(0xFFCBD5E1)),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     textStyle: const TextStyle(
                       fontFamily: NexoraTokens.fontFamilySans,
@@ -852,7 +858,9 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                   },
                 ),
 
-                             // ── Tombol Buka / Kunci Gerbang ──
+                const SizedBox(width: 6),
+
+                // ── Tombol Buka / Kunci Gerbang ──
                 Container(
                   height: 36,
                   padding: const EdgeInsets.all(2),
@@ -870,7 +878,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                         borderRadius: BorderRadius.circular(8),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                           decoration: BoxDecoration(
                             color: _isGateOpen ? const Color(0xFF059669) : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
@@ -892,7 +900,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                                 size: 12.5,
                                 color: _isGateOpen ? Colors.white : const Color(0xFF64748B),
                               ),
-                              const SizedBox(width: 3.5),
+                              const SizedBox(width: 3),
                               Text(
                                 lang.isIndonesian ? 'Buka' : 'Open',
                                 style: TextStyle(
@@ -912,7 +920,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                         borderRadius: BorderRadius.circular(8),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                           decoration: BoxDecoration(
                             color: !_isGateOpen ? const Color(0xFF0F172A) : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
@@ -934,7 +942,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                                 size: 12.5,
                                 color: !_isGateOpen ? Colors.white : const Color(0xFF64748B),
                               ),
-                              const SizedBox(width: 3.5),
+                              const SizedBox(width: 3),
                               Text(
                                 lang.isIndonesian ? 'Kunci' : 'Lock',
                                 style: TextStyle(

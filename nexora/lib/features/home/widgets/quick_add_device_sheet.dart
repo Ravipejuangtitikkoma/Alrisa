@@ -234,23 +234,25 @@ class _QuickAddDeviceSheetState extends State<QuickAddDeviceSheet> {
                   child: const Icon(Icons.add_circle_outline_rounded, color: NexoraTokens.brandCyan, size: 22),
                 ),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      lang.isEnglish ? 'Quick Add Device' : 'Tambah Perangkat Cepat',
-                      style: const TextStyle(
-                        fontFamily: NexoraTokens.fontFamilySans,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: NexoraTokens.ink,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        lang.isEnglish ? 'Quick Add Device' : 'Tambah Perangkat Cepat',
+                        style: const TextStyle(
+                          fontFamily: NexoraTokens.fontFamilySans,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: NexoraTokens.ink,
+                        ),
                       ),
-                    ),
-                    Text(
-                      lang.isEnglish ? 'Directly connects to Dashboard & ESP32/PLC' : 'Langsung aktif di Beranda & dapat dites via IoT',
-                      style: const TextStyle(fontSize: 12, color: NexoraTokens.inkSecondary),
-                    ),
-                  ],
+                      Text(
+                        lang.isEnglish ? 'Directly connects to Dashboard & ESP32/PLC' : 'Langsung aktif di Beranda & dapat dites via IoT',
+                        style: const TextStyle(fontSize: 12, color: NexoraTokens.inkSecondary),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

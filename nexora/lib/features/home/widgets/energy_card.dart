@@ -131,13 +131,17 @@ class _EnergyCardState extends State<EnergyCard> with SingleTickerProviderStateM
                 ),
               ),
               SizedBox(width: 12),
-              Text(
-                '• Beban saat ini 380W',
-                style: TextStyle(
-                  fontFamily: NexoraTokens.fontFamilySans,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: NexoraTokens.inkMuted,
+              Expanded(
+                child: Text(
+                  '• Beban saat ini 380W',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: NexoraTokens.fontFamilySans,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: NexoraTokens.inkMuted,
+                  ),
                 ),
               ),
             ],
@@ -145,20 +149,22 @@ class _EnergyCardState extends State<EnergyCard> with SingleTickerProviderStateM
 
           const SizedBox(height: 18),
 
-          // Sparkline Kurva Interaktif
+          // Sparkline Kurva Interaktif Terisolasi
           SizedBox(
             height: 60,
             width: double.infinity,
-            child: AnimatedBuilder(
-              animation: _sparklineController,
-              builder: (context, child) {
-                return CustomPaint(
-                  painter: _SparklinePainter(
-                    points: _data,
-                    pulse: _sparklineController.value,
-                  ),
-                );
-              },
+            child: RepaintBoundary(
+              child: AnimatedBuilder(
+                animation: _sparklineController,
+                builder: (context, child) {
+                  return CustomPaint(
+                    painter: _SparklinePainter(
+                      points: _data,
+                      pulse: _sparklineController.value,
+                    ),
+                  );
+                },
+              ),
             ),
           ),
 
@@ -191,6 +197,19 @@ class _SparklinePainter extends CustomPainter {
 
   _SparklinePainter({required this.points, required this.pulse});
 
+  static final Paint _linePaint = Paint()
+    ..color = NexoraTokens.statusAmber
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2.4
+    ..strokeCap = StrokeCap.round;
+
+  static final Paint _dotPaint = Paint()
+    ..color = NexoraTokens.statusAmber
+    ..style = PaintingStyle.fill;
+
+  static final Paint _fillPaint = Paint()..style = PaintingStyle.fill;
+  static Size? _lastShaderSize;
+
   @override
   void paint(Canvas canvas, Size size) {
     if (points.isEmpty) return;
@@ -205,7 +224,7 @@ class _SparklinePainter extends CustomPainter {
     for (int i = 0; i < points.length; i++) {
       final x = i * stepX;
       // Sedikit bernafas halus di titik tertinggi
-      final breath = (i == 4) ? (pulse * 4) : 0.0;
+      final breath = (i == 4) ? (pulse * 3.5) : 0.0;
       final normalizedY = (points[i].watt + breath - minVal) / (maxVal - minVal);
       final y = size.height - (normalizedY * (size.height - 10)) - 5;
 
@@ -231,36 +250,28 @@ class _SparklinePainter extends CustomPainter {
     fillPath.lineTo(size.width, size.height);
     fillPath.close();
 
-    // Fill Gradient
-    final fillPaint = Paint()
-      ..shader = LinearGradient(
+    // Cache fill shader hanya saat dimensi berubah
+    if (_lastShaderSize != size) {
+      _lastShaderSize = size;
+      _fillPaint.shader = LinearGradient(
         colors: [
           NexoraTokens.statusAmber.withOpacity(0.18),
           NexoraTokens.statusAmber.withOpacity(0.0),
         ],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
-      ..style = PaintingStyle.fill;
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    }
 
-    canvas.drawPath(fillPath, fillPaint);
-
-    // Line Stroke
-    final linePaint = Paint()
-      ..color = NexoraTokens.statusAmber
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawPath(path, linePaint);
+    canvas.drawPath(fillPath, _fillPaint);
+    canvas.drawPath(path, _linePaint);
 
     // Current time indicator dot
     final lastX = size.width;
     final lastNormY = (points.last.watt - minVal) / (maxVal - minVal);
     final lastY = size.height - (lastNormY * (size.height - 10)) - 5;
 
-    final dotPaint = Paint()..color = NexoraTokens.statusAmber;
-    canvas.drawCircle(Offset(lastX, lastY), 4, dotPaint);
+    canvas.drawCircle(Offset(lastX, lastY), 4, _dotPaint);
   }
 
   @override

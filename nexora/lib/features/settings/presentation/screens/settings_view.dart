@@ -621,7 +621,7 @@ class _SettingsViewState extends State<SettingsView> {
           child: Column(
             children: const [
               Text(
-                'NEXORA HOME OS',
+                'ALRISA HOME OS',
                 style: TextStyle(
                   fontFamily: NexoraTokens.fontFamilySans,
                   fontSize: 12,
@@ -2394,6 +2394,17 @@ class _SettingsViewState extends State<SettingsView> {
                         setModalState(() {
                           _brokerController.text = 'broker.hivemq.com';
                           _portController.text = '1883';
+                        });
+                      },
+                    ),
+                    ActionChip(
+                      label: const Text('Laptop / Mini PC (192.168.0.104)', style: TextStyle(fontSize: 11.5)),
+                      avatar: const Icon(Icons.laptop_chromebook, size: 14),
+                      onPressed: () {
+                        setModalState(() {
+                          _brokerController.text = '192.168.0.104';
+                          _portController.text = '1883';
+                          _prefixController.text = 'alrisa';
                         });
                       },
                     ),

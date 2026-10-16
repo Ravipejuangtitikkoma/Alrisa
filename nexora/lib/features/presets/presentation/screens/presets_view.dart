@@ -70,20 +70,26 @@ class _PresetsViewState extends State<PresetsView> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Icon(Icons.edit_rounded, color: selectedColor, size: 24),
-                          const SizedBox(width: 10),
-                          const Text(
-                            'Edit Skenario Preset',
-                            style: TextStyle(
-                              fontFamily: NexoraTokens.fontFamilySans,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: NexoraTokens.ink,
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_rounded, color: selectedColor, size: 24),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Text(
+                                'Edit Skenario Preset',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: NexoraTokens.fontFamilySans,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: NexoraTokens.ink,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close_rounded),
@@ -297,20 +303,26 @@ class _PresetsViewState extends State<PresetsView> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: const [
-                          Icon(Icons.add_task_rounded, color: NexoraTokens.brandCyan, size: 24),
-                          SizedBox(width: 10),
-                          Text(
-                            'Buat Preset Baru',
-                            style: TextStyle(
-                              fontFamily: NexoraTokens.fontFamilySans,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: NexoraTokens.ink,
+                      Expanded(
+                        child: Row(
+                          children: const [
+                            Icon(Icons.add_task_rounded, color: NexoraTokens.brandCyan, size: 24),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Buat Preset Baru',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: NexoraTokens.fontFamilySans,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: NexoraTokens.ink,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close_rounded),

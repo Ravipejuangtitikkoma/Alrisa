@@ -286,21 +286,27 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
         right: 18,
         bottom: MediaQuery.of(context).padding.bottom + 20,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Handle Bar
-          Center(
-            child: Container(
-              width: 42,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(2),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.90,
+        ),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle Bar
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-            ),
-          ),
           const SizedBox(height: 14),
 
           // Header Info CCTV
@@ -424,89 +430,100 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
             const SizedBox(height: 16),
             const Divider(color: Colors.white12),
             const SizedBox(height: 8),
-            Row(
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 10,
+              runSpacing: 10,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        lang.isIndonesian ? 'KONTROL AKSES LANGSUNG' : 'DIRECT ACCESS CONTROL',
-                        style: const TextStyle(
-                          fontFamily: 'JetBrains Mono',
-                          fontSize: 10,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      lang.isIndonesian ? 'KONTROL AKSES LANGSUNG' : 'DIRECT ACCESS CONTROL',
+                      style: const TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.gateName ?? (lang.isIndonesian ? 'Gerbang Utama' : 'Main Gate'),
+                      style: const TextStyle(
+                        fontFamily: NexoraTokens.fontFamilySans,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => _toggleGate(true),
+                      icon: Icon(
+                        Icons.lock_open_rounded,
+                        size: 15,
+                        color: _isGateOpen ? Colors.white : const Color(0xFF94A3B8),
+                      ),
+                      label: Text(
+                        lang.isIndonesian ? 'Buka' : 'Open',
+                        style: TextStyle(
+                          color: _isGateOpen ? Colors.white : const Color(0xFF94A3B8),
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF94A3B8),
+                          fontSize: 12.5,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        widget.gateName ?? (lang.isIndonesian ? 'Gerbang Utama' : 'Main Gate'),
-                        style: const TextStyle(
-                          fontFamily: NexoraTokens.fontFamilySans,
-                          fontSize: 14,
+                      style: ElevatedButton.styleFrom(
+                        primary: _isGateOpen ? const Color(0xFF10B981) : const Color(0xFF1E293B),
+                        elevation: _isGateOpen ? 3 : 0,
+                        side: BorderSide(
+                          color: _isGateOpen ? const Color(0xFF10B981) : const Color(0xFF334155),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: () => _toggleGate(false),
+                      icon: Icon(
+                        Icons.lock_rounded,
+                        size: 15,
+                        color: !_isGateOpen ? Colors.white : const Color(0xFF94A3B8),
+                      ),
+                      label: Text(
+                        lang.isIndonesian ? 'Kunci' : 'Lock',
+                        style: TextStyle(
+                          color: !_isGateOpen ? Colors.white : const Color(0xFF94A3B8),
                           fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                          fontSize: 12.5,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () => _toggleGate(true),
-                  icon: Icon(
-                    Icons.lock_open_rounded,
-                    size: 16,
-                    color: _isGateOpen ? Colors.white : const Color(0xFF94A3B8),
-                  ),
-                  label: Text(
-                    lang.isIndonesian ? 'Buka' : 'Open',
-                    style: TextStyle(
-                      color: _isGateOpen ? Colors.white : const Color(0xFF94A3B8),
-                      fontWeight: FontWeight.w700,
+                      style: ElevatedButton.styleFrom(
+                        primary: !_isGateOpen ? const Color(0xFF0F172A) : const Color(0xFF1E293B),
+                        elevation: !_isGateOpen ? 3 : 0,
+                        side: BorderSide(
+                          color: !_isGateOpen ? const Color(0xFF38BDF8) : const Color(0xFF334155),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    primary: _isGateOpen ? const Color(0xFF10B981) : const Color(0xFF1E293B),
-                    elevation: _isGateOpen ? 3 : 0,
-                    side: BorderSide(
-                      color: _isGateOpen ? const Color(0xFF10B981) : const Color(0xFF334155),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: () => _toggleGate(false),
-                  icon: Icon(
-                    Icons.lock_rounded,
-                    size: 16,
-                    color: !_isGateOpen ? Colors.white : const Color(0xFF94A3B8),
-                  ),
-                  label: Text(
-                    lang.isIndonesian ? 'Kunci' : 'Lock',
-                    style: TextStyle(
-                      color: !_isGateOpen ? Colors.white : const Color(0xFF94A3B8),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    primary: !_isGateOpen ? const Color(0xFF0F172A) : const Color(0xFF1E293B),
-                    elevation: !_isGateOpen ? 3 : 0,
-                    side: BorderSide(
-                      color: !_isGateOpen ? const Color(0xFF38BDF8) : const Color(0xFF334155),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
+                  ],
                 ),
               ],
             ),
           ],
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildVideoSheetViewport(CctvCameraItem cam) {

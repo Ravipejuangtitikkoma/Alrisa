@@ -231,9 +231,11 @@ class AmbientHeader extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 5),
-                  // Row Badge: Super Admin + Mode Rumah Live (Preset / Manual)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+                  // Badge & Mode Rumah Live (Preset / Manual) - Menggunakan Wrap agar tidak pernah overflow
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       // Badge Role
                       Container(
@@ -272,7 +274,7 @@ class AmbientHeader extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 6),
+
                       // Indicator Mode Rumah Aktif Live (Mode Santai / Mode Keluar / Mode Manual)
                       StreamBuilder<String>(
                         stream: PresetManagerService().activeModeStream,

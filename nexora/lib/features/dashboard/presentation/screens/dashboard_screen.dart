@@ -28,6 +28,8 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProviderStateMixin {
   int _navIndex = 0;
   bool _isOffline = false; // banner offline jika terputus dari MQTT
+  final ScrollController _homeScrollController = ScrollController();
+  bool _isSkyVisible = true;
 
   late AnimationController _entranceController;
   late Animation<double> _fadeHeader;
@@ -89,6 +91,17 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     _weatherSub = WeatherService().weatherStream.listen((_) {
       if (mounted) setState(() {});
     });
+
+    _homeScrollController.addListener(() {
+      final isVisible = _homeScrollController.offset < 340;
+      if (isVisible != _isSkyVisible) {
+        if (mounted) {
+          setState(() {
+            _isSkyVisible = isVisible;
+          });
+        }
+      }
+    });
   }
 
   @override
@@ -96,6 +109,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     _langSub?.cancel();
     _mqttConnSub?.cancel();
     _weatherSub?.cancel();
+    _homeScrollController.dispose();
     _entranceController.dispose();
     super.dispose();
   }
@@ -626,13 +640,18 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final tabBottomPadding = bottomInset + 115.0;
+
     return Scaffold(
       backgroundColor: NexoraTokens.background,
       body: Stack(
         children: [
-          // 1. Ambient Sky Background di Belakang Seluruh Konten
-          const Positioned.fill(
-            child: AmbientSkyBackground(),
+          // 1. Ambient Sky Background di Belakang Seluruh Konten (Dorman jika di tab lain atau scrolled out of view)
+          Positioned.fill(
+            child: AmbientSkyBackground(
+              isPageActive: _navIndex == 0 && _isSkyVisible,
+            ),
           ),
 
           // 2. Konten 4 Tab Menggunakan IndexedStack
@@ -649,8 +668,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                   strokeWidth: 2.5,
                   onRefresh: _handleRefresh,
                   child: SingleChildScrollView(
+                    controller: _homeScrollController,
                     physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                    padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 100),
+                    padding: EdgeInsets.only(left: 20, right: 20, top: 16, bottom: tabBottomPadding),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -774,7 +794,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                 // Tab 1: Ruangan
                 SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 100),
+                  padding: EdgeInsets.only(left: 20, right: 20, top: 16, bottom: tabBottomPadding),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -787,7 +807,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                 // Tab 2: Skenario & Preset Pintar (Pengganti Energi)
                 SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 100),
+                  padding: EdgeInsets.only(left: 20, right: 20, top: 16, bottom: tabBottomPadding),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -800,7 +820,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                 // Tab 3: Pengaturan
                 SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 100),
+                  padding: EdgeInsets.only(left: 20, right: 20, top: 16, bottom: tabBottomPadding),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -813,11 +833,11 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             ),
           ),
 
-          // Floating Pill Nav 4 Item di bagian bawah
+          // Floating Pill Nav 4 Item di bagian bawah (Adaptif dengan Android Navigation Inset)
           Positioned(
             left: 0,
             right: 0,
-            bottom: 24,
+            bottom: bottomInset > 0 ? bottomInset + 8 : 20,
             child: Center(
               child: PillNav(
                 currentIndex: _navIndex,

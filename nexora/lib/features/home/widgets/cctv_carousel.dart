@@ -192,37 +192,46 @@ class _CctvCarouselState extends State<CctvCarousel> {
         ],
 
         // PageView / Slider Card CCTV
-        hasMultiple
-            ? SizedBox(
-                // Ukuran dinamis pas dengan isi CctvCard (header + 16:9 viewport + toolbar)
-                height: 318,
-                child: PageView.builder(
-                  controller: _pageController,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: widget.cameras.length,
-                  onPageChanged: (idx) {
-                    HapticFeedback.selectionClick();
-                    setState(() {
-                      _currentIndex = idx;
-                    });
-                  },
-                  itemBuilder: (ctx, index) {
-                    final cam = widget.cameras[index];
-                    return RepaintBoundary(
-                      child: CctvCard(
-                        key: ValueKey('cctv_${cam.id}'),
-                        camera: cam,
-                      ),
-                    );
-                  },
-                ),
-              )
-            : RepaintBoundary(
-                child: CctvCard(
-                  key: ValueKey('cctv_${widget.cameras.first.id}'),
-                  camera: widget.cameras.first,
-                ),
-              ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cardWidth = constraints.maxWidth;
+            final contentWidth = (cardWidth - 24).clamp(200.0, 600.0);
+            final videoHeight = contentWidth / (16 / 9);
+            final textScale = MediaQuery.of(context).textScaleFactor.clamp(1.0, 1.4);
+            final dynamicHeight = videoHeight + (144.0 * textScale);
+
+            return hasMultiple
+                ? SizedBox(
+                    height: dynamicHeight,
+                    child: PageView.builder(
+                      controller: _pageController,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: widget.cameras.length,
+                      onPageChanged: (idx) {
+                        HapticFeedback.selectionClick();
+                        setState(() {
+                          _currentIndex = idx;
+                        });
+                      },
+                      itemBuilder: (ctx, index) {
+                        final cam = widget.cameras[index];
+                        return RepaintBoundary(
+                          child: CctvCard(
+                            key: ValueKey('cctv_${cam.id}'),
+                            camera: cam,
+                          ),
+                        );
+                      },
+                    ),
+                  )
+                : RepaintBoundary(
+                    child: CctvCard(
+                      key: ValueKey('cctv_${widget.cameras.first.id}'),
+                      camera: widget.cameras.first,
+                    ),
+                  );
+          },
+        ),
 
         // Dot Indicator di Bawah Slider jika kamera > 1
         if (hasMultiple) ...[

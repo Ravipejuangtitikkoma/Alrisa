@@ -183,31 +183,38 @@ class _GateCarouselState extends State<GateCarousel> {
         ],
 
         // PageView Swipeable HeroCard
-        SizedBox(
-          height: 255,
-          child: PageView.builder(
-            controller: _pageController,
-            itemCount: widget.gates.length,
-            onPageChanged: (index) {
-              HapticFeedback.selectionClick();
-              setState(() {
-                _currentIndex = index;
-              });
-            },
-            itemBuilder: (context, index) {
-              final gate = widget.gates[index];
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 1),
-                child: HeroCard(
-                  key: ValueKey('${gate.id}_${gate.name}_${gate.hardwarePin}'),
-                  deviceId: gate.id,
-                  deviceName: gate.name,
-                  hardwarePin: gate.hardwarePin,
-                  onEdit: () => _showQuickEditGate(context, gate),
-                ),
-              );
-            },
-          ),
+        Builder(
+          builder: (context) {
+            final textScale = MediaQuery.of(context).textScaleFactor.clamp(1.0, 1.35);
+            final heroHeight = 265.0 * textScale;
+
+            return SizedBox(
+              height: heroHeight,
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: widget.gates.length,
+                onPageChanged: (index) {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                },
+                itemBuilder: (context, index) {
+                  final gate = widget.gates[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 1),
+                    child: HeroCard(
+                      key: ValueKey('${gate.id}_${gate.name}_${gate.hardwarePin}'),
+                      deviceId: gate.id,
+                      deviceName: gate.name,
+                      hardwarePin: gate.hardwarePin,
+                      onEdit: () => _showQuickEditGate(context, gate),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
         ),
 
         // Dots Indicator Elegan jika ada lebih dari 1 gerbang

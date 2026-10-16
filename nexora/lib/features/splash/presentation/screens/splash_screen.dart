@@ -21,6 +21,7 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _scaleAnimation;
   late Animation<double> _loadingFadeAnimation;
 
+  late Future<bool> _sessionFuture;
   Timer? _navTimer;
 
   @override
@@ -51,13 +52,20 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    // Navigasi kilat ke Home Dashboard (900 ms)
-    _navTimer = Timer(const Duration(milliseconds: 900), _navigateToHome);
+    // Pulihkan sesi login dari penyimpanan lokal secara paralel
+    _sessionFuture = AuthService().restoreSession();
+
+    // Tampilkan Splash Screen dengan durasi yang pas (1800 ms), tap layar untuk skip
+    _navTimer = Timer(const Duration(milliseconds: 1800), _navigateToHome);
   }
 
-  void _navigateToHome() {
+  Future<void> _navigateToHome() async {
     if (!mounted) return;
     _navTimer?.cancel();
+
+    // Pastikan pembacaan sesi selesai
+    await _sessionFuture;
+    if (!mounted) return;
 
     final isLoggedIn = AuthService().isLoggedIn;
     final targetScreen = isLoggedIn ? const DashboardScreen() : const AuthView();
@@ -94,7 +102,7 @@ class _SplashScreenState extends State<SplashScreen>
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // 1. Logo & Nama Brand di Tengah Layar
+              // 1. Logo ALRISA & Tagline di Tengah Layar
               FadeTransition(
                 opacity: _fadeAnimation,
                 child: ScaleTransition(
@@ -102,34 +110,20 @@ class _SplashScreenState extends State<SplashScreen>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const NexoraLogo(size: 112),
+                      const NexoraLogo(size: 130),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
 
-                      // Nama Brand NEXORA
-                      const Text(
-                        AppStrings.appName,
-                        style: TextStyle(
-                          fontFamily: NexoraTokens.fontFamilySans,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 4.5,
-                          color: NexoraTokens.ink,
-                        ),
-                      ),
-
-                      const SizedBox(height: 6),
-
-                      // Tagline Abu-abu
+                      // Tagline: Smart Systems. Simplified.
                       const Text(
                         AppStrings.tagline,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontFamily: NexoraTokens.fontFamilySans,
-                          fontSize: 13,
+                          fontSize: 14.5,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.6,
-                          color: NexoraTokens.inkSecondary,
+                          color: Color(0xFF64748B),
                         ),
                       ),
                     ],
@@ -137,9 +131,11 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
 
-              // 2. Loading Indicator & Status di Bagian Bawah
+              // 2. Loading Indicator & Footer Byline di Bagian Bawah
               Positioned(
-                bottom: 48,
+                bottom: 38,
+                left: 20,
+                right: 20,
                 child: FadeTransition(
                   opacity: _loadingFadeAnimation,
                   child: Column(
@@ -152,20 +148,33 @@ class _SplashScreenState extends State<SplashScreen>
                           borderRadius: BorderRadius.circular(4),
                           child: const LinearProgressIndicator(
                             minHeight: 3.5,
-                            valueColor: AlwaysStoppedAnimation<Color>(NexoraTokens.brandCyan),
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF65B8EA)),
                             backgroundColor: Color(0xFFE2E8F0),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       const Text(
-                        'Menyiapkan sistem pintar...',
+                        'Menyiapkan ekosistem pintar...',
                         style: TextStyle(
                           fontFamily: NexoraTokens.fontFamilySans,
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: NexoraTokens.inkSecondary,
+                          fontWeight: FontWeight.w500,
+                          color: NexoraTokens.inkMuted,
                           letterSpacing: 0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      // Byline Alfatech Solutions IDN.
+                      const Text(
+                        AppStrings.productBy,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: NexoraTokens.fontFamilySans,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                          letterSpacing: 0.4,
                         ),
                       ),
                     ],

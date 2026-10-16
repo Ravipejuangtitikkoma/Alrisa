@@ -273,15 +273,20 @@ class _WaterLevelScreenState extends State<WaterLevelScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: const [
-                      Text(
-                        'Grafik Level 7 Hari Terakhir',
-                        style: TextStyle(
-                          fontFamily: NexoraTokens.fontFamilySans,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: NexoraTokens.ink,
+                      Expanded(
+                        child: Text(
+                          'Grafik Level 7 Hari Terakhir',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: NexoraTokens.fontFamilySans,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: NexoraTokens.ink,
+                          ),
                         ),
                       ),
+                      SizedBox(width: 8),
                       Text(
                         'Rata-rata: 74%',
                         style: TextStyle(

@@ -195,10 +195,13 @@ class MqttService {
     _reconnectTimer?.cancel();
     _connectionController.add(true);
 
-    // Subscribe ke semua status perangkat sesuai kontrak: nexora/+/state
+    // Subscribe ke semua status perangkat sesuai kontrak: alrisa/+/state dan nexora/+/state
     final topic = MqttConfig.allStateTopics();
     debugPrint('📡 [MQTT] Subscribe ke topik: $topic');
     _client?.subscribe(topic, MqttQos.atLeastOnce);
+    if (MqttConfig.topicPrefix != 'nexora') {
+      _client?.subscribe('nexora/+/state', MqttQos.atLeastOnce);
+    }
 
     // Dengarkan pesan masuk dari broker secara aman tanpa duplicate listener
     _updatesSub?.cancel();
