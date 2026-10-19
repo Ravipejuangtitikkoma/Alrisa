@@ -181,7 +181,16 @@ class AuthService {
     } catch (_) {}
   }
 
-  /// Proses Login
+  /// Konfigurasi URL API Kantor Resmi (dapat diisi jika API kantor sudah aktif)
+  String officeApiBaseUrl = ''; // Contoh: 'https://api.kantor.com/v1'
+
+  /// Cek apakah suatu email sudah terdaftar di sistem kantor
+  bool checkEmailExists(String email) {
+    final cleanEmail = email.trim().toLowerCase();
+    return _usersDatabase.containsKey(cleanEmail);
+  }
+
+  /// Proses Login Menggunakan Akun Kantor
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
@@ -194,7 +203,7 @@ class AuthService {
     if (!_usersDatabase.containsKey(cleanEmail)) {
       return {
         'success': false,
-        'message': 'Email belum terdaftar. Silakan registrasi terlebih dahulu.',
+        'message': 'Email belum terdaftar di sistem kantor Alrisa. Silakan hubungi administrator kantor Anda.',
       };
     }
 
@@ -202,7 +211,7 @@ class AuthService {
     if (user.password != cleanPassword) {
       return {
         'success': false,
-        'message': 'Password yang Anda masukkan salah!',
+        'message': 'Kata sandi yang Anda masukkan salah!',
       };
     }
 
@@ -222,50 +231,100 @@ class AuthService {
     };
   }
 
-  /// Proses Registrasi Pengguna Baru
-  Future<Map<String, dynamic>> register({
+  /// Masuk Cepat Menggunakan Akun Google (Single Sign-On Kantor)
+  Future<Map<String, dynamic>> loginWithGoogle(String googleEmail) async {
+    await Future.delayed(const Duration(milliseconds: 700));
+
+    final cleanEmail = googleEmail.trim().toLowerCase();
+
+    // Verifikasi apakah akun Google ini sudah didaftarkan oleh kantor
+    if (!_usersDatabase.containsKey(cleanEmail)) {
+      return {
+        'success': false,
+        'message': 'Akun Google ($cleanEmail) belum terdaftar di sistem kantor Alrisa. Silakan hubungi admin kantor untuk mendaftarkan email ini.',
+      };
+    }
+
+    final user = _usersDatabase[cleanEmail]!;
+    _currentUser = user;
+    _lastActiveTime = DateTime.now();
+    _authController.add(_currentUser);
+
+    await _saveSessionToFile(_currentUser!, _lastActiveTime!);
+
+    return {
+      'success': true,
+      'message': 'Berhasil masuk dengan Google sebagai ${user.name}!',
+      'user': user,
+    };
+  }
+
+  /// Proses Permintaan Reset Kata Sandi via Email
+  Future<Map<String, dynamic>> requestPasswordReset(String email) async {
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    final cleanEmail = email.trim().toLowerCase();
+
+    // 1. Cek apakah akun terdaftar di sistem kantor
+    if (!_usersDatabase.containsKey(cleanEmail)) {
+      return {
+        'success': false,
+        'message': 'Email tidak terdaftar di dalam sistem Alrisa! Pastikan Anda memasukkan email resmi yang diberikan oleh kantor.',
+      };
+    }
+
+    // 2. Email ditemukan! Kirim instruksi pemulihan
+    // (Jika API kantor sudah siap, di sini kita tinggal mengirim request POST ke server kantor)
+    return {
+      'success': true,
+      'message': 'Instruksi pemulihan kata sandi telah dikirimkan ke $cleanEmail. Silakan periksa kotak masuk atau spam email Anda.',
+    };
+  }
+
+  /// Pendaftaran / Pembuatan Akun Baru oleh Administrator Kantor
+  Future<Map<String, dynamic>> addOfficeAccount({
     required String name,
     required String email,
     required String password,
+    UserRole role = UserRole.user,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 600));
-
     final cleanEmail = email.trim().toLowerCase();
     final cleanName = name.trim();
     final cleanPassword = password.trim();
 
-    // 1. Validasi jika email sudah digunakan sebelumnya
     if (_usersDatabase.containsKey(cleanEmail)) {
       return {
         'success': false,
-        'message': 'Email "$cleanEmail" sudah terdaftar! Gunakan email lain.',
+        'message': 'Email "$cleanEmail" sudah terdaftar di sistem!',
       };
     }
 
-    // 2. Buat akun baru sebagai role User biasa
     final newUser = UserModel(
       id: 'usr_${DateTime.now().millisecondsSinceEpoch}',
       name: cleanName,
       email: cleanEmail,
       password: cleanPassword,
-      role: UserRole.user,
+      role: role,
       createdAt: DateTime.now(),
     );
 
     _usersDatabase[cleanEmail] = newUser;
-    _currentUser = newUser;
-    _lastActiveTime = DateTime.now();
-    _authController.add(_currentUser);
-
-    // Simpan akun ke database lokal & simpan sesi login otomatis
     await _saveUsersDbToFile();
-    await _saveSessionToFile(_currentUser!, _lastActiveTime!);
 
     return {
       'success': true,
-      'message': 'Pendaftaran berhasil! Selamat bergabung, $cleanName.',
+      'message': 'Akun resmi kantor untuk $cleanName berhasil dibuat.',
       'user': newUser,
     };
+  }
+
+  /// Proses Registrasi (Deprecated: Dipertahankan untuk kompatibilitas data lama)
+  Future<Map<String, dynamic>> register({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    return addOfficeAccount(name: name, email: email, password: password);
   }
 
   /// Proses Logout

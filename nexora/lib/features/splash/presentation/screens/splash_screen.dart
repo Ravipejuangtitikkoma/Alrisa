@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:nexora/core/constants/app_strings.dart';
 import 'package:nexora/core/design_tokens.dart';
 import 'package:nexora/services/auth_service.dart';
+import 'package:nexora/services/device_manager_service.dart';
+import 'package:nexora/services/preset_manager_service.dart';
+import 'package:nexora/services/cctv_manager_service.dart';
 import 'package:nexora/features/auth/presentation/screens/auth_view.dart';
 import 'package:nexora/features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../widgets/nexora_logo.dart';
@@ -52,8 +55,17 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    // Pulihkan sesi login dari penyimpanan lokal secara paralel
-    _sessionFuture = AuthService().restoreSession();
+    // Pulihkan sesi login dan konfigurasi perangkat dari disk lokal secara paralel
+    _sessionFuture = () async {
+      final restored = await AuthService().restoreSession();
+      final email = AuthService().currentUser?.email.toLowerCase() ?? 'raviarmanza149@gmail.com';
+      await Future.wait([
+        DeviceManagerService().restoreFromDisk(email),
+        PresetManagerService().restoreFromDisk(email),
+        CctvManagerService().restoreFromDisk(email),
+      ]);
+      return restored;
+    }();
 
     // Tampilkan Splash Screen dengan durasi yang pas (1800 ms), tap layar untuk skip
     _navTimer = Timer(const Duration(milliseconds: 1800), _navigateToHome);

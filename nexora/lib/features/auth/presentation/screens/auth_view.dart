@@ -12,49 +12,28 @@ class AuthView extends StatefulWidget {
   State<AuthView> createState() => _AuthViewState();
 }
 
-class _AuthViewState extends State<AuthView> with SingleTickerProviderStateMixin {
-  bool _isLogin = true; // true = Login, false = Register
+class _AuthViewState extends State<AuthView> {
   bool _isLoading = false;
-
-  // Toggle Visibility Password
-  bool _obscureLoginPass = true;
-  bool _obscureRegPass = true;
-  bool _obscureRegConfirmPass = true;
+  bool _rememberMe = true;
+  bool _obscurePass = true;
 
   // Controllers Login
-  final TextEditingController _loginEmailController = TextEditingController();
-  final TextEditingController _loginPassController = TextEditingController();
-
-  // Controllers Register
-  final TextEditingController _regNameController = TextEditingController();
-  final TextEditingController _regEmailController = TextEditingController();
-  final TextEditingController _regPassController = TextEditingController();
-  final TextEditingController _regConfirmPassController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passController = TextEditingController();
 
   @override
   void dispose() {
-    _loginEmailController.dispose();
-    _loginPassController.dispose();
-    _regNameController.dispose();
-    _regEmailController.dispose();
-    _regPassController.dispose();
-    _regConfirmPassController.dispose();
+    _emailController.dispose();
+    _passController.dispose();
     super.dispose();
   }
 
-  void _fillSuperAdmin() {
-    setState(() {
-      _isLogin = true;
-      _loginEmailController.text = 'raviarmanza149@gmail.com';
-      _loginPassController.text = 'ravi18';
-    });
-    HapticFeedback.lightImpact();
-    _showToast('⚡ Akun Super Admin Ravi berhasil diisi otomatis!', isError: false);
-  }
-
+  // =========================================================================
+  // HANDLER LOGIN RESMI KANTOR
+  // =========================================================================
   Future<void> _handleLogin() async {
-    final email = _loginEmailController.text.trim();
-    final pass = _loginPassController.text.trim();
+    final email = _emailController.text.trim();
+    final pass = _passController.text.trim();
 
     if (email.isEmpty || pass.isEmpty) {
       _showToast('⚠️ Harap isi email dan kata sandi Anda.', isError: true);
@@ -81,54 +60,288 @@ class _AuthViewState extends State<AuthView> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<void> _handleRegister() async {
-    final name = _regNameController.text.trim();
-    final email = _regEmailController.text.trim();
-    final pass = _regPassController.text.trim();
-    final confirmPass = _regConfirmPassController.text.trim();
-
-    if (name.isEmpty || email.isEmpty || pass.isEmpty || confirmPass.isEmpty) {
-      _showToast('⚠️ Semua kolom pendaftaran wajib diisi!', isError: true);
-      return;
-    }
-
-    if (!email.contains('@') || !email.contains('.')) {
-      _showToast('⚠️ Format email tidak valid.', isError: true);
-      return;
-    }
-
-    if (pass.length < 4) {
-      _showToast('⚠️ Kata sandi minimal 4 karakter.', isError: true);
-      return;
-    }
-
-    if (pass != confirmPass) {
-      _showToast('⚠️ Konfirmasi kata sandi tidak cocok!', isError: true);
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    HapticFeedback.mediumImpact();
-
-    final result = await AuthService().register(
-      name: name,
-      email: email,
-      password: pass,
+  // =========================================================================
+  // HANDLER LUPA KATA SANDI (MODAL VIA EMAIL)
+  // =========================================================================
+  void _showForgotPasswordSheet() {
+    HapticFeedback.lightImpact();
+    final resetEmailController = TextEditingController(
+      text: _emailController.text.trim(),
     );
+    bool sheetLoading = false;
 
-    if (!mounted) return;
-    setState(() => _isLoading = false);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Handle Bar
+                    Center(
+                      child: Container(
+                        width: 44,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE2E8F0),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
 
-    if (result['success'] == true) {
-      _showToast(result['message'], isError: false);
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
-      );
-    } else {
-      HapticFeedback.vibrate();
-      _showToast(result['message'], isError: true);
-    }
+                    // Icon & Judul
+                    Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE0F2FE),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.lock_outline_rounded,
+                            color: Color(0xFF0284C7),
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              'Lupa Kata Sandi?',
+                              style: TextStyle(
+                                fontFamily: NexoraTokens.fontFamilySans,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            Text(
+                              'Pemulihan akun via email resmi kantor',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    const Text(
+                      'Masukkan email akun kantor Anda. Sistem akan memverifikasi apakah akun Anda terdaftar dan mengirimkan instruksi pemulihan langsung ke email Anda.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF475569),
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    _buildFieldLabel('Email Terdaftar'),
+                    const SizedBox(height: 8),
+                    _buildModernTextField(
+                      controller: resetEmailController,
+                      hint: 'nama@kantor.com atau gmail',
+                      icon: Icons.mail_outline_rounded,
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Tombol Submit Reset
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: sheetLoading
+                            ? null
+                            : () async {
+                                final email = resetEmailController.text.trim();
+                                if (email.isEmpty) {
+                                  _showToast('⚠️ Harap masukkan alamat email Anda.', isError: true);
+                                  return;
+                                }
+
+                                setSheetState(() => sheetLoading = true);
+                                final result = await AuthService().requestPasswordReset(email);
+                                setSheetState(() => sheetLoading = false);
+
+                                if (!mounted) return;
+                                Navigator.pop(ctx);
+
+                                if (result['success'] == true) {
+                                  _showSuccessResetDialog(email: email, message: result['message']);
+                                } else {
+                                  HapticFeedback.vibrate();
+                                  _showAccountNotFoundDialog(
+                                    title: 'Email Tidak Terdaftar',
+                                    message: result['message'],
+                                  );
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          primary: const Color(0xFF0284C7),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 2,
+                          shadowColor: const Color(0xFF0284C7).withOpacity(0.4),
+                        ),
+                        child: sheetLoading
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: const [
+                                  Icon(Icons.send_rounded, size: 18, color: Colors.white),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Kirim Instruksi Pemulihan',
+                                    style: TextStyle(
+                                      fontFamily: NexoraTokens.fontFamilySans,
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Dialog Peringatan Jika Akun / Email Tidak Terdaftar
+  void _showAccountNotFoundDialog({required String title, required String message}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEE2E2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontFamily: NexoraTokens.fontFamilySans,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 13.5, color: Color(0xFF475569), height: 1.45),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'Mengerti',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0284C7),
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Dialog Sukses Kirim Email Pemulihan
+  void _showSuccessResetDialog({required String email, required String message}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD1FAE5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.mark_email_read_rounded, color: Color(0xFF059669), size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Instruksi Terkirim!',
+                style: TextStyle(
+                  fontFamily: NexoraTokens.fontFamilySans,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 13.5, color: Color(0xFF475569), height: 1.45),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(
+              primary: const Color(0xFF0284C7),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+            child: const Text(
+              'Tutup',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showToast(String message, {required bool isError}) {
@@ -146,218 +359,257 @@ class _AuthViewState extends State<AuthView> with SingleTickerProviderStateMixin
     );
   }
 
+  // =========================================================================
+  // BUILD UTAMA HALAMAN LOGIN KANTOR
+  // =========================================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       body: Stack(
         children: [
-          // 1. BACKGROUND GRADIENT ATMOSFERIK AESTHETIC (Sesuai Desain Figma)
-          Positioned.fill(
+          // 1. AKSEN LENGKUNGAN ARSITEKTURAL SKY-BLUE DI BAGIAN ATAS
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 220,
             child: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  stops: [0.0, 0.25, 0.65, 1.0],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                   colors: [
-                    Color(0xFFFFDAB9), // Warm peach / sunset gold lembut di kiri atas
-                    Color(0xFFFBE4D8), // Peach transisi
-                    Color(0xFFE2F0F9), // Ice blue transisi
-                    Color(0xFF90C2E7), // Ocean sky blue di kanan bawah
+                    Color(0xFFBAE6FD), // Sky blue soft tint
+                    Color(0xFFE0F2FE), // Ice blue transisi
+                    Color(0xFFF8FAFC), // Fading to pearl white
                   ],
+                ),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.elliptical(500, 110),
                 ),
               ),
             ),
           ),
 
-          // Orb Cahaya Ambient Halus di Latar Belakang
-          Positioned(
-            top: -60,
-            left: -40,
-            child: Container(
-              width: 220,
-              height: 220,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFFFAE70).withOpacity(0.35),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -30,
-            child: Container(
-              width: 240,
-              height: 240,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF64B5F6).withOpacity(0.4),
-              ),
-            ),
-          ),
-
-          // 2. KONTEN FORMULIR DENGAN GLASSMORPHISM
+          // 2. KONTEN FORMULIR PROFESIONAL
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                 child: Column(
-                  crossAxisAlignment: _isLogin ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Header Bar (Ikon Rumah di Login & Tombol Pintas Super Admin)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        if (_isLogin)
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.4),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.home_outlined,
-                              size: 32,
-                              color: Color(0xFF1E293B),
-                            ),
-                          )
-                        else
-                          const SizedBox(width: 40),
+                    const SizedBox(height: 10),
 
-                        // Tombol Cepat Super Admin Ravi
-                        InkWell(
-                          onTap: _fillSuperAdmin,
-                          borderRadius: BorderRadius.circular(20),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.55),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.white.withOpacity(0.8), width: 1.2),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(Icons.stars_rounded, size: 16, color: Color(0xFF0F766E)),
-                                SizedBox(width: 5),
-                                Text(
-                                  'Super Admin',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF0F766E),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                    // LOGO ALRISA FLOATING BADGE (3D Elevated)
+                    Container(
+                      width: 86,
+                      height: 86,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 2.0,
                         ),
-                      ],
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF0284C7).withOpacity(0.18),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
+                          ),
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(14),
+                      child: Image.asset(
+                        'assets/images/logo_alrisa.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (ctx, err, stack) => Image.asset(
+                          'assets/images/logo_nexora.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // TULISAN "Alrisa"
+                    const Text(
+                      'Alrisa',
+                      style: TextStyle(
+                        fontFamily: NexoraTokens.fontFamilySans,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+
+                    // Tagline Pill Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0F2FE),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Smart Home Living',
+                        style: TextStyle(
+                          fontFamily: NexoraTokens.fontFamilySans,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0284C7),
+                          letterSpacing: 0.2,
+                        ),
+                      ),
                     ),
 
                     const SizedBox(height: 24),
 
-                    // Judul Halaman
-                    Text(
-                      _isLogin ? 'Selamat Datang\nKembali' : 'Buat Akun Baru',
-                      textAlign: _isLogin ? TextAlign.start : TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: NexoraTokens.fontFamilySans,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                        height: 1.2,
-                        letterSpacing: -0.5,
-                        color: Color(0xFF0F172A), // Dark Navy
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Subjudul Halaman
-                    Text(
-                      _isLogin ? 'Silakan masuk ke akun Anda' : 'Daftar untuk mulai mengelola\nrumah pintar Anda',
-                      textAlign: _isLogin ? TextAlign.start : TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: const Color(0xFF334155).withOpacity(0.85),
-                        height: 1.4,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // 3. KARTU GLASSMORPHISM FROSTED BLUR
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(28),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 26),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.52), // Kaca transparan frosted
-                            borderRadius: BorderRadius.circular(28),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.85), // Kilauan tepian kaca
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF0F172A).withOpacity(0.08),
-                                blurRadius: 28,
-                                offset: const Offset(0, 12),
-                              ),
-                            ],
-                          ),
-                          child: _isLogin ? _buildLoginForm() : _buildRegisterForm(),
+                    // KARTU FORMULIR LOGIN KANTOR TUNGGAL
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 26),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(26),
+                        border: Border.all(
+                          color: const Color(0xFFE2E8F0),
+                          width: 1.2,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF0F172A).withOpacity(0.05),
+                            blurRadius: 24,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
                       ),
-                    ),
-
-                    const SizedBox(height: 26),
-
-                    // Switcher Bawah: "Belum punya akun? Daftar" / "Sudah punya akun? Masuk"
-                    Center(
-                      child: GestureDetector(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          setState(() {
-                            _isLogin = !_isLogin;
-                          });
-                        },
-                        child: RichText(
-                          text: TextSpan(
-                            style: const TextStyle(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Judul Kartu
+                          const Text(
+                            'Masuk ke Sistem',
+                            style: TextStyle(
                               fontFamily: NexoraTokens.fontFamilySans,
-                              fontSize: 13.5,
-                              color: Color(0xFF334155),
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Gunakan akun resmi yang diberikan oleh administrator kantor',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: const Color(0xFF475569).withOpacity(0.85),
                               fontWeight: FontWeight.w500,
                             ),
+                          ),
+                          const SizedBox(height: 22),
+
+                          // Label & Input Email
+                          _buildFieldLabel('Email'),
+                          const SizedBox(height: 8),
+                          _buildModernTextField(
+                            controller: _emailController,
+                            hint: 'Masukkan email Anda',
+                            icon: Icons.mail_outline_rounded,
+                            keyboardType: TextInputType.emailAddress,
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Label & Input Kata Sandi
+                          _buildFieldLabel('Kata Sandi'),
+                          const SizedBox(height: 8),
+                          _buildModernTextField(
+                            controller: _passController,
+                            hint: 'Masukkan kata sandi',
+                            icon: Icons.vpn_key_outlined,
+                            obscureText: _obscurePass,
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                color: const Color(0xFF64748B),
+                                size: 20,
+                              ),
+                              onPressed: () => setState(() => _obscurePass = !_obscurePass),
+                            ),
+                          ),
+
+                          const SizedBox(height: 14),
+
+                          // Remember Me & Lupa Kata Sandi
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              TextSpan(text: _isLogin ? 'Belum punya akun? ' : 'Sudah punya akun? '),
-                              TextSpan(
-                                text: _isLogin ? 'Daftar' : 'Masuk',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF0284C7), // Sky blue aksen
+                              InkWell(
+                                onTap: () => setState(() => _rememberMe = !_rememberMe),
+                                borderRadius: BorderRadius.circular(6),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: Checkbox(
+                                          value: _rememberMe,
+                                          activeColor: const Color(0xFF0284C7),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          onChanged: (val) => setState(() => _rememberMe = val ?? false),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Text(
+                                        'Ingat Saya',
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF475569),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: _showForgotPasswordSheet,
+                                child: const Text(
+                                  'Lupa Kata Sandi?',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF0284C7),
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        ),
+
+                          const SizedBox(height: 22),
+
+                          // Tombol Masuk Gradasi Biru Laut
+                          _buildGradientSubmitButton(
+                            title: 'Masuk',
+                            onTap: _handleLogin,
+                          ),
+                        ],
                       ),
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
@@ -369,154 +621,7 @@ class _AuthViewState extends State<AuthView> with SingleTickerProviderStateMixin
   }
 
   // =========================================================================
-  // FORM LOGIN (Persis Screenshot Kanan)
-  // =========================================================================
-  Widget _buildLoginForm() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Label & Input Email
-        _buildFieldLabel('Email'),
-        const SizedBox(height: 8),
-        _buildGlassTextField(
-          controller: _loginEmailController,
-          hint: 'Masukkan email Anda',
-          icon: Icons.mail_outline_rounded,
-          keyboardType: TextInputType.emailAddress,
-        ),
-
-        const SizedBox(height: 18),
-
-        // Label & Input Kata Sandi
-        _buildFieldLabel('Kata Sandi'),
-        const SizedBox(height: 8),
-        _buildGlassTextField(
-          controller: _loginPassController,
-          hint: 'Masukkan kata sandi',
-          icon: Icons.vpn_key_outlined,
-          obscureText: _obscureLoginPass,
-          suffixIcon: IconButton(
-            icon: Icon(
-              _obscureLoginPass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-              color: const Color(0xFF64748B),
-              size: 20,
-            ),
-            onPressed: () => setState(() => _obscureLoginPass = !_obscureLoginPass),
-          ),
-        ),
-
-        const SizedBox(height: 12),
-
-        // Lupa Kata Sandi Link
-        Align(
-          alignment: Alignment.centerRight,
-          child: GestureDetector(
-            onTap: () {
-              _showToast('💡 Hubungi Super Admin Ravi jika Anda lupa kata sandi.', isError: false);
-            },
-            child: const Text(
-              'Lupa Kata Sandi?',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF475569),
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 24),
-
-        // Tombol Masuk Gradasi Cyan/Teal (Sesuai Desain Figma)
-        _buildGradientSubmitButton(
-          title: 'Masuk',
-          onTap: _handleLogin,
-        ),
-      ],
-    );
-  }
-
-  // =========================================================================
-  // FORM REGISTER (Persis Screenshot Kiri)
-  // =========================================================================
-  Widget _buildRegisterForm() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Label & Input Nama Lengkap
-        _buildFieldLabel('Nama Lengkap'),
-        const SizedBox(height: 8),
-        _buildGlassTextField(
-          controller: _regNameController,
-          hint: 'Nama Lengkap',
-          icon: Icons.person_outline_rounded,
-        ),
-
-        const SizedBox(height: 16),
-
-        // Label & Input Email
-        _buildFieldLabel('Email'),
-        const SizedBox(height: 8),
-        _buildGlassTextField(
-          controller: _regEmailController,
-          hint: 'Email',
-          icon: Icons.mail_outline_rounded,
-          keyboardType: TextInputType.emailAddress,
-        ),
-
-        const SizedBox(height: 16),
-
-        // Label & Input Kata Sandi
-        _buildFieldLabel('Kata Sandi'),
-        const SizedBox(height: 8),
-        _buildGlassTextField(
-          controller: _regPassController,
-          hint: '••••••••',
-          icon: Icons.lock_outline_rounded,
-          obscureText: _obscureRegPass,
-          suffixIcon: IconButton(
-            icon: Icon(
-              _obscureRegPass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-              color: const Color(0xFF64748B),
-              size: 20,
-            ),
-            onPressed: () => setState(() => _obscureRegPass = !_obscureRegPass),
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Label & Input Konfirmasi Kata Sandi
-        _buildFieldLabel('Konfirmasi Kata Sandi'),
-        const SizedBox(height: 8),
-        _buildGlassTextField(
-          controller: _regConfirmPassController,
-          hint: 'Konfirmasi Kata Sandi',
-          icon: Icons.lock_outline_rounded,
-          obscureText: _obscureRegConfirmPass,
-          suffixIcon: IconButton(
-            icon: Icon(
-              _obscureRegConfirmPass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-              color: const Color(0xFF64748B),
-              size: 20,
-            ),
-            onPressed: () => setState(() => _obscureRegConfirmPass = !_obscureRegConfirmPass),
-          ),
-        ),
-
-        const SizedBox(height: 24),
-
-        // Tombol Daftar Gradasi Cyan/Teal (Sesuai Desain Figma)
-        _buildGradientSubmitButton(
-          title: 'Daftar',
-          onTap: _handleRegister,
-        ),
-      ],
-    );
-  }
-
-  // =========================================================================
-  // HELPER WIDGETS
+  // HELPER WIDGETS & UI COMPONENTS
   // =========================================================================
   Widget _buildFieldLabel(String label) {
     return Text(
@@ -530,7 +635,7 @@ class _AuthViewState extends State<AuthView> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildGlassTextField({
+  Widget _buildModernTextField({
     required TextEditingController controller,
     required String hint,
     required IconData icon,
@@ -540,10 +645,10 @@ class _AuthViewState extends State<AuthView> with SingleTickerProviderStateMixin
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFB0CEDB).withOpacity(0.35), // Soft bluish-gray glass capsule
+        color: const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withOpacity(0.6),
+          color: const Color(0xFFE2E8F0),
           width: 1.0,
         ),
       ),
@@ -558,12 +663,12 @@ class _AuthViewState extends State<AuthView> with SingleTickerProviderStateMixin
         ),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(
+          hintStyle: const TextStyle(
             fontSize: 13.5,
-            color: const Color(0xFF475569).withOpacity(0.7),
+            color: Color(0xFF94A3B8),
             fontWeight: FontWeight.w400,
           ),
-          prefixIcon: Icon(icon, color: const Color(0xFF475569), size: 20),
+          prefixIcon: Icon(icon, color: const Color(0xFF64748B), size: 20),
           suffixIcon: suffixIcon,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -584,14 +689,14 @@ class _AuthViewState extends State<AuthView> with SingleTickerProviderStateMixin
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
           colors: [
-            Color(0xFF0284C7), // Sky Teal / Deep Cyan
-            Color(0xFF0E7490), // Ocean Cyan
+            Color(0xFF0284C7), // Deep Cyan / Sky Teal
+            Color(0xFF0369A1), // Rich Ocean Blue
           ],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0284C7).withOpacity(0.4),
+            color: const Color(0xFF0284C7).withOpacity(0.35),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -602,7 +707,7 @@ class _AuthViewState extends State<AuthView> with SingleTickerProviderStateMixin
         style: ElevatedButton.styleFrom(
           primary: Colors.transparent,
           shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         ),
         child: _isLoading
             ? const SizedBox(
@@ -610,15 +715,22 @@ class _AuthViewState extends State<AuthView> with SingleTickerProviderStateMixin
                 height: 20,
                 child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
               )
-            : Text(
-                title,
-                style: const TextStyle(
-                  fontFamily: NexoraTokens.fontFamilySans,
-                  fontSize: 15.5,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: 0.3,
-                ),
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontFamily: NexoraTokens.fontFamilySans,
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.arrow_forward_rounded, size: 18, color: Colors.white),
+                ],
               ),
       ),
     );

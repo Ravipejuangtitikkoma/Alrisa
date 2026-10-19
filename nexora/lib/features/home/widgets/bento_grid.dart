@@ -7,7 +7,6 @@ import 'package:nexora/core/utils/snackbar_utils.dart';
 import 'package:nexora/services/mqtt_service.dart';
 import 'package:nexora/services/device_manager_service.dart';
 import 'water_card.dart';
-import 'energy_card.dart';
 
 /// Bento Grid Asimetris dengan Animasi Vektor Minimalis & Dukungan Penuh Multi-Perangkat (Lampu, Pompa, Pintu, Gorden)
 class BentoGrid extends StatelessWidget {
@@ -46,11 +45,6 @@ class BentoGrid extends StatelessWidget {
             ),
           ],
         ),
-
-        const SizedBox(height: 14),
-
-        // Baris 3: Kartu Lebar Energi Hari Ini dengan Sparkline Hidup
-        const EnergyCard(),
       ],
     );
   }

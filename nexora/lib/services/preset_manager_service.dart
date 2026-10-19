@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:nexora/services/mqtt_service.dart';
 import 'package:nexora/services/device_manager_service.dart';
 import 'package:nexora/services/auth_service.dart';
@@ -56,6 +59,32 @@ class PresetSceneItem {
     this.isDefault = false,
     this.isActive = false,
   });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'description': description,
+    'icon': icon.codePoint,
+    'accentColor': accentColor.value,
+    'actions': actions.map((a) => a.toJson()).toList(),
+    'isDefault': isDefault,
+    'isActive': isActive,
+  };
+
+  factory PresetSceneItem.fromJson(Map<String, dynamic> map) {
+    return PresetSceneItem(
+      id: map['id'] ?? '',
+      name: map['name'] ?? '',
+      description: map['description'] ?? '',
+      icon: IconData(map['icon'] ?? Icons.home.codePoint, fontFamily: 'MaterialIcons'),
+      accentColor: Color(map['accentColor'] ?? 0xFF0F766E),
+      actions: (map['actions'] as List<dynamic>? ?? [])
+          .map((a) => PresetDeviceAction.fromJson(Map<String, dynamic>.from(a)))
+          .toList(),
+      isDefault: map['isDefault'] ?? false,
+      isActive: map['isActive'] ?? false,
+    );
+  }
 }
 
 /// Singleton Service untuk mengelola Preset Otomasi Kustom & Mode Aktif Rumah
@@ -93,6 +122,61 @@ class PresetManagerService {
   List<PresetSceneItem> get allPresets => List.unmodifiable(_presets);
   String get activeModeName => _activeModeName;
   Color get activeModeColor => _activeModeColor;
+
+  String _sanitizeUserKey(String key) {
+    return key.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_');
+  }
+
+  Future<File> _getUserPresetFile(String userKey) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final safeKey = _sanitizeUserKey(userKey);
+    return File('${dir.path}/alrisa_presets_$safeKey.json');
+  }
+
+  Future<void> _loadFromDisk(String userKey) async {
+    try {
+      final file = await _getUserPresetFile(userKey);
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        if (content.trim().isNotEmpty) {
+          final dynamic decoded = json.decode(content);
+          if (decoded is List) {
+            final loaded = decoded
+                .map((item) => PresetSceneItem.fromJson(Map<String, dynamic>.from(item)))
+                .toList();
+            if (loaded.isNotEmpty) {
+              _userPresetsDb[userKey] = loaded;
+              if (_activeUserKey == userKey) {
+                _presets.clear();
+                _presets.addAll(loaded);
+                _presetsController.add(List.unmodifiable(_presets));
+              }
+              return;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (_userPresetsDb.containsKey(userKey)) {
+      await _saveToDisk(userKey);
+    }
+  }
+
+  Future<void> _saveToDisk(String userKey) async {
+    try {
+      final listToSave = _userPresetsDb[userKey] ?? (_activeUserKey == userKey ? _presets : null);
+      if (listToSave == null) return;
+      final file = await _getUserPresetFile(userKey);
+      final jsonString = json.encode(listToSave.map((p) => p.toJson()).toList());
+      await file.writeAsString(jsonString);
+    } catch (_) {}
+  }
+
+  Future<void> restoreFromDisk([String? userKey]) async {
+    final key = userKey ?? _activeUserKey;
+    await _loadFromDisk(key);
+  }
 
   void _initDefaultPresets() {
     // 1. Preset Default Khusus Super Admin Ravi
@@ -186,7 +270,10 @@ class PresetManagerService {
     _presets.clear();
     _presets.addAll(_userPresetsDb[_activeUserKey]!);
     _activeModeName = 'Mode Manual';
-    _notify();
+    _notify(saveDisk: false);
+
+    // Muat konfigurasi preset kustom dari file disk lokal jika ada
+    _loadFromDisk(_activeUserKey);
   }
 
   /// Aktifkan / Toggle Preset Skenario
@@ -199,7 +286,7 @@ class PresetManagerService {
       _presets[index].isActive = false;
       _activeModeName = 'Mode Manual';
       _activeModeColor = const Color(0xFF64748B);
-      _notify();
+      _notify(saveDisk: false);
       _activeModeController.add(_activeModeName);
       return;
     }
@@ -213,7 +300,7 @@ class PresetManagerService {
     _activeModeName = targetPreset.name;
     _activeModeColor = targetPreset.accentColor;
 
-    _notify();
+    _notify(saveDisk: false);
     _activeModeController.add(_activeModeName);
 
     // Eksekusi aksi perangkat secara serentak via MQTT
@@ -246,7 +333,7 @@ class PresetManagerService {
     _activeModeColor = const Color(0xFF64748B);
 
     if (hadActive) {
-      _notify();
+      _notify(saveDisk: false);
     }
     _activeModeController.add(_activeModeName);
   }
@@ -256,7 +343,7 @@ class PresetManagerService {
     final idx = _presets.indexWhere((p) => p.id == updatedPreset.id);
     if (idx != -1) {
       _presets[idx] = updatedPreset;
-      _notify();
+      _notify(saveDisk: true);
     }
   }
 
@@ -278,17 +365,20 @@ class PresetManagerService {
       isDefault: false,
     );
     _presets.insert(0, newPreset);
-    _notify();
+    _notify(saveDisk: true);
   }
 
   /// Hapus Preset Kustom
   void deletePreset(String presetId) {
     _presets.removeWhere((p) => p.id == presetId && !p.isDefault);
-    _notify();
+    _notify(saveDisk: true);
   }
 
-  void _notify() {
+  void _notify({bool saveDisk = false}) {
     _userPresetsDb[_activeUserKey] = List.from(_presets);
     _presetsController.add(List.unmodifiable(_presets));
+    if (saveDisk) {
+      _saveToDisk(_activeUserKey);
+    }
   }
 }

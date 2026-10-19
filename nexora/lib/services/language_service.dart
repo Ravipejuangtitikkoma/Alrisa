@@ -48,7 +48,7 @@ class LanguageService {
       },
 
       // Section Labels
-      'section_scenes': {AppLanguage.id: 'SKENARIO RUMAH', AppLanguage.en: 'HOME SCENES'},
+      'section_scenes': {AppLanguage.id: 'DAFTAR PRESET RUMAH', AppLanguage.en: 'HOME PRESETS'},
       'section_gate': {AppLanguage.id: 'AKSES GERBANG', AppLanguage.en: 'GATE ACCESS'},
       'section_devices': {AppLanguage.id: 'PERANGKAT & UTILITAS', AppLanguage.en: 'DEVICES & UTILITIES'},
 

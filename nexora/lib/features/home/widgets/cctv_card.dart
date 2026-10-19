@@ -82,11 +82,9 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
 
     // Dengarkan trigger refresh dari Pull-to-Refresh layar
     _refreshSub = CctvManagerService().refreshStream.listen((_) {
-      _initVlcPlayer();
+      _refreshStream();
     });
   }
-
-  int _playerEpoch = 0;
 
   @override
   void didUpdateWidget(covariant CctvCard oldWidget) {
@@ -163,7 +161,6 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
   void _initVlcPlayer() {
     if (!mounted) return;
     _connectTimeoutTimer?.cancel();
-    _playerEpoch++;
 
     // Lepas listener dan dispose controller lama
     final oldController = _vlcViewController;
@@ -650,12 +647,10 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
         ],
       ),
       padding: const EdgeInsets.all(12),
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             // 1. Header Card CCTV: Judul, Lokasi, Tombol Edit Config, & Status Stream
             Row(
               children: [
@@ -963,7 +958,6 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -1073,9 +1067,9 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 1. Native VLC Player TextureView dengan key unik per-epoch
+        // 1. Native VLC Player TextureView dengan key stabil per-kamera (mencegah duplikasi texture)
         VlcPlayer(
-          key: ValueKey('vlc_player_${widget.camera.id}_$_playerEpoch'),
+          key: ValueKey('vlc_player_${widget.camera.id}'),
           controller: _vlcViewController!,
           aspectRatio: 16 / 9,
           placeholder: Container(color: const Color(0xFF1E293B)),

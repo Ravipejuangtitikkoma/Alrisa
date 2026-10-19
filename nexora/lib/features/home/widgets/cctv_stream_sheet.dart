@@ -91,8 +91,6 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
     _initVlcPlayer();
   }
 
-  int _playerEpoch = 0;
-
   Future<void> _refreshStream() async {
     if (!mounted) return;
     _connectTimeoutTimer?.cancel();
@@ -134,7 +132,6 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
   void _initVlcPlayer() {
     if (!mounted) return;
     _connectTimeoutTimer?.cancel();
-    _playerEpoch++;
     final oldController = _vlcViewController;
 
     try {
@@ -536,7 +533,7 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
       children: [
         // 1. TextureView VlcPlayer selalu dipasang di widget tree agar proses inisialisasi native berjalan
         VlcPlayer(
-          key: ValueKey('vlc_sheet_${widget.camera.id}_$_playerEpoch'),
+          key: ValueKey('vlc_sheet_${widget.camera.id}'),
           controller: _vlcViewController!,
           aspectRatio: 16 / 9,
           placeholder: Container(color: const Color(0xFF1E293B)),

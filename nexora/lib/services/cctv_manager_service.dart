@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'package:nexora/services/auth_service.dart';
 
 class CctvCameraItem {
@@ -25,6 +28,34 @@ class CctvCameraItem {
     this.fps = 25.0,
     this.resolution = '1080P FHD (H.264)',
   });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'location': location,
+    'rtspUrl': rtspUrl,
+    'onvifHost': onvifHost,
+    'onvifPort': onvifPort,
+    'boundGateId': boundGateId,
+    'isOnline': isOnline,
+    'fps': fps,
+    'resolution': resolution,
+  };
+
+  factory CctvCameraItem.fromJson(Map<String, dynamic> map) {
+    return CctvCameraItem(
+      id: map['id'] ?? '',
+      name: map['name'] ?? '',
+      location: map['location'] ?? '',
+      rtspUrl: map['rtspUrl'] ?? '',
+      onvifHost: map['onvifHost'] ?? '192.168.1.50',
+      onvifPort: map['onvifPort'] ?? 80,
+      boundGateId: map['boundGateId'],
+      isOnline: map['isOnline'] ?? true,
+      fps: (map['fps'] ?? 25.0).toDouble(),
+      resolution: map['resolution'] ?? '1080P FHD (H.264)',
+    );
+  }
 
   String get hostDisplay {
     try {
@@ -73,6 +104,61 @@ class CctvManagerService {
 
   final List<CctvCameraItem> _cameras = [];
   List<CctvCameraItem> get allCameras => List.unmodifiable(_cameras);
+
+  String _sanitizeUserKey(String key) {
+    return key.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_');
+  }
+
+  Future<File> _getUserCctvFile(String userKey) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final safeKey = _sanitizeUserKey(userKey);
+    return File('${dir.path}/alrisa_cctv_$safeKey.json');
+  }
+
+  Future<void> _loadFromDisk(String userKey) async {
+    try {
+      final file = await _getUserCctvFile(userKey);
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        if (content.trim().isNotEmpty) {
+          final dynamic decoded = json.decode(content);
+          if (decoded is List) {
+            final loaded = decoded
+                .map((item) => CctvCameraItem.fromJson(Map<String, dynamic>.from(item)))
+                .toList();
+            if (loaded.isNotEmpty) {
+              _userCamerasDb[userKey] = loaded;
+              if (_activeUserKey == userKey) {
+                _cameras.clear();
+                _cameras.addAll(loaded);
+                _cctvController.add(List.unmodifiable(_cameras));
+              }
+              return;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (_userCamerasDb.containsKey(userKey)) {
+      await _saveToDisk(userKey);
+    }
+  }
+
+  Future<void> _saveToDisk(String userKey) async {
+    try {
+      final listToSave = _userCamerasDb[userKey] ?? (_activeUserKey == userKey ? _cameras : null);
+      if (listToSave == null) return;
+      final file = await _getUserCctvFile(userKey);
+      final jsonString = json.encode(listToSave.map((c) => c.toJson()).toList());
+      await file.writeAsString(jsonString);
+    } catch (_) {}
+  }
+
+  Future<void> restoreFromDisk([String? userKey]) async {
+    final key = userKey ?? _activeUserKey;
+    await _loadFromDisk(key);
+  }
 
   void _initDefaults() {
     // 1. Data Default untuk Super Admin Ravi
@@ -160,13 +246,19 @@ class CctvManagerService {
 
     _cameras.clear();
     _cameras.addAll(_userCamerasDb[_activeUserKey]!);
-    _notify();
+    _notify(saveDisk: false);
+
+    // Muat konfigurasi CCTV kustom dari file disk lokal jika ada
+    _loadFromDisk(_activeUserKey);
   }
 
-  void _notify() {
+  void _notify({bool saveDisk = false}) {
     // Pastikan data aktif tersimpan di database user tersebut
     _userCamerasDb[_activeUserKey] = List.from(_cameras);
     _cctvController.add(List.unmodifiable(_cameras));
+    if (saveDisk) {
+      _saveToDisk(_activeUserKey);
+    }
   }
 
   CctvCameraItem? getCameraForGate(String gateId) {
@@ -209,7 +301,7 @@ class CctvManagerService {
       if (onvifPort != null) _cameras[idx].onvifPort = onvifPort;
       if (boundGateId != null) _cameras[idx].boundGateId = boundGateId;
       if (resolution != null) _cameras[idx].resolution = resolution;
-      _notify();
+      _notify(saveDisk: true);
     }
   }
 
@@ -249,11 +341,11 @@ class CctvManagerService {
       isOnline: true,
     );
     _cameras.add(newCam);
-    _notify();
+    _notify(saveDisk: true);
   }
 
   void removeCamera(String id) {
     _cameras.removeWhere((c) => c.id == id);
-    _notify();
+    _notify(saveDisk: true);
   }
 }

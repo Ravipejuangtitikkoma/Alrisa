@@ -8,17 +8,26 @@ import 'package:nexora/core/config/mqtt_config.dart';
 import 'package:nexora/services/device_manager_service.dart';
 import 'package:nexora/services/preset_manager_service.dart';
 
-/// Model payload pesan MQTT NEXORA: {"state": bool, "value": num?}
+/// Model payload pesan MQTT NEXORA: {"state": bool, "value": num?, "pin": int?, "hardwarePin": String?}
 class DevicePayload {
   final bool state;
   final num? value;
+  final int? pin;
+  final String? hardwarePin;
 
-  const DevicePayload({required this.state, this.value});
+  const DevicePayload({
+    required this.state,
+    this.value,
+    this.pin,
+    this.hardwarePin,
+  });
 
   factory DevicePayload.fromJson(Map<String, dynamic> json) {
     return DevicePayload(
       state: json['state'] as bool? ?? false,
       value: json['value'] as num?,
+      pin: json['pin'] as int?,
+      hardwarePin: json['hardwarePin'] as String?,
     );
   }
 
@@ -27,11 +36,17 @@ class DevicePayload {
     if (value != null) {
       map['value'] = value;
     }
+    if (pin != null) {
+      map['pin'] = pin;
+    }
+    if (hardwarePin != null) {
+      map['hardwarePin'] = hardwarePin;
+    }
     return map;
   }
 
   @override
-  String toString() => 'DevicePayload(state: $state, value: $value)';
+  String toString() => 'DevicePayload(state: $state, value: $value, pin: $pin, hardwarePin: $hardwarePin)';
 }
 
 /// Event update status perangkat dari broker
@@ -285,15 +300,42 @@ class MqttService {
   }
 
   /// Publish perintah ke topik "nexora/<device_id>/set"
-  /// Payload: {"state": bool, "value": num?}
-  void publishSet(String deviceId, {required bool state, num? value, bool fromPreset = false}) {
+  /// Payload: {"state": bool, "value": num?, "pin": int?, "hardwarePin": String?}
+  void publishSet(
+    String deviceId, {
+    required bool state,
+    num? value,
+    String? hardwarePin,
+    bool fromPreset = false,
+  }) {
     if (!fromPreset) {
       // Jika dipicu manual dari tombol Home / Switch individu -> Otomatis beralih ke Mode Manual!
       PresetManagerService().setManualMode();
     }
 
+    // Ambil hardwarePin dari parameter atau dari database perangkat
+    String? resolvedHardwarePin = hardwarePin;
+    if (resolvedHardwarePin == null || resolvedHardwarePin.trim().isEmpty) {
+      final dev = DeviceManagerService().getDevice(deviceId);
+      resolvedHardwarePin = dev?.hardwarePin;
+    }
+
+    // Ekstrak angka GPIO (misal: "GPIO 2", "GPIO 4", "Pin 23" -> 2, 4, 23)
+    int? pinNumber;
+    if (resolvedHardwarePin != null) {
+      final match = RegExp(r'(?:gpio\s*|pin\s*|#)?(\d+)', caseSensitive: false).firstMatch(resolvedHardwarePin);
+      if (match != null) {
+        pinNumber = int.tryParse(match.group(1)!);
+      }
+    }
+
     final topic = MqttConfig.setTopic(deviceId);
-    final payload = DevicePayload(state: state, value: value);
+    final payload = DevicePayload(
+      state: state,
+      value: value,
+      pin: pinNumber,
+      hardwarePin: resolvedHardwarePin,
+    );
     _deviceStates[deviceId] = payload;
     final jsonString = jsonEncode(payload.toJson());
 

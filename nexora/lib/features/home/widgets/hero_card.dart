@@ -135,7 +135,11 @@ class _HeroCardState extends State<HeroCard> with TickerProviderStateMixin {
     if ((_status == GateStatus.open) == targetOpen) return;
     HapticFeedback.mediumImpact();
     _applyGateState(targetOpen);
-    MqttService().publishSet(widget.deviceId, state: targetOpen);
+    MqttService().publishSet(
+      widget.deviceId,
+      state: targetOpen,
+      hardwarePin: widget.hardwarePin,
+    );
   }
 
   @override

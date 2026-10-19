@@ -87,21 +87,6 @@ class _RoomsViewState extends State<RoomsView> {
 
   void _loadDevices() {
     _dynamicDevices = List.from(DeviceManagerService().allDevices);
-    
-    // Pastikan perangkat default AC ada jika belum ada
-    if (!_dynamicDevices.any((d) => d.id == 'ac_kamar')) {
-      _dynamicDevices.add(
-        CustomDeviceItem(
-          id: 'ac_kamar',
-          name: 'AC Inverter DualCool',
-          type: DeviceType.light, // Disajikan sebagai kontrol temperatur khusus
-          hardwarePin: 'IR Remote',
-          isActive: true,
-          value: 23.0,
-          statusText: '23°C',
-        ),
-      );
-    }
     _syncWithMqtt();
   }
 
@@ -125,7 +110,7 @@ class _RoomsViewState extends State<RoomsView> {
   }
 
   String _getRoomIdForDevice(CustomDeviceItem dev) {
-    if (dev.id == 'ac_kamar' || dev.name.toLowerCase().contains('kamar') || dev.name.toLowerCase().contains('tidur')) {
+    if (dev.name.toLowerCase().contains('kamar') || dev.name.toLowerCase().contains('tidur')) {
       return 'bed';
     }
     if (dev.type == DeviceType.gate || dev.name.toLowerCase().contains('pagar') || dev.name.toLowerCase().contains('teras') || dev.name.toLowerCase().contains('taman')) {
@@ -157,7 +142,6 @@ class _RoomsViewState extends State<RoomsView> {
   }
 
   IconData _getIconForDevice(CustomDeviceItem dev) {
-    if (dev.id == 'ac_kamar') return Icons.ac_unit_rounded;
     switch (dev.type) {
       case DeviceType.gate:
         return Icons.fence_rounded;
@@ -198,37 +182,44 @@ class _RoomsViewState extends State<RoomsView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Header Ringkasan Ruangan
+        // 1. Header Ringkasan Ruangan & Aksi Cepat
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Ruangan Rumah',
-                  style: TextStyle(
-                    fontFamily: NexoraTokens.fontFamilySans,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    color: NexoraTokens.ink,
-                    letterSpacing: -0.6,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Ruangan Rumah',
+                    style: TextStyle(
+                      fontFamily: NexoraTokens.fontFamilySans,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: NexoraTokens.ink,
+                      letterSpacing: -0.5,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '4 Zona • $activeCount Perangkat Sedang Aktif',
-                  style: const TextStyle(
-                    fontFamily: NexoraTokens.fontFamilySans,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: NexoraTokens.inkSecondary,
+                  const SizedBox(height: 2),
+                  Text(
+                    _selectedRoomId == 'all'
+                        ? '4 Zona • $activeCount Perangkat Aktif'
+                        : '${filteredDevices.where((d) => d.isActive).length} dari ${filteredDevices.length} Aktif',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: NexoraTokens.fontFamilySans,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                      color: NexoraTokens.inkSecondary,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            // Tombol Cepat Matikan Semua di Ruangan
+            const SizedBox(width: 10),
+            // Tombol Cepat Matikan/Nyalakan Semua di Zona Ini
             GestureDetector(
               onTap: () {
                 HapticFeedback.mediumImpact();
@@ -258,13 +249,27 @@ class _RoomsViewState extends State<RoomsView> {
                   ),
                 );
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: NexoraTokens.cardBorder),
-                  boxShadow: NexoraTokens.cardShadow,
+                  color: filteredDevices.any((d) => d.isActive)
+                      ? const Color(0xFFFFF1F2)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: filteredDevices.any((d) => d.isActive)
+                        ? const Color(0xFFFDA4AF)
+                        : NexoraTokens.cardBorder,
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -275,17 +280,19 @@ class _RoomsViewState extends State<RoomsView> {
                           : Icons.flash_on_rounded,
                       size: 14,
                       color: filteredDevices.any((d) => d.isActive)
-                          ? NexoraTokens.statusGray
+                          ? const Color(0xFFE11D48)
                           : NexoraTokens.brandCyan,
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 5),
                     Text(
                       filteredDevices.any((d) => d.isActive) ? 'Matikan Semua' : 'Nyalakan Semua',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: NexoraTokens.fontFamilySans,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: NexoraTokens.ink,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: filteredDevices.any((d) => d.isActive)
+                            ? const Color(0xFFE11D48)
+                            : NexoraTokens.ink,
                       ),
                     ),
                   ],
@@ -400,12 +407,11 @@ class _RoomsViewState extends State<RoomsView> {
   }
 
   List<Widget> _buildGroupedSections(List<CustomDeviceItem> filteredDevices) {
-    final lights = filteredDevices.where((d) => d.type == DeviceType.light && d.id != 'ac_kamar').toList();
+    final lights = filteredDevices.where((d) => d.type == DeviceType.light).toList();
     final gates = filteredDevices.where((d) => d.type == DeviceType.gate).toList();
     final slidingDoors = filteredDevices.where((d) => d.type == DeviceType.slidingDoor).toList();
     final curtains = filteredDevices.where((d) => d.type == DeviceType.curtain).toList();
     final waterPumps = filteredDevices.where((d) => d.type == DeviceType.waterPump).toList();
-    final climates = filteredDevices.where((d) => d.id == 'ac_kamar').toList();
 
     final sections = [
       if (lights.isNotEmpty)
@@ -442,13 +448,6 @@ class _RoomsViewState extends State<RoomsView> {
           icon: Icons.opacity_rounded,
           accentColor: const Color(0xFF0EA5E9),
           devices: waterPumps,
-        ),
-      if (climates.isNotEmpty)
-        _DeviceSectionGroup(
-          title: 'Kontrol Suhu & AC',
-          icon: Icons.ac_unit_rounded,
-          accentColor: const Color(0xFF06B6D4),
-          devices: climates,
         ),
     ];
 
@@ -533,8 +532,7 @@ class _RoomsViewState extends State<RoomsView> {
     final bool isOn = dev.isActive;
     final icon = _getIconForDevice(dev);
     final roomName = _getRoomNameForDevice(dev);
-    final isAc = dev.id == 'ac_kamar';
-    final isLight = dev.type == DeviceType.light && !isAc;
+    final isLight = dev.type == DeviceType.light;
     final isGate = dev.type == DeviceType.gate || dev.type == DeviceType.slidingDoor;
 
     return AnimatedContainer(
@@ -650,69 +648,6 @@ class _RoomsViewState extends State<RoomsView> {
                     fontWeight: FontWeight.w700,
                     color: NexoraTokens.brandCyan,
                   ),
-                ),
-              ],
-            ),
-          ],
-
-          // Jika AC -> Berikan Pengatur Suhu (+/-)
-          if (isAc && dev.isActive) ...[
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Suhu Target Ruangan',
-                  style: TextStyle(
-                    fontFamily: NexoraTokens.fontFamilySans,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: NexoraTokens.inkSecondary,
-                  ),
-                ),
-                Row(
-                  children: [
-                    _buildTempButton(
-                      icon: Icons.remove,
-                      onTap: () {
-                        if (dev.value > 16) {
-                          setState(() => dev.value -= 1);
-                          if (MqttService().isConnected) {
-                            MqttService().publishSet(dev.id, state: true, value: dev.value.round());
-                          }
-                        }
-                      },
-                    ),
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 10),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: NexoraTokens.brandCyanBorder),
-                      ),
-                      child: Text(
-                        '${dev.value.round()}°C',
-                        style: const TextStyle(
-                          fontFamily: NexoraTokens.fontFamilySans,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: NexoraTokens.brandCyan,
-                        ),
-                      ),
-                    ),
-                    _buildTempButton(
-                      icon: Icons.add,
-                      onTap: () {
-                        if (dev.value < 30) {
-                          setState(() => dev.value += 1);
-                          if (MqttService().isConnected) {
-                            MqttService().publishSet(dev.id, state: true, value: dev.value.round());
-                          }
-                        }
-                      },
-                    ),
-                  ],
                 ),
               ],
             ),
@@ -866,29 +801,7 @@ class _RoomsViewState extends State<RoomsView> {
     );
   }
 
-  Widget _buildTempButton({required IconData icon, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
-      child: Container(
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: NexoraTokens.cardBorder),
-        ),
-        child: Icon(icon, size: 16, color: NexoraTokens.ink),
-      ),
-    );
-  }
-
   String _getStatusLabel(CustomDeviceItem dev) {
-    if (dev.id == 'ac_kamar') {
-      return dev.isActive ? 'Suhu ${dev.value.round()}°C' : 'Standby';
-    }
     if (dev.type == DeviceType.gate || dev.type == DeviceType.slidingDoor) {
       return dev.isActive ? 'Terbuka' : 'Terkunci';
     } else if (dev.type == DeviceType.curtain) {
