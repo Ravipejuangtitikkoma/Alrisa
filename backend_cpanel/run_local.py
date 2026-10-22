@@ -14,6 +14,15 @@ import socketserver
 import json
 import time
 import os
+import sys
+
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 import paho.mqtt.client as mqtt
 
 PORT = 8080
@@ -173,6 +182,57 @@ class NexoraLocalHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        # API Sync Endpoint (Multi-Account Profil, Perangkat & CCTV)
+        if self.path.startswith('/api/sync.php'):
+            import urllib.parse
+            parsed_url = urllib.parse.urlparse(self.path)
+            query_params = urllib.parse.parse_qs(parsed_url.query)
+            acc_id = query_params.get('account_id', [None])[0]
+            email = query_params.get('email', [None])[0]
+
+            json_path = os.path.join(DIRECTORY, 'settings.json')
+            target_acc = None
+            if os.path.exists(json_path):
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    for a in data.get('accounts', []):
+                        if (acc_id and a.get('id') == acc_id) or (email and a.get('email', '').lower() == email.lower()):
+                            target_acc = a
+                            break
+                    if not target_acc and data.get('accounts'):
+                        target_acc = data['accounts'][0]
+
+            self.send_response(200 if target_acc else 404)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.end_headers()
+            if target_acc:
+                acc_info = {
+                    "id": target_acc.get("id"),
+                    "name": target_acc.get("name"),
+                    "email": target_acc.get("email"),
+                    "role": target_acc.get("role", "user"),
+                    "hardware_type": target_acc.get("hardware_type", "Raspberry Pi 4"),
+                    "hardware_desc": target_acc.get("hardware_desc", ""),
+                    "mqtt_prefix": target_acc.get("mqtt_prefix", "alrisa/client"),
+                    "mqtt_broker": target_acc.get("mqtt_broker", "broker.emqx.io"),
+                    "mqtt_port": target_acc.get("mqtt_port", 1883)
+                }
+                devs = target_acc.get("devices", [])
+                cctvs = target_acc.get("cctv", [])
+                resp = {
+                    "success": True,
+                    "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "account": acc_info,
+                    "total_devices": len(devs),
+                    "devices": devs,
+                    "total_cctv": len(cctvs),
+                    "cctv": cctvs
+                }
+                self.wfile.write(json.dumps(resp, indent=2).encode('utf-8'))
+            else:
+                self.wfile.write(json.dumps({"success": False, "message": "Akun tidak ditemukan"}).encode('utf-8'))
+            return
+
         # API Devices Endpoint
         if self.path.startswith('/api/devices.php'):
             self.send_response(200)
@@ -215,12 +275,24 @@ class NexoraLocalHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             if os.path.exists(settings_path):
+                # Eksekusi PHP CLI agar seluruh tag PHP dan JSON multi-akun ter-evaluasi sempurna
+                try:
+                    import subprocess
+                    res = subprocess.run(['php', 'settings.php'], capture_output=True, cwd=DIRECTORY)
+                    if res.returncode == 0 and res.stdout:
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'text/html; charset=utf-8')
+                        self.end_headers()
+                        self.wfile.write(res.stdout)
+                        return
+                except Exception as e:
+                    pass
+
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/html; charset=utf-8')
                 self.end_headers()
                 with open(settings_path, 'rb') as f:
                     content = f.read()
-                    # Strip awal PHP tag jika dijalankan via Python static runner
                     if b'<!DOCTYPE html>' in content:
                         html_part = content[content.find(b'<!DOCTYPE html>'):]
                         self.wfile.write(html_part)
@@ -232,6 +304,18 @@ class NexoraLocalHandler(http.server.SimpleHTTPRequestHandler):
         if self.path == '/' or self.path == '/index.php' or self.path == '/index.html':
             index_path = os.path.join(DIRECTORY, 'index.php')
             if os.path.exists(index_path):
+                try:
+                    import subprocess
+                    res = subprocess.run(['php', 'index.php'], capture_output=True, cwd=DIRECTORY)
+                    if res.returncode == 0 and res.stdout:
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'text/html; charset=utf-8')
+                        self.end_headers()
+                        self.wfile.write(res.stdout)
+                        return
+                except Exception:
+                    pass
+
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/html; charset=utf-8')
                 self.end_headers()
@@ -242,6 +326,62 @@ class NexoraLocalHandler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
+        # API Auth Endpoint (Login Multi-Akun)
+        if self.path.startswith('/api/auth.php'):
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_body = self.rfile.read(content_length).decode('utf-8')
+            try:
+                data = json.loads(post_body) if post_body.startswith('{') else {}
+                if not data:
+                    import urllib.parse
+                    parsed = urllib.parse.parse_qs(post_body)
+                    for k, v in parsed.items():
+                        data[k] = v[0]
+
+                email = data.get('email', '').strip().lower()
+                password = data.get('password', '').strip()
+
+                json_path = os.path.join(DIRECTORY, 'settings.json')
+                matched_acc = None
+                if os.path.exists(json_path):
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        settings_data = json.load(f)
+                        for a in settings_data.get('accounts', []):
+                            if a.get('email', '').lower() == email and a.get('password') == password:
+                                matched_acc = {
+                                    "id": a.get("id"),
+                                    "name": a.get("name"),
+                                    "email": a.get("email"),
+                                    "role": a.get("role", "user"),
+                                    "hardware_type": a.get("hardware_type", "Raspberry Pi 4"),
+                                    "hardware_desc": a.get("hardware_desc", ""),
+                                    "mqtt_prefix": a.get("mqtt_prefix", "alrisa/client"),
+                                    "mqtt_broker": a.get("mqtt_broker", "broker.emqx.io"),
+                                    "mqtt_port": a.get("mqtt_port", 1883)
+                                }
+                                break
+
+                self.send_response(200 if matched_acc else 401)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
+                self.end_headers()
+                if matched_acc:
+                    resp = {
+                        "success": True,
+                        "message": "Login berhasil!",
+                        "token": "local_token_" + time.strftime("%Y%m%d%H%M%S"),
+                        "account": matched_acc
+                    }
+                    self.wfile.write(json.dumps(resp).encode('utf-8'))
+                else:
+                    self.wfile.write(json.dumps({"success": False, "message": "Email atau password salah."}).encode('utf-8'))
+                return
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": str(e)}).encode('utf-8'))
+                return
+
         # API Settings Endpoint (Save Config)
         if self.path.startswith('/settings.php') or self.path.startswith('/api/settings.php'):
             content_length = int(self.headers.get('Content-Length', 0))
@@ -331,6 +471,46 @@ class NexoraLocalHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self.send_response(500)
                 self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+        # POST Settings / Multi-Account Sync (from settings.php)
+        if self.path.startswith('/settings.php') or self.path.startswith('/api/settings.php'):
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_body = self.rfile.read(content_length).decode('utf-8', errors='replace')
+            try:
+                data = json.loads(post_body) if post_body.startswith('{') else {}
+                json_path = os.path.join(DIRECTORY, 'settings.json')
+                current = {}
+                if os.path.exists(json_path):
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        current = json.load(f)
+
+                # Update accounts and active_account_id
+                if 'accounts' in data and isinstance(data['accounts'], list):
+                    current['accounts'] = data['accounts']
+                if 'active_account_id' in data:
+                    current['active_account_id'] = str(data['active_account_id']).strip()
+
+                for k, v in data.items():
+                    if k not in ['accounts', 'active_account_id']:
+                        current[k] = v
+
+                current['updated_at'] = time.strftime("%Y-%m-%d %H:%M:%S")
+
+                with open(json_path, 'w', encoding='utf-8') as f:
+                    json.dump(current, f, indent=2, ensure_ascii=False)
+
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "success": True,
+                    "message": "Konfigurasi multi-akun berhasil disimpan ke server disk!",
+                    "data": current
+                }).encode('utf-8'))
+                return
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
                 self.end_headers()
                 self.wfile.write(json.dumps({"success": False, "message": str(e)}).encode('utf-8'))
                 return

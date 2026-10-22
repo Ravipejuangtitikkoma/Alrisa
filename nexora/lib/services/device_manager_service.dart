@@ -218,29 +218,90 @@ class DeviceManagerService {
     ];
     _userDevicesDb['raviarmanza149@gmail.com'] = raviDevices;
 
-    // 2. Data Pengguna Biasa Demo (Keluarga)
-    _userDevicesDb['user@nexora.id'] = [
+    // 2. Akun Kantor Bos (Mitsubishi FX5U PLC)
+    _userDevicesDb['bos@nexora.id'] = [
       CustomDeviceItem(
-        id: 'pagar_keluarga',
-        name: 'Gerbang Depan Rumah',
+        id: 'pagar_kantor',
+        name: 'Gerbang Utama Kantor',
         type: DeviceType.gate,
-        hardwarePin: 'GPIO 2 (%QX0.0)',
+        hardwarePin: '%QX0.0 (Relay 1)',
         statusText: 'Terkunci',
       ),
       CustomDeviceItem(
-        id: 'lampu_teras_keluarga',
-        name: 'Lampu Teras',
+        id: 'pintu_kantor',
+        name: 'Pintu Akses Ruang Direksi',
+        type: DeviceType.slidingDoor,
+        hardwarePin: '%QX0.1 (Relay 2)',
+        statusText: 'Terkunci',
+      ),
+      CustomDeviceItem(
+        id: 'lampu_lobby',
+        name: 'Lampu Lobby & Teras',
         type: DeviceType.light,
-        hardwarePin: 'GPIO 4 (%QX0.3)',
+        hardwarePin: '%QX0.3 (Relay 3)',
         value: 100.0,
         isActive: true,
         statusText: 'Menyala 100%',
       ),
       CustomDeviceItem(
-        id: 'pintu_utama_keluarga',
-        name: 'Pintu Depan',
+        id: 'pompa_gedung',
+        name: 'Pompa Toren Utama Gedung',
+        type: DeviceType.waterPump,
+        hardwarePin: '%QX0.4 (Relay 4)',
+        statusText: 'Mati',
+      ),
+    ];
+
+    // 3. Akun Bpk. Budi - Villa Puncak (Raspberry Pi 4)
+    _userDevicesDb['villa.budi@nexora.id'] = [
+      CustomDeviceItem(
+        id: 'pagar_villa',
+        name: 'Gerbang Utama Villa',
+        type: DeviceType.gate,
+        hardwarePin: 'Pi4 GPIO 17 (Pin 11)',
+        statusText: 'Terkunci',
+      ),
+      CustomDeviceItem(
+        id: 'lampu_taman',
+        name: 'Lampu Taman & Kolam',
+        type: DeviceType.light,
+        hardwarePin: 'Pi4 GPIO 27 (Pin 13)',
+        value: 100.0,
+        isActive: true,
+        statusText: 'Menyala 100%',
+      ),
+      CustomDeviceItem(
+        id: 'pompa_air_villa',
+        name: 'Pompa Sumber Air Pegunungan',
+        type: DeviceType.waterPump,
+        hardwarePin: 'Pi4 GPIO 22 (Pin 15)',
+        statusText: 'Mati',
+      ),
+    ];
+
+    // 4. Data Pengguna Biasa Demo (Ibu Maya - ESP32)
+    _userDevicesDb['user@nexora.id'] = [
+      CustomDeviceItem(
+        id: 'pagar_maya',
+        name: 'Pagar Minimalis Depan',
+        type: DeviceType.gate,
+        hardwarePin: 'ESP32 GPIO 2',
+        statusText: 'Terkunci',
+      ),
+      CustomDeviceItem(
+        id: 'lampu_teras_maya',
+        name: 'Lampu Teras Otomatis',
+        type: DeviceType.light,
+        hardwarePin: 'ESP32 GPIO 4',
+        value: 100.0,
+        isActive: true,
+        statusText: 'Menyala 100%',
+      ),
+      CustomDeviceItem(
+        id: 'pintu_depan_maya',
+        name: 'Pintu Depan Elektrik',
         type: DeviceType.slidingDoor,
-        hardwarePin: 'GPIO 5 (%QX0.1)',
+        hardwarePin: 'ESP32 GPIO 5',
         statusText: 'Terkunci',
       ),
     ];

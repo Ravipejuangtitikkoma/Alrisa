@@ -202,18 +202,74 @@ class CctvManagerService {
     ];
     _userCamerasDb['raviarmanza149@gmail.com'] = raviCameras;
 
-    // 2. Data Kamera untuk Akun User Biasa (Keluarga)
-    _userCamerasDb['user@nexora.id'] = [
+    // 2. Data Kamera untuk Akun Kantor Bos (Mitsubishi FX5U PLC)
+    _userCamerasDb['bos@nexora.id'] = [
       CctvCameraItem(
-        id: 'cctv_keluarga_depan',
-        name: 'CCTV Pintu Masuk',
-        location: 'Teras Utama',
-        rtspUrl: 'rtsp://192.168.0.104:8554/',
-        onvifHost: '192.168.0.104',
-        onvifPort: 8554,
-        boundGateId: 'pagar',
+        id: 'cctv_kantor_gerbang',
+        name: 'Kamera Gerbang Utama Kantor',
+        location: 'Pos Satpam Kantor',
+        rtspUrl: 'rtsp://admin:bos2026@192.168.1.50:554/live',
+        onvifHost: '192.168.1.50',
+        onvifPort: 80,
+        boundGateId: 'pagar_kantor',
         isOnline: true,
         fps: 25.0,
+        resolution: '1080P FHD (H.264)',
+      ),
+      CctvCameraItem(
+        id: 'cctv_kantor_lobby',
+        name: 'Kamera Lobby & Resepsionis',
+        location: 'Lobby Lantai 1',
+        rtspUrl: 'rtsp://admin:bos2026@192.168.1.51:554/live',
+        onvifHost: '192.168.1.51',
+        onvifPort: 80,
+        boundGateId: 'pintu_kantor',
+        isOnline: true,
+        fps: 25.0,
+        resolution: '1080P FHD',
+      ),
+    ];
+
+    // 3. Data Kamera untuk Akun Villa Bpk. Budi (Raspberry Pi 4)
+    _userCamerasDb['villa.budi@nexora.id'] = [
+      CctvCameraItem(
+        id: 'cctv_villa_gate',
+        name: 'Kamera Gerbang Villa',
+        location: 'Pos Keamanan Villa',
+        rtspUrl: 'rtsp://admin:villa2026@192.168.1.100:554/stream1',
+        onvifHost: '192.168.1.100',
+        onvifPort: 80,
+        boundGateId: 'pagar_villa',
+        isOnline: true,
+        fps: 30.0,
+        resolution: '4K Ultra-HD (H.265)',
+      ),
+      CctvCameraItem(
+        id: 'cctv_villa_pool',
+        name: 'Kamera Kolam Renang',
+        location: 'Area Belakang Villa',
+        rtspUrl: 'rtsp://admin:villa2026@192.168.1.101:554/stream1',
+        onvifHost: '192.168.1.101',
+        onvifPort: 80,
+        boundGateId: 'pagar_villa',
+        isOnline: true,
+        fps: 25.0,
+        resolution: '1080P FHD (H.264)',
+      ),
+    ];
+
+    // 4. Data Kamera untuk Akun Ibu Maya (ESP32)
+    _userCamerasDb['user@nexora.id'] = [
+      CctvCameraItem(
+        id: 'cctv_maya_carport',
+        name: 'CCTV Carport Depan',
+        location: 'Depan Garasi',
+        rtspUrl: 'rtsp://user:maya123@192.168.1.200:554/live',
+        onvifHost: '192.168.1.200',
+        onvifPort: 80,
+        boundGateId: 'pagar_maya',
+        isOnline: true,
+        fps: 20.0,
         resolution: '1080P FHD',
       ),
     ];

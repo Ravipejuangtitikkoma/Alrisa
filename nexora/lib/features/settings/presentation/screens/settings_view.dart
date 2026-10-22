@@ -23,16 +23,6 @@ class SettingsView extends StatefulWidget {
 
 class _SettingsViewState extends State<SettingsView> {
   bool _isReconnecting = false;
-
-  // State Super Admin
-  bool _isSuperAdminUnlocked = false;
-  final TextEditingController _brokerController = TextEditingController(text: MqttConfig.broker);
-  final TextEditingController _portController = TextEditingController(text: MqttConfig.port.toString());
-  final TextEditingController _prefixController = TextEditingController(text: MqttConfig.topicPrefix);
-  final TextEditingController _usernameController = TextEditingController(text: MqttConfig.username ?? '');
-  final TextEditingController _passwordController = TextEditingController(text: MqttConfig.password ?? '');
-  bool _isSavingBroker = false;
-
   StreamSubscription<bool>? _connSub;
   StreamSubscription<UserModel?>? _authSub;
   bool _isConnected = MqttService().isConnected;
@@ -60,11 +50,6 @@ class _SettingsViewState extends State<SettingsView> {
   void dispose() {
     _authSub?.cancel();
     _connSub?.cancel();
-    _brokerController.dispose();
-    _portController.dispose();
-    _prefixController.dispose();
-    _usernameController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
@@ -478,15 +463,17 @@ class _SettingsViewState extends State<SettingsView> {
 
               const SizedBox(height: 16),
 
-              _buildInfoRow('Server Broker', '${MqttService().broker}:${MqttService().port}', isMono: true),
+              _buildInfoRow('Akun Klien', AuthService().currentUser?.name ?? 'Pengguna', isMono: false),
               const Divider(height: 18, color: Color(0xFFF1F5F9)),
-              _buildInfoRow('Client ID', MqttService().clientId, isMono: true),
+              _buildInfoRow('Mesin Gateway', AuthService().currentUser?.hardwareType ?? 'Raspberry Pi 4', isMono: false),
               const Divider(height: 18, color: Color(0xFFF1F5F9)),
-              _buildInfoRow('Pesan Terakhir', MqttService().lastMessage),
+              _buildInfoRow('Saluran Topik', MqttConfig.topicPrefix, isMono: true),
+              const Divider(height: 18, color: Color(0xFFF1F5F9)),
+              _buildInfoRow('Sinkron Cloud', 'Tersinkronisasi Otomatis', isMono: false),
 
               const SizedBox(height: 18),
 
-              // Tombol Hubungkan Ulang
+              // Tombol Sinkron Ulang Sinyal
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -498,7 +485,7 @@ class _SettingsViewState extends State<SettingsView> {
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.sync_rounded, size: 18),
-                  label: Text(_isReconnecting ? 'Sedang Menghubungkan...' : 'Hubungkan Ulang Broker'),
+                  label: Text(_isReconnecting ? 'Menyinkronkan Sinyal...' : 'Sinkronkan Ulang Saluran'),
                   style: ElevatedButton.styleFrom(
                     primary: NexoraTokens.brandCyan,
                     onPrimary: Colors.white,
@@ -516,37 +503,31 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
-              // Tombol Akses Super Admin
-              SizedBox(
+              Container(
                 width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _openSuperAdminModal,
-                  icon: Icon(
-                    _isSuperAdminUnlocked ? Icons.admin_panel_settings : Icons.lock_outline_rounded,
-                    size: 18,
-                    color: _isSuperAdminUnlocked ? Colors.purple : NexoraTokens.inkSecondary,
-                  ),
-                  label: Text(
-                    _isSuperAdminUnlocked ? '⚙️ Panel Super Admin (Aktif)' : '🔐 Akses Super Admin (Cloud & Hardware)',
-                    style: TextStyle(
-                      fontFamily: NexoraTokens.fontFamilySans,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: _isSuperAdminUnlocked ? Colors.purple : NexoraTokens.inkSecondary,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.cloud_done_rounded, size: 16, color: NexoraTokens.brandCyan),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Konfigurasi broker, WiFi mesin, dan PIN relai dikelola terpusat via Website Portal cPanel ALRISA.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: NexoraTokens.inkSecondary,
+                          height: 1.3,
+                        ),
+                      ),
                     ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    side: BorderSide(
-                      color: _isSuperAdminUnlocked ? Colors.purple.withOpacity(0.5) : NexoraTokens.cardBorder,
-                      width: 1.2,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: NexoraTokens.borderRadiusButton,
-                    ),
-                  ),
+                  ],
                 ),
               ),
             ],
@@ -1288,454 +1269,6 @@ class _SettingsViewState extends State<SettingsView> {
             child: const Text('Keluar', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
-      ),
-    );
-  }
-
-  // =========================================================================
-  // 🔐 LOGIK & UI SUPER ADMIN (UBAH BROKER / CLOUD LANGSUNG DARI HP)
-  // =========================================================================
-  void _openSuperAdminModal() {
-    // Jika sudah login dengan akun Ravi (Super Admin), langsung buka tanpa PIN lagi!
-    if (AuthService().isSuperAdmin || _isSuperAdminUnlocked) {
-      _showBrokerConfigSheet();
-    } else {
-      _showPinDialog();
-    }
-  }
-
-  void _showPinDialog() {
-    final pinController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: const [
-            Icon(Icons.shield_rounded, color: Colors.purple, size: 24),
-            SizedBox(width: 10),
-            Text(
-              'Akses Super Admin',
-              style: TextStyle(
-                fontFamily: NexoraTokens.fontFamilySans,
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-                color: NexoraTokens.ink,
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Masukkan PIN Keamanan untuk membuka akses pengaturan Cloud Broker & IoT Hardware.',
-              style: TextStyle(
-                fontFamily: NexoraTokens.fontFamilySans,
-                fontSize: 13,
-                color: NexoraTokens.inkSecondary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: pinController,
-              keyboardType: TextInputType.number,
-              obscureText: true,
-              autofocus: true,
-              maxLength: 6,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 8,
-              ),
-              decoration: InputDecoration(
-                counterText: '',
-                hintText: '••••',
-                filled: true,
-                fillColor: const Color(0xFFF1F3F5),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Center(
-              child: Text(
-                'PIN Default: 2026 atau 1234',
-                style: TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final pin = pinController.text.trim();
-              if (pin == '2026' || pin == '1234' || pin == '0000') {
-                Navigator.pop(ctx);
-                setState(() {
-                  _isSuperAdminUnlocked = true;
-                });
-                HapticFeedback.heavyImpact();
-                _showBrokerConfigSheet();
-              } else {
-                HapticFeedback.vibrate();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    behavior: SnackBarBehavior.floating,
-                    backgroundColor: Colors.redAccent,
-                    content: Text('❌ PIN salah! Akses ditolak.'),
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              primary: Colors.purple,
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Buka Kunci', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showBrokerConfigSheet() {
-    _brokerController.text = MqttConfig.broker;
-    _portController.text = MqttConfig.port.toString();
-    _prefixController.text = MqttConfig.topicPrefix;
-    _usernameController.text = MqttConfig.username ?? '';
-    _passwordController.text = MqttConfig.password ?? '';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (modalContext, setModalState) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 24,
-            bottom: MediaQuery.of(modalContext).viewInsets.bottom + 24,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 44,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.sync_rounded, color: Colors.purple, size: 28),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Konfigurasi Cloud & Broker',
-                          style: const TextStyle(
-                            fontFamily: NexoraTokens.fontFamilySans,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: NexoraTokens.ink,
-                          ),
-                        ),
-                      ],
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () => Navigator.pop(modalContext),
-                    ),
-                  ],
-                ),
-                const Text(
-                  'Ubah alamat Cloud MQTT langsung dari HP tanpa perlu membuka laptop atau build ulang APK.',
-                  style: TextStyle(
-                    fontFamily: NexoraTokens.fontFamilySans,
-                    fontSize: 12.5,
-                    color: NexoraTokens.inkSecondary,
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Preset Cepat
-                const Text(
-                  'PRESET CEPAT:',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ActionChip(
-                      label: const Text('EMQX Publik', style: TextStyle(fontSize: 11.5)),
-                      avatar: const Icon(Icons.cloud_queue, size: 14),
-                      onPressed: () {
-                        setModalState(() {
-                          _brokerController.text = 'broker.emqx.io';
-                          _portController.text = '1883';
-                        });
-                      },
-                    ),
-                    ActionChip(
-                      label: const Text('HiveMQ Cloud', style: TextStyle(fontSize: 11.5)),
-                      avatar: const Icon(Icons.speed, size: 14),
-                      onPressed: () {
-                        setModalState(() {
-                          _brokerController.text = 'broker.hivemq.com';
-                          _portController.text = '1883';
-                        });
-                      },
-                    ),
-                    ActionChip(
-                      label: const Text('Laptop / Mini PC (192.168.0.104)', style: TextStyle(fontSize: 11.5)),
-                      avatar: const Icon(Icons.laptop_chromebook, size: 14),
-                      onPressed: () {
-                        setModalState(() {
-                          _brokerController.text = '192.168.0.104';
-                          _portController.text = '1883';
-                          _prefixController.text = 'alrisa';
-                        });
-                      },
-                    ),
-                    ActionChip(
-                      label: const Text('Local PC / Emulator (10.0.2.2)', style: TextStyle(fontSize: 11.5)),
-                      avatar: const Icon(Icons.laptop_mac, size: 14),
-                      onPressed: () {
-                        setModalState(() {
-                          _brokerController.text = '10.0.2.2';
-                          _portController.text = '1883';
-                        });
-                      },
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 18),
-
-                // Field Broker & Port
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Alamat Broker / Cloud Domain', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 6),
-                          TextField(
-                            controller: _brokerController,
-                            decoration: InputDecoration(
-                              hintText: 'misal: iot.domainanda.com',
-                              filled: true,
-                              fillColor: const Color(0xFFF1F3F5),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 1,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Port', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 6),
-                          TextField(
-                            controller: _portController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              hintText: '1883',
-                              filled: true,
-                              fillColor: const Color(0xFFF1F3F5),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 14),
-
-                // Topic Prefix
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Topic Prefix (Default: nexora)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _prefixController,
-                      decoration: InputDecoration(
-                        hintText: 'nexora',
-                        filled: true,
-                        fillColor: const Color(0xFFF1F3F5),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 14),
-
-                // Username & Password (Opsional)
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Username (Opsional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 6),
-                          TextField(
-                            controller: _usernameController,
-                            decoration: InputDecoration(
-                              hintText: 'user_mqtt',
-                              filled: true,
-                              fillColor: const Color(0xFFF1F3F5),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Password (Opsional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 6),
-                          TextField(
-                            controller: _passwordController,
-                            obscureText: true,
-                            decoration: InputDecoration(
-                              hintText: '••••••',
-                              filled: true,
-                              fillColor: const Color(0xFFF1F3F5),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-
-                // Tombol Simpan & Hubungkan
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton.icon(
-                    onPressed: _isSavingBroker
-                        ? null
-                        : () async {
-                            final newHost = _brokerController.text.trim();
-                            final newPort = int.tryParse(_portController.text.trim()) ?? 1883;
-                            final newPrefix = _prefixController.text.trim();
-                            final newUsername = _usernameController.text.trim();
-                            final newPassword = _passwordController.text.trim();
-
-                            if (newHost.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('⚠️ Alamat broker tidak boleh kosong!')),
-                              );
-                              return;
-                            }
-
-                            setModalState(() {
-                              _isSavingBroker = true;
-                            });
-
-                            HapticFeedback.mediumImpact();
-
-                            final success = await MqttService().updateBrokerAndReconnect(
-                              newBroker: newHost,
-                              newPort: newPort,
-                              newPrefix: newPrefix,
-                              newUsername: newUsername,
-                              newPassword: newPassword,
-                            );
-
-                            setModalState(() {
-                              _isSavingBroker = false;
-                            });
-
-                            if (mounted) {
-                              setState(() {
-                                _isConnected = success;
-                              });
-                              Navigator.pop(modalContext);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  behavior: SnackBarBehavior.floating,
-                                  backgroundColor: success ? NexoraTokens.statusGreen : NexoraTokens.statusAmber,
-                                  content: Text(
-                                    success
-                                        ? '✅ Terhubung ke broker baru: $newHost:$newPort'
-                                        : '⚠️ Berhasil disimpan, sedang mencoba terhubung ke $newHost:$newPort...',
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                    icon: _isSavingBroker
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.save_rounded, size: 20),
-                    label: Text(
-                      _isSavingBroker ? 'Menghubungkan ke Broker Baru...' : 'Simpan & Terapkan Koneksi',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      primary: Colors.purple,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

@@ -672,17 +672,27 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  const Text('Hardware Pin (ESP32 GPIO / Alamat PLC)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: pinCtrl,
-                    style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: 'Misal: GPIO 4 atau %QX0.2',
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: NexoraTokens.cardBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.developer_board_rounded, size: 18, color: NexoraTokens.brandCyan),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Alamat PIN hardware (Relay / GPIO / PLC) dikonfigurasi terpusat via Website Portal cPanel.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: NexoraTokens.inkSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -812,16 +822,39 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
               ),
               const SizedBox(height: 14),
 
-              const Text('Hardware Pin (ESP32 GPIO / Modbus Alamat)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
+              const Text('Alamat PIN Hardware (Terkunci oleh Website)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
               const SizedBox(height: 6),
-              TextField(
-                controller: pinCtrl,
-                style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: NexoraTokens.cardBorder),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.lock_outline_rounded, size: 16, color: NexoraTokens.inkMuted),
+                    const SizedBox(width: 8),
+                    Text(
+                      dev.hardwarePin,
+                      style: const TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: NexoraTokens.ink,
+                      ),
+                    ),
+                    const Spacer(),
+                    const Text(
+                      'Terkunci Cloud',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: NexoraTokens.inkSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),

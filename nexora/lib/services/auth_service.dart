@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:nexora/core/config/mqtt_config.dart';
+import 'package:nexora/services/mqtt_service.dart';
 
 enum UserRole {
   superadmin,
@@ -16,6 +18,10 @@ class UserModel {
   final UserRole role;
   final DateTime createdAt;
   final String? photoPath;
+  final String hardwareType;
+  final String mqttPrefix;
+  final String mqttBroker;
+  final int mqttPort;
 
   const UserModel({
     required this.id,
@@ -25,6 +31,10 @@ class UserModel {
     required this.role,
     required this.createdAt,
     this.photoPath,
+    this.hardwareType = 'Raspberry Pi 4',
+    this.mqttPrefix = 'alrisa/client',
+    this.mqttBroker = 'broker.emqx.io',
+    this.mqttPort = 1883,
   });
 
   bool get isSuperAdmin => role == UserRole.superadmin;
@@ -37,6 +47,10 @@ class UserModel {
     UserRole? role,
     DateTime? createdAt,
     String? photoPath,
+    String? hardwareType,
+    String? mqttPrefix,
+    String? mqttBroker,
+    int? mqttPort,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -46,6 +60,10 @@ class UserModel {
       role: role ?? this.role,
       createdAt: createdAt ?? this.createdAt,
       photoPath: photoPath ?? this.photoPath,
+      hardwareType: hardwareType ?? this.hardwareType,
+      mqttPrefix: mqttPrefix ?? this.mqttPrefix,
+      mqttBroker: mqttBroker ?? this.mqttBroker,
+      mqttPort: mqttPort ?? this.mqttPort,
     );
   }
 
@@ -57,6 +75,10 @@ class UserModel {
     'role': role.index,
     'createdAt': createdAt.toIso8601String(),
     'photoPath': photoPath,
+    'hardwareType': hardwareType,
+    'mqttPrefix': mqttPrefix,
+    'mqttBroker': mqttBroker,
+    'mqttPort': mqttPort,
   };
 
   factory UserModel.fromJson(Map<String, dynamic> map) {
@@ -68,6 +90,10 @@ class UserModel {
       role: UserRole.values[map['role'] ?? 1],
       createdAt: DateTime.tryParse(map['createdAt'] ?? '') ?? DateTime.now(),
       photoPath: map['photoPath'],
+      hardwareType: map['hardwareType'] ?? 'Raspberry Pi 4',
+      mqttPrefix: map['mqttPrefix'] ?? 'alrisa/client',
+      mqttBroker: map['mqttBroker'] ?? 'broker.emqx.io',
+      mqttPort: (map['mqttPort'] ?? 1883) is int ? (map['mqttPort'] ?? 1883) : int.tryParse(map['mqttPort'].toString()) ?? 1883,
     );
   }
 }
@@ -108,27 +134,57 @@ class AuthService {
   }
 
   void _initDefaultAccounts() {
-    // 👑 AKUN RESMI SUPER ADMIN RAVI ARMANZA
+    // 👑 AKUN 1: SUPER ADMIN RAVI ARMANZA (Raspberry Pi 4 Master)
     final superAdmin = UserModel(
-      id: 'usr_superadmin_01',
-      name: 'Ravi Armanza',
+      id: 'acc_superadmin',
+      name: 'Ravi Armanza (Super Admin)',
       email: 'raviarmanza149@gmail.com',
       password: 'ravi18',
       role: UserRole.superadmin,
+      hardwareType: 'Raspberry Pi 4 (Master Controller)',
+      mqttPrefix: 'alrisa/admin',
       createdAt: DateTime(2026, 1, 1),
     );
     _usersDatabase[superAdmin.email.toLowerCase()] = superAdmin;
 
-    // Akun demo keluarga biasa
-    final demoUser = UserModel(
-      id: 'usr_family_02',
-      name: 'Keluarga Nexora',
+    // 👔 AKUN 2: KANTOR BOS (Mitsubishi FX5U PLC)
+    final bosUser = UserModel(
+      id: 'acc_bos_01',
+      name: 'Bpk. Bos (Head Office)',
+      email: 'bos@nexora.id',
+      password: 'bos2026',
+      role: UserRole.superadmin,
+      hardwareType: 'Mitsubishi FX5U PLC (Industrial Hub)',
+      mqttPrefix: 'alrisa/bos',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    _usersDatabase[bosUser.email.toLowerCase()] = bosUser;
+
+    // 🏡 AKUN 3: KLIEN VILLA PUNCAK (Raspberry Pi 4 Gateway)
+    final villaUser = UserModel(
+      id: 'acc_client_villa',
+      name: 'Bpk. Budi (Klien Villa Puncak)',
+      email: 'villa.budi@nexora.id',
+      password: 'villa123',
+      role: UserRole.user,
+      hardwareType: 'Raspberry Pi 4 Gateway',
+      mqttPrefix: 'alrisa/villa_budi',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    _usersDatabase[villaUser.email.toLowerCase()] = villaUser;
+
+    // ⚡ AKUN 4: KLIEN RUMAH MINIMALIS (ESP32 Automation)
+    final mayaUser = UserModel(
+      id: 'acc_client_home',
+      name: 'Ibu Maya (Rumah Minimalis)',
       email: 'user@nexora.id',
       password: 'user123',
       role: UserRole.user,
+      hardwareType: 'ESP32 Automation Hub',
+      mqttPrefix: 'alrisa/maya_home',
       createdAt: DateTime(2026, 1, 1),
     );
-    _usersDatabase[demoUser.email.toLowerCase()] = demoUser;
+    _usersDatabase[mayaUser.email.toLowerCase()] = mayaUser;
   }
 
   /// Memulihkan database user tambahan dan sesi login dari penyimpanan lokal
@@ -168,6 +224,13 @@ class AuthService {
           _currentUser = UserModel.fromJson(Map<String, dynamic>.from(userData));
           _lastActiveTime = DateTime.now();
           _authController.add(_currentUser);
+
+          // Sinkronkan prefix MQTT akun ini
+          MqttConfig.updateConfig(
+            newBroker: _currentUser!.mqttBroker,
+            newPort: _currentUser!.mqttPort,
+            newPrefix: _currentUser!.mqttPrefix,
+          );
 
           // Simpan timestamp terbaru (Rolling Session)
           await _saveSessionToFile(_currentUser!, _lastActiveTime!);
@@ -242,6 +305,14 @@ class AuthService {
     _currentUser = user;
     _lastActiveTime = DateTime.now();
     _authController.add(_currentUser);
+
+    // Otomatis sinkronkan MQTT config & topik khusus akun ini
+    MqttConfig.updateConfig(
+      newBroker: user.mqttBroker,
+      newPort: user.mqttPort,
+      newPrefix: user.mqttPrefix,
+    );
+    MqttService().reconnect();
 
     // Simpan sesi agar saat aplikasi ditutup tidak perlu login lagi
     await _saveSessionToFile(_currentUser!, _lastActiveTime!);
