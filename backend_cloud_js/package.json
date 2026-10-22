@@ -1,14 +1,16 @@
 {
-  "name": "nexora-cloud-backend",
-  "version": "1.0.0",
-  "description": "NEXORA IoT Cloud Backend - Real-time Hub for Flutter App, Raspberry Pi & PLC",
+  "name": "alrisa-cloud-hub",
+  "version": "2.5.0",
+  "description": "ALRISA IoT Cloud Hub & Private Broker - Alfatech Solutions IDN.",
   "main": "server.js",
   "type": "module",
   "scripts": {
     "start": "node server.js",
+    "broker": "node broker.js",
     "dev": "node --watch server.js"
   },
   "dependencies": {
+    "aedes": "^1.2.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",

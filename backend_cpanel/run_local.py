@@ -188,6 +188,46 @@ class NexoraLocalHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(resp).encode('utf-8'))
             return
 
+        # Serve settings.php
+        if self.path.startswith('/settings.php') or self.path.startswith('/api/settings.php'):
+            settings_path = os.path.join(DIRECTORY, 'settings.php')
+            if 'api=1' in self.path or self.path.startswith('/api/settings.php'):
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
+                self.end_headers()
+                json_path = os.path.join(DIRECTORY, 'settings.json')
+                data = {}
+                if os.path.exists(json_path):
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                else:
+                    data = {
+                        "mqtt_broker": "broker.emqx.io",
+                        "mqtt_port": 1883,
+                        "mqtt_ws_port": 8083,
+                        "mqtt_prefix": "alrisa",
+                        "wifi_ssid": "ALRISA_OFFICE_WIFI",
+                        "plc_ip": "192.168.1.100",
+                        "plc_port": 502,
+                        "api_secret_key": "alrisa_secret_token_2026"
+                    }
+                self.wfile.write(json.dumps({"success": True, "data": data}).encode('utf-8'))
+                return
+
+            if os.path.exists(settings_path):
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.end_headers()
+                with open(settings_path, 'rb') as f:
+                    content = f.read()
+                    # Strip awal PHP tag jika dijalankan via Python static runner
+                    if b'<!DOCTYPE html>' in content:
+                        html_part = content[content.find(b'<!DOCTYPE html>'):]
+                        self.wfile.write(html_part)
+                    else:
+                        self.wfile.write(content)
+                return
+
         # Serve index.php as HTML
         if self.path == '/' or self.path == '/index.php' or self.path == '/index.html':
             index_path = os.path.join(DIRECTORY, 'index.php')
@@ -202,6 +242,52 @@ class NexoraLocalHandler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
+        # API Settings Endpoint (Save Config)
+        if self.path.startswith('/settings.php') or self.path.startswith('/api/settings.php'):
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_body = self.rfile.read(content_length).decode('utf-8')
+            try:
+                data = {}
+                if post_body.startswith('{'):
+                    data = json.loads(post_body)
+                else:
+                    import urllib.parse
+                    parsed = urllib.parse.parse_qs(post_body)
+                    for k, v in parsed.items():
+                        data[k] = v[0]
+
+                json_path = os.path.join(DIRECTORY, 'settings.json')
+                existing = {}
+                if os.path.exists(json_path):
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        existing = json.load(f)
+
+                for k, v in data.items():
+                    if k in ['mqtt_port', 'mqtt_ws_port', 'plc_port']:
+                        try:
+                            existing[k] = int(v)
+                        except:
+                            existing[k] = v
+                    else:
+                        existing[k] = v
+                existing['updated_at'] = time.strftime("%Y-%m-%d %H:%M:%S")
+
+                with open(json_path, 'w', encoding='utf-8') as f:
+                    json.dump(existing, f, indent=4)
+
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True, "message": "Pengaturan sistem berhasil disimpan!", "data": existing}).encode('utf-8'))
+                print("💾 [CONFIG] Pengaturan baru berhasil disimpan ke settings.json!")
+                return
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": str(e)}).encode('utf-8'))
+                return
+
         # API Control Endpoint
         if self.path.startswith('/api/control.php'):
             content_length = int(self.headers.get('Content-Length', 0))

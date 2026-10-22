@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NEXORA Home OS — Smart Home & Visual PLC Studio</title>
+  <title>ALRISA Home OS — Smart Systems & Visual PLC Studio</title>
   <!-- Google Fonts: Plus Jakarta Sans, Outfit & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -952,6 +952,10 @@
     </div>
 
     <div class="header-right">
+      <a href="settings.php" class="lang-toggle-btn" style="text-decoration: none; color: inherit;" title="Buka Pengaturan Broker MQTT & Jaringan Hardware">
+        <span>⚙️</span>
+        <span style="font-size: 12px; font-weight: 700;">Pengaturan Broker</span>
+      </a>
       <div class="status-pill">
         <div class="pulse-dot"></div>
         <span id="connStatus">SINKRON LIVE</span>

@@ -182,37 +182,81 @@ class _RoomsViewState extends State<RoomsView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Header Ringkasan Ruangan & Aksi Cepat
+        // 1. Header Ringkasan Ruangan & Aksi Cepat (Kontras Tinggi di Atas Ambient Sky)
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  const Text(
-                    'Ruangan Rumah',
-                    style: TextStyle(
-                      fontFamily: NexoraTokens.fontFamilySans,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: NexoraTokens.ink,
-                      letterSpacing: -0.5,
+                  Container(
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.20),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.40),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.meeting_room_rounded,
+                      color: Colors.white,
+                      size: 22,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _selectedRoomId == 'all'
-                        ? '4 Zona • $activeCount Perangkat Aktif'
-                        : '${filteredDevices.where((d) => d.isActive).length} dari ${filteredDevices.length} Aktif',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: NexoraTokens.fontFamilySans,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                      color: NexoraTokens.inkSecondary,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Ruangan Rumah',
+                          style: TextStyle(
+                            fontFamily: NexoraTokens.fontFamilySans,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: -0.5,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black54,
+                                blurRadius: 10,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _selectedRoomId == 'all'
+                              ? '4 Zona • $activeCount Perangkat Aktif'
+                              : '${filteredDevices.where((d) => d.isActive).length} dari ${filteredDevices.length} Aktif',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: NexoraTokens.fontFamilySans,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withOpacity(0.92),
+                            shadows: const [
+                              Shadow(
+                                color: Colors.black38,
+                                blurRadius: 8,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

@@ -13,18 +13,24 @@ import 'package:nexora/features/home/widgets/cctv_stream_sheet.dart';
 class CctvCard extends StatefulWidget {
   final CctvCameraItem camera;
   final VoidCallback? onExpand;
+  final bool isActive;
 
   const CctvCard({
     Key? key,
     required this.camera,
     this.onExpand,
+    this.isActive = true,
   }) : super(key: key);
 
   @override
   State<CctvCard> createState() => _CctvCardState();
 }
 
-class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin {
+class _CctvCardState extends State<CctvCard>
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   bool _isSnapshotTaken = false;
   bool _isGateOpen = false;
   bool _isStreamOnline = false;
@@ -55,7 +61,11 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
         DeviceManagerService().getDevice(_selectedGateId!)?.isActive ?? false;
     _isGateOpen = initialGateState;
 
-    _initVlcPlayer();
+    WidgetsBinding.instance?.addPostFrameCallback((_) {
+      if (mounted) {
+        _initVlcPlayer();
+      }
+    });
 
     // Dengarkan perubahan status gerbang secara realtime dari MqttService
     _mqttSub = MqttService().stateStream.listen((event) {
@@ -82,15 +92,71 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
 
     // Dengarkan trigger refresh dari Pull-to-Refresh layar
     _refreshSub = CctvManagerService().refreshStream.listen((_) {
-      _refreshStream();
+      if (widget.isActive) {
+        _refreshStream();
+      }
     });
   }
 
   @override
   void didUpdateWidget(covariant CctvCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.camera.rtspUrl != widget.camera.rtspUrl) {
-      _refreshStream();
+    if (oldWidget.isActive != widget.isActive) {
+      WidgetsBinding.instance?.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (widget.isActive) {
+          try {
+            _vlcViewController?.setVolume(100);
+            if (_vlcViewController != null && !_vlcViewController!.value.isPlaying) {
+              _vlcViewController!.play();
+            }
+          } catch (_) {}
+          if (_vlcViewController == null) {
+            _initVlcPlayer();
+          } else {
+            if (mounted) {
+              setState(() {
+                _isStreamOnline = _vlcViewController!.value.isPlaying || _isStreamOnline;
+              });
+            }
+          }
+        } else {
+          // Ketika digeser ke kamera lain, cukup matikan volume latar belakang
+          // Biarkan koneksi video tetap terhubung agar saat digeser langsung tampil tanpa loading 3 detik
+          try {
+            _vlcViewController?.setVolume(0);
+          } catch (_) {}
+        }
+      });
+    } else if (widget.isActive && oldWidget.camera.rtspUrl != widget.camera.rtspUrl) {
+      WidgetsBinding.instance?.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _refreshStream();
+      });
+    }
+  }
+
+  void _disposeVlcPlayer({bool shouldSetState = true}) {
+    _connectTimeoutTimer?.cancel();
+    final controllerToDispose = _vlcViewController;
+    _vlcViewController = null;
+    _isStreamOnline = false;
+    _isConnecting = false;
+
+    if (shouldSetState && mounted) {
+      setState(() {});
+    }
+
+    if (controllerToDispose != null) {
+      try {
+        controllerToDispose.removeListener(_vlcListener);
+        controllerToDispose.stopRendererScanning();
+        Future.microtask(() {
+          try {
+            controllerToDispose.dispose();
+          } catch (_) {}
+        });
+      } catch (_) {}
     }
   }
 
@@ -149,8 +215,8 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
 
   void _startTimeoutTimer() {
     _connectTimeoutTimer?.cancel();
-    _connectTimeoutTimer = Timer(const Duration(milliseconds: 15000), () {
-      if (mounted && !_isStreamOnline) {
+    _connectTimeoutTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted && widget.isActive && !_isStreamOnline) {
         setState(() {
           _isConnecting = false;
         });
@@ -178,8 +244,8 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
           url.contains('localhost') ||
           url.contains('172.16.');
 
-      // Cloud / Internet RTSP stream (misal rtsplink.com) butuh caching 2000ms untuk mencegah packet-drop
-      final cacheMs = isLocal ? 500 : 2000;
+      // Low-latency RTSP caching: 150ms agar stream instan tanpa delay buffering 2-3 detik
+      final cacheMs = isLocal ? 150 : 300;
 
       final controller = VlcPlayerController.network(
         url,
@@ -197,6 +263,13 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
 
       controller.addListener(_vlcListener);
       _startTimeoutTimer();
+
+      // Jika kamera ini berada di kartu samping (bukan kartu depan), bisukan volume agar tidak bentrok
+      if (!widget.isActive) {
+        try {
+          controller.setVolume(0);
+        } catch (_) {}
+      }
 
       if (mounted) {
         setState(() {
@@ -224,28 +297,31 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
 
     if ((isPlaying || position > Duration.zero) && !_isStreamOnline) {
       _connectTimeoutTimer?.cancel();
-      setState(() {
-        _isStreamOnline = true;
-        _isConnecting = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isStreamOnline = true;
+          _isConnecting = false;
+        });
+      }
     } else if (hasError && (_isStreamOnline || _isConnecting)) {
-      setState(() {
-        _isStreamOnline = false;
-        _isConnecting = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isStreamOnline = false;
+          _isConnecting = false;
+        });
+      }
     }
   }
 
   void _updateTime() {
+    if (!mounted) return;
     final now = DateTime.now();
     final h = now.hour.toString().padLeft(2, '0');
     final m = now.minute.toString().padLeft(2, '0');
     final s = now.second.toString().padLeft(2, '0');
-    if (mounted) {
-      setState(() {
-        _timestamp = '$h:$m:$s';
-      });
-    }
+    setState(() {
+      _timestamp = '$h:$m:$s';
+    });
   }
 
   @override
@@ -256,11 +332,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
     _mqttSub?.cancel();
     _timer?.cancel();
     _pulseController.dispose();
-    try {
-      _vlcViewController?.removeListener(_vlcListener);
-      _vlcViewController?.stopRendererScanning();
-      _vlcViewController?.dispose();
-    } catch (_) {}
+    _disposeVlcPlayer(shouldSetState: false);
     super.dispose();
   }
 
@@ -370,7 +442,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
         builder: (context, setModalState) {
           return Container(
             decoration: const BoxDecoration(
-              color: Color(0xFF0F172A),
+              color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
             padding: EdgeInsets.only(
@@ -389,7 +461,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.white24,
+                        color: Colors.grey.shade300,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -402,7 +474,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                       Expanded(
                         child: Row(
                           children: const [
-                            Icon(Icons.settings_suggest_rounded, color: Color(0xFF38BDF8), size: 22),
+                            Icon(Icons.settings_suggest_rounded, color: NexoraTokens.brandCyan, size: 22),
                             SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -413,7 +485,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                                   fontFamily: NexoraTokens.fontFamilySans,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
-                                  color: Colors.white,
+                                  color: NexoraTokens.ink,
                                 ),
                               ),
                             ),
@@ -421,7 +493,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
+                        icon: const Icon(Icons.close_rounded, color: NexoraTokens.inkSecondary, size: 20),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
@@ -584,7 +656,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
             fontFamily: NexoraTokens.fontFamilySans,
             fontSize: 11,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF94A3B8),
+            color: NexoraTokens.inkSecondary,
           ),
         ),
         const SizedBox(height: 5),
@@ -595,26 +667,26 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
             fontFamily: 'JetBrains Mono',
             fontSize: 12.5,
             fontWeight: FontWeight.w600,
-            color: Colors.white,
+            color: NexoraTokens.ink,
           ),
           decoration: InputDecoration(
             isDense: true,
             hintText: hint,
-            hintStyle: const TextStyle(color: Colors.white30, fontSize: 12),
-            prefixIcon: Icon(icon, size: 16, color: const Color(0xFF38BDF8)),
+            hintStyle: const TextStyle(color: NexoraTokens.inkMuted, fontSize: 12),
+            prefixIcon: Icon(icon, size: 16, color: NexoraTokens.brandCyan),
             filled: true,
-            fillColor: const Color(0xFF1E293B),
+            fillColor: const Color(0xFFF1F5F9),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF334155)),
+              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF334155)),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+              borderSide: const BorderSide(color: NexoraTokens.brandCyan, width: 1.5),
             ),
           ),
         ),
@@ -624,6 +696,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final lang = LanguageService();
     final cam = widget.camera;
 
@@ -657,7 +730,7 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
+                    color: const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.videocam_rounded, size: 14, color: NexoraTokens.brandCyan),
@@ -917,12 +990,12 @@ class _CctvCardState extends State<CctvCard> with SingleTickerProviderStateMixin
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                           decoration: BoxDecoration(
-                            color: !_isGateOpen ? const Color(0xFF0F172A) : Colors.transparent,
+                            color: !_isGateOpen ? const Color(0xFF0284C7) : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
                             boxShadow: !_isGateOpen
                                 ? [
                                     BoxShadow(
-                                      color: const Color(0xFF0F172A).withOpacity(0.25),
+                                      color: const Color(0xFF0284C7).withOpacity(0.25),
                                       blurRadius: 4,
                                       offset: const Offset(0, 1),
                                     )

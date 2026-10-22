@@ -495,28 +495,8 @@ class _AuthViewState extends State<AuthView> {
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Judul Kartu
-                          const Text(
-                            'Masuk ke Sistem',
-                            style: TextStyle(
-                              fontFamily: NexoraTokens.fontFamilySans,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Gunakan akun resmi yang diberikan oleh administrator kantor',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              color: const Color(0xFF475569).withOpacity(0.85),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 22),
-
+                        children: [                       
+                          const SizedBox(height: 4),                             
                           // Label & Input Email
                           _buildFieldLabel('Email'),
                           const SizedBox(height: 8),

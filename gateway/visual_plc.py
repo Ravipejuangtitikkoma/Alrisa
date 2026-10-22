@@ -1,11 +1,10 @@
 """
-NEXORA - OpenPLC Lite Studio (Visual Drag & Drop Ladder Editor)
+ALRISA - OpenPLC Visual Studio (Visual Drag & Drop Ladder Editor)
+A product by Alfatech Solutions IDN.
 Dilengkapi:
 - Toolbar Palette: Kontak NO (-| |-), NC (|/|), Coil Standard, Set (S), Reset (R), Timer TON.
-- Drag & Drop / Click to Place & Reorder elemen pada Rung.
-- Double-Click elemen untuk Edit Nama & Alamat Hardware (%IX, %QX).
 - Real-time PLC Ladder Execution Engine (Kabel & Coil Menyala Hijau saat teraliri daya).
-- Sinkronisasi Live Dua Arah ke Aplikasi HP NEXORA via MQTT.
+- Sinkronisasi Live Dua Arah ke Aplikasi HP ALRISA & Web Dashboard via MQTT.
 """
 
 import json
@@ -15,7 +14,8 @@ import tkinter as tk
 from tkinter import font, messagebox, simpledialog
 import paho.mqtt.client as mqtt
 
-BROKER = "broker.emqx.io"
+# Menghubungkan ke Private Broker Lokal di Laptop
+BROKER = "127.0.0.1"
 PORT = 1883
 
 class LadderElement:
@@ -36,7 +36,7 @@ class LadderRung:
 class OpenPLCLiteApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("NEXORA - OpenPLC Lite Studio (Ladder Drag & Drop Simulator)")
+        self.root.title("ALRISA - OpenPLC Studio (Visual Ladder Simulator) - Alfatech Solutions IDN.")
         self.root.geometry("1100x740")
         self.root.configure(bg="#1E1E2E")
         self.root.minsize(980, 650)
@@ -559,22 +559,36 @@ class OpenPLCLiteApp:
 
     def _on_mqtt_connect(self, client, userdata, flags, rc):
         if rc == 0:
+            client.subscribe("alrisa/+/set")
             client.subscribe("nexora/+/set")
 
     def _on_mqtt_message(self, client, userdata, msg):
         try:
             topic = msg.topic
-            payload = json.loads(msg.payload.decode())
-            device = topic.split("/")[1]
-            state = payload.get("state", False)
+            payload_str = msg.payload.decode('utf-8')
+            parts = topic.split("/")
+            if len(parts) < 3: return
+            device = parts[1]
+
+            is_on = False
+            try:
+                payload = json.loads(payload_str)
+                if isinstance(payload, dict):
+                    is_on = bool(payload.get("state", False))
+                else:
+                    is_on = bool(payload)
+            except Exception:
+                upper = payload_str.upper()
+                is_on = ("OPEN" in upper or "TRUE" in upper or "1" in upper or "ON" in upper)
 
             # Map device HP ke alamat %QX
             if device in self.device_to_addr:
                 addr = self.device_to_addr[device]
-                self.outputs[addr] = state
+                self.outputs[addr] = is_on
 
-                # Balas ACK /state ke HP
-                ack = json.dumps({"state": state, "value": payload.get("value", 80 if state else 0)})
+                # Balas ACK /state ke HP & Web Dashboard (kedua prefix)
+                ack = json.dumps({"state": is_on, "value": 85 if is_on else 0, "timestamp": int(time.time())})
+                client.publish(f"alrisa/{device}/state", ack)
                 client.publish(f"nexora/{device}/state", ack)
         except Exception:
             pass

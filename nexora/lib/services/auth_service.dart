@@ -15,6 +15,7 @@ class UserModel {
   final String password;
   final UserRole role;
   final DateTime createdAt;
+  final String? photoPath;
 
   const UserModel({
     required this.id,
@@ -23,9 +24,30 @@ class UserModel {
     required this.password,
     required this.role,
     required this.createdAt,
+    this.photoPath,
   });
 
   bool get isSuperAdmin => role == UserRole.superadmin;
+
+  UserModel copyWith({
+    String? id,
+    String? name,
+    String? email,
+    String? password,
+    UserRole? role,
+    DateTime? createdAt,
+    String? photoPath,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      password: password ?? this.password,
+      role: role ?? this.role,
+      createdAt: createdAt ?? this.createdAt,
+      photoPath: photoPath ?? this.photoPath,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -34,6 +56,7 @@ class UserModel {
     'password': password,
     'role': role.index,
     'createdAt': createdAt.toIso8601String(),
+    'photoPath': photoPath,
   };
 
   factory UserModel.fromJson(Map<String, dynamic> map) {
@@ -44,6 +67,7 @@ class UserModel {
       password: map['password'] ?? '',
       role: UserRole.values[map['role'] ?? 1],
       createdAt: DateTime.tryParse(map['createdAt'] ?? '') ?? DateTime.now(),
+      photoPath: map['photoPath'],
     );
   }
 }
@@ -325,6 +349,21 @@ class AuthService {
     required String password,
   }) async {
     return addOfficeAccount(name: name, email: email, password: password);
+  }
+
+  /// Update nama atau foto profil akun pengguna
+  Future<void> updateProfile({required String newName, String? newPhotoPath}) async {
+    if (_currentUser == null) return;
+    final updated = _currentUser!.copyWith(
+      name: newName.trim().isNotEmpty ? newName.trim() : _currentUser!.name,
+      photoPath: newPhotoPath ?? _currentUser!.photoPath,
+    );
+    _currentUser = updated;
+    _usersDatabase[updated.email.toLowerCase()] = updated;
+    _authController.add(_currentUser);
+
+    await _saveSessionToFile(_currentUser!, _lastActiveTime ?? DateTime.now());
+    await _saveUsersDbToFile();
   }
 
   /// Proses Logout

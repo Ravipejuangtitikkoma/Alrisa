@@ -9,6 +9,14 @@ import 'services/mqtt_service.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.dumpErrorToConsole(details);
+  };
+
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    return const SizedBox.shrink();
+  };
+
   // Konfigurasi status bar & navigasi untuk tema Clean White
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(

@@ -1,0 +1,17 @@
+{
+  "mqtt_broker": "broker.emqx.io",
+  "mqtt_port": 1883,
+  "mqtt_ws_port": 8083,
+  "mqtt_prefix": "alrisa",
+  "mqtt_user": "",
+  "mqtt_pass": "",
+  "mqtt_client_id": "ALRISA_NodeClient",
+  "wifi_ssid": "ALRISA_OFFICE_WIFI",
+  "wifi_password": "",
+  "plc_ip": "192.168.1.100",
+  "plc_port": 502,
+  "plc_type": "Mitsubishi FX5U (Modbus TCP Port 502)",
+  "api_secret_key": "alrisa_secret_token_2026",
+  "app_name": "ALRISA Industrial IoT Suite",
+  "updated_at": "2026-10-21T10:50:00.000Z"
+}

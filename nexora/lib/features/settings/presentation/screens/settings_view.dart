@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:nexora/core/design_tokens.dart';
 import 'package:nexora/core/config/mqtt_config.dart';
 import 'package:nexora/services/mqtt_service.dart';
@@ -9,7 +11,8 @@ import 'package:nexora/services/language_service.dart';
 import 'package:nexora/services/cctv_manager_service.dart';
 import 'package:nexora/services/auth_service.dart';
 import 'package:nexora/features/auth/presentation/screens/auth_view.dart';
-import 'package:nexora/features/home/widgets/cctv_stream_sheet.dart';
+import 'package:nexora/features/settings/presentation/screens/cctv_management_screen.dart';
+import 'package:nexora/features/settings/presentation/screens/iot_device_management_screen.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({Key? key}) : super(key: key);
@@ -31,6 +34,7 @@ class _SettingsViewState extends State<SettingsView> {
   bool _isSavingBroker = false;
 
   StreamSubscription<bool>? _connSub;
+  StreamSubscription<UserModel?>? _authSub;
   bool _isConnected = MqttService().isConnected;
 
   @override
@@ -44,10 +48,17 @@ class _SettingsViewState extends State<SettingsView> {
         });
       }
     });
+
+    _authSub = AuthService().authStream.listen((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _connSub?.cancel();
     _brokerController.dispose();
     _portController.dispose();
@@ -93,163 +104,301 @@ class _SettingsViewState extends State<SettingsView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Header
-        Text(
-          lang.tr('settings_title'),
-          style: const TextStyle(
-            fontFamily: NexoraTokens.fontFamilySans,
-            fontSize: 26,
-            fontWeight: FontWeight.w800,
-            color: NexoraTokens.ink,
-            letterSpacing: -0.6,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          lang.tr('settings_subtitle'),
-          style: const TextStyle(
-            fontFamily: NexoraTokens.fontFamilySans,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: NexoraTokens.inkSecondary,
-          ),
+        // ==========================================
+        // 1. HEADER HALAMAN (KONTRAS TINGGI DI ATAS AMBIENT SKY)
+        // ==========================================
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.20),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.40),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.settings_suggest_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    lang.tr('settings_title'),
+                    style: const TextStyle(
+                      fontFamily: NexoraTokens.fontFamilySans,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: -0.5,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black54,
+                          blurRadius: 10,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    lang.tr('settings_subtitle'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: NexoraTokens.fontFamilySans,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withOpacity(0.92),
+                      shadows: const [
+                        Shadow(
+                          color: Colors.black38,
+                          blurRadius: 8,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
 
-        // 2. Profil Pemilik Rumah
+        // ==========================================
+        // 2. KARTU PROFIL PENGGUNA (DESAIN BERSIH & RAPIH, TIDAK CRUSHED/CRAMPED)
+        // ==========================================
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: NexoraTokens.borderRadiusCard,
-            border: Border.all(color: NexoraTokens.cardBorder),
-            boxShadow: NexoraTokens.cardShadow,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0F172A).withOpacity(0.05),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Row Utama: Avatar + Data Pengguna
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      gradient: AuthService().isSuperAdmin
-                          ? const LinearGradient(colors: [Colors.purple, Colors.deepPurpleAccent])
-                          : const LinearGradient(colors: [NexoraTokens.brandCyan, Color(0xFF0077B6)]),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Icon(
-                        AuthService().isSuperAdmin ? Icons.stars_rounded : Icons.person_rounded,
-                        color: Colors.white,
-                        size: 26,
-                      ),
+                  // Avatar Bulat dengan Badge Kamera
+                  GestureDetector(
+                    onTap: () => _showEditProfileSheet(context),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        _buildProfileAvatar(size: 58),
+                        Positioned(
+                          bottom: -2,
+                          right: -2,
+                          child: Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                              color: NexoraTokens.brandCyan,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: NexoraTokens.brandCyan.withOpacity(0.4),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 12),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 16),
+
+                  // Informasi Profil (Nama, Role Badge, Email)
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           AuthService().isLoggedIn ? AuthService().currentUserName : 'Ravi Armanza',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontFamily: NexoraTokens.fontFamilySans,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
                             color: NexoraTokens.ink,
+                            letterSpacing: -0.3,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          AuthService().isSuperAdmin
-                              ? '👑 Super Admin • Full IoT & Cloud Control'
-                              : '👤 Penghuni Rumah • Kendali Perangkat',
-                          style: TextStyle(
-                            fontFamily: NexoraTokens.fontFamilySans,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AuthService().isSuperAdmin ? Colors.purple : NexoraTokens.inkSecondary,
-                          ),
-                        ),
-                        if (AuthService().currentUser != null) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            AuthService().currentUser!.email,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: NexoraTokens.inkMuted,
+                        const SizedBox(height: 4),
+
+                        // Role Badge Rapi & Ringkas (Anti-Wrap / Anti-Nabrak)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                          decoration: BoxDecoration(
+                            color: AuthService().isSuperAdmin
+                                ? const Color(0xFFFAF5FF)
+                                : const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: AuthService().isSuperAdmin
+                                  ? const Color(0xFFE9D5FF)
+                                  : const Color(0xFFBBF7D0),
+                              width: 1,
                             ),
                           ),
-                        ],
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                AuthService().isSuperAdmin ? '👑 SUPER ADMIN' : '👤 PENGHUNI RUMAH',
+                                style: TextStyle(
+                                  fontFamily: NexoraTokens.fontFamilySans,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: AuthService().isSuperAdmin
+                                      ? const Color(0xFF7E22CE)
+                                      : const Color(0xFF15803D),
+                                  letterSpacing: 0.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 4),
+
+                        // Email Akun
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.alternate_email_rounded,
+                              size: 13,
+                              color: NexoraTokens.inkMuted,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                AuthService().currentUser?.email ?? 'raviarmanza149@gmail.com',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: NexoraTokens.fontFamilySans,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: NexoraTokens.inkSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: AuthService().isSuperAdmin ? Colors.purple.withOpacity(0.1) : NexoraTokens.brandCyanSubtle,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      AuthService().isSuperAdmin ? 'ADMIN' : 'USER',
-                      style: TextStyle(
-                        fontFamily: NexoraTokens.fontFamilySans,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: AuthService().isSuperAdmin ? Colors.purple : NexoraTokens.brandCyan,
-                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
-              const Divider(height: 1, color: NexoraTokens.cardBorder),
-              const SizedBox(height: 10),
-              // Tombol Keluar Akun (Logout)
+
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: Color(0xFFF1F5F9), thickness: 1),
+              const SizedBox(height: 12),
+
+              // Bar Aksi Bawah: 2 Tombol Simetris Bersebelahan (Edit Profil & Keluar Akun)
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton.icon(
-                    onPressed: () {
-                      HapticFeedback.mediumImpact();
-                      showDialog(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          title: const Text('Keluar dari Akun?'),
-                          content: const Text('Anda akan diarahkan kembali ke layar Login.'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx),
-                              child: const Text('Batal'),
-                            ),
-                            ElevatedButton(
-                              onPressed: () {
-                                AuthService().logout();
-                                Navigator.pop(ctx);
-                                Navigator.pushAndRemoveUntil(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => const AuthView()),
-                                  (route) => false,
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(primary: Colors.redAccent, elevation: 0),
-                              child: const Text('Keluar', style: TextStyle(color: Colors.white)),
-                            ),
-                          ],
+                  // Tombol 1: Edit Profil
+                  Expanded(
+                    child: Material(
+                      color: const Color(0xFFF0F9FF),
+                      borderRadius: BorderRadius.circular(12),
+                      child: InkWell(
+                        onTap: () => _showEditProfileSheet(context),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 9),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFBAE6FD), width: 1),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.edit_rounded, size: 15, color: Color(0xFF0284C7)),
+                              SizedBox(width: 6),
+                              Text(
+                                'Edit Profil',
+                                style: TextStyle(
+                                  fontFamily: NexoraTokens.fontFamilySans,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0284C7),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.logout_rounded, size: 16, color: Colors.redAccent),
-                    label: const Text(
-                      'Keluar Akun (Logout)',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.redAccent,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  // Tombol 2: Keluar Akun
+                  Expanded(
+                    child: Material(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(12),
+                      child: InkWell(
+                        onTap: _confirmLogout,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 9),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFFECACA), width: 1),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.logout_rounded, size: 15, color: Color(0xFFDC2626)),
+                              SizedBox(width: 6),
+                              Text(
+                                'Keluar Akun',
+                                style: TextStyle(
+                                  fontFamily: NexoraTokens.fontFamilySans,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFDC2626),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -259,9 +408,11 @@ class _SettingsViewState extends State<SettingsView> {
           ),
         ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
 
-        // 3. Status Jaringan & Broker MQTT
+        // ==========================================
+        // 3. STATUS JARINGAN & BROKER MQTT (LENGKAP SEPERTI DULU)
+        // ==========================================
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
@@ -327,10 +478,10 @@ class _SettingsViewState extends State<SettingsView> {
 
               const SizedBox(height: 16),
 
-              _buildInfoRow('Server Broker', '${MqttService().broker}:${MqttService().port}'),
-              const Divider(height: 20, color: NexoraTokens.cardBorder),
-              _buildInfoRow('Client ID', MqttService().clientId),
-              const Divider(height: 20, color: NexoraTokens.cardBorder),
+              _buildInfoRow('Server Broker', '${MqttService().broker}:${MqttService().port}', isMono: true),
+              const Divider(height: 18, color: Color(0xFFF1F5F9)),
+              _buildInfoRow('Client ID', MqttService().clientId, isMono: true),
+              const Divider(height: 18, color: Color(0xFFF1F5F9)),
               _buildInfoRow('Pesan Terakhir', MqttService().lastMessage),
 
               const SizedBox(height: 18),
@@ -348,22 +499,18 @@ class _SettingsViewState extends State<SettingsView> {
                         )
                       : const Icon(Icons.sync_rounded, size: 18),
                   label: Text(_isReconnecting ? 'Sedang Menghubungkan...' : 'Hubungkan Ulang Broker'),
-                  style: ButtonStyle(
-                    backgroundColor: MaterialStateProperty.all(NexoraTokens.brandCyan),
-                    foregroundColor: MaterialStateProperty.all(Colors.white),
-                    elevation: MaterialStateProperty.all(0),
-                    padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 13)),
-                    shape: MaterialStateProperty.all(
-                      RoundedRectangleBorder(
-                        borderRadius: NexoraTokens.borderRadiusButton,
-                      ),
+                  style: ElevatedButton.styleFrom(
+                    primary: NexoraTokens.brandCyan,
+                    onPrimary: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: NexoraTokens.borderRadiusButton,
                     ),
-                    textStyle: MaterialStateProperty.all(
-                      const TextStyle(
-                        fontFamily: NexoraTokens.fontFamilySans,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    textStyle: const TextStyle(
+                      fontFamily: NexoraTokens.fontFamilySans,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -382,7 +529,7 @@ class _SettingsViewState extends State<SettingsView> {
                     color: _isSuperAdminUnlocked ? Colors.purple : NexoraTokens.inkSecondary,
                   ),
                   label: Text(
-                    _isSuperAdminUnlocked ? '⚙️ Panel Super Admin (Aktif)' : '🔐 Mode Super Admin (Ubah Cloud via HP)',
+                    _isSuperAdminUnlocked ? '⚙️ Panel Super Admin (Aktif)' : '🔐 Akses Super Admin (Cloud & Hardware)',
                     style: TextStyle(
                       fontFamily: NexoraTokens.fontFamilySans,
                       fontSize: 13,
@@ -408,318 +555,142 @@ class _SettingsViewState extends State<SettingsView> {
 
         const SizedBox(height: 20),
 
-        // 3.5 MANAJEMEN PERANGKAT IOT (ESP32 & PLC FX5U)
-        _buildDeviceManagementSection(),
+        // ==========================================
+        // 4. KLASIFIKASI MENU PERANGKAT & CCTV (MODERN LIST)
+        // ==========================================
+        _buildDeviceClassificationCard(),
 
         const SizedBox(height: 20),
 
-        // 3.6 MANAJEMEN KAMERA CCTV (RTSP / ONVIF)
-        _buildCctvManagementSection(),
-
-
-      ],
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: NexoraTokens.fontFamilySans,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: NexoraTokens.inkSecondary,
+        // ==========================================
+        // 5. PENGATURAN UMUM & SISTEM
+        // ==========================================
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: NexoraTokens.borderRadiusCard,
+            border: Border.all(color: NexoraTokens.cardBorder),
+            boxShadow: NexoraTokens.cardShadow,
           ),
-        ),
-        Flexible(
-          child: Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontFamily: NexoraTokens.fontFamilySans,
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-              color: NexoraTokens.ink,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ==========================================
-  // MANAJEMEN PERANGKAT IOT (ESP32 / PLC FX5U)
-  // ==========================================
-  Widget _buildDeviceManagementSection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: NexoraTokens.borderRadiusCard,
-        border: Border.all(color: NexoraTokens.cardBorder),
-        boxShadow: NexoraTokens.cardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          child: Column(
             children: [
-              const Icon(Icons.developer_board_rounded, size: 20, color: NexoraTokens.brandCyan),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  LanguageService().tr('settings_iot_manage'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: NexoraTokens.fontFamilySans,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: NexoraTokens.ink,
-                  ),
-                ),
+              _buildSimpleListTile(
+                icon: Icons.translate_rounded,
+                iconBg: const Color(0xFFDBEAFE),
+                iconColor: const Color(0xFF2563EB),
+                title: lang.isIndonesian ? 'Bahasa Aplikasi' : 'App Language',
+                subtitle: lang.isIndonesian ? 'Bahasa Indonesia (ID)' : 'English (EN)',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  lang.toggleLanguage();
+                  setState(() {});
+                },
               ),
-              const SizedBox(width: 6),
-              ElevatedButton.icon(
-                onPressed: () => _showAddDeviceSheet(context),
-                icon: const Icon(Icons.add, size: 15),
-                label: Text(LanguageService().tr('settings_add_btn')),
-                style: ElevatedButton.styleFrom(
-                  primary: NexoraTokens.brandCyan,
-                  onPrimary: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  textStyle: const TextStyle(
-                    fontFamily: NexoraTokens.fontFamilySans,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+              const Divider(height: 1, indent: 68, endIndent: 16, color: NexoraTokens.cardBorder),
+              _buildSimpleListTile(
+                icon: Icons.info_outline_rounded,
+                iconBg: const Color(0xFFF1F5F9),
+                iconColor: const Color(0xFF64748B),
+                title: 'Tentang Nexora',
+                subtitle: 'Versi 2.4.0 (Smart Automation & Surveillance)',
+                onTap: _showAboutDialog,
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          const Text(
-            'Konfigurasi kontrol gerbang, saklar, dan aktuator. Kompatibel dengan ESP32 GPIO maupun PLC Mitsubishi FX5U.',
-            style: TextStyle(
-              fontFamily: NexoraTokens.fontFamilySans,
-              fontSize: 12,
-              color: NexoraTokens.inkSecondary,
-            ),
-          ),
-          const SizedBox(height: 16),
+        ),
 
-          StreamBuilder<List<CustomDeviceItem>>(
-            stream: DeviceManagerService().devicesStream,
-            initialData: DeviceManagerService().allDevices,
-            builder: (context, snapshot) {
-              final devices = DeviceManagerService().allDevices;
-              if (devices.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Center(
-                    child: Text(
-                      'Belum ada perangkat terdaftar.',
-                      style: TextStyle(fontSize: 12, color: NexoraTokens.inkMuted),
-                    ),
-                  ),
-                );
-              }
+        const SizedBox(height: 30),
+      ],
+    );
+  }
 
-              return Column(
-                children: devices.map((dev) {
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: NexoraTokens.cardBorder),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: _getDeviceColor(dev.type).withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            _getDeviceIcon(dev.type),
-                            size: 19,
-                            color: _getDeviceColor(dev.type),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                dev.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontFamily: NexoraTokens.fontFamilySans,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: NexoraTokens.ink,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 3,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  Text(
-                                    'Topic: nexora/${dev.id}/set',
-                                    style: const TextStyle(
-                                      fontFamily: 'JetBrains Mono',
-                                      fontSize: 9.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: NexoraTokens.inkMuted,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFE2E8F0),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      dev.hardwarePin,
-                                      style: const TextStyle(
-                                        fontFamily: 'JetBrains Mono',
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w700,
-                                        color: NexoraTokens.ink,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            InkWell(
-                              onTap: () => _showEditDeviceSheet(context, dev),
-                              borderRadius: BorderRadius.circular(8),
-                              child: const Padding(
-                                padding: EdgeInsets.all(6),
-                                child: Icon(Icons.edit_outlined, size: 17, color: NexoraTokens.inkSecondary),
-                              ),
-                            ),
-                            InkWell(
-                              onTap: () => _confirmDeleteDevice(context, dev),
-                              borderRadius: BorderRadius.circular(8),
-                              child: const Padding(
-                                padding: EdgeInsets.all(6),
-                                child: Icon(Icons.delete_outline, size: 17, color: Colors.redAccent),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              );
-            },
+  // ==========================================
+  // WIDGET AVATAR PROFIL PENGGUNA
+  // ==========================================
+  Widget _buildProfileAvatar({double size = 52}) {
+    final photoPath = AuthService().currentUser?.photoPath;
+    if (photoPath != null && photoPath.isNotEmpty && File(photoPath).existsSync()) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: NexoraTokens.cardBorder, width: 1.5),
+        ),
+        child: ClipOval(
+          child: Image.file(
+            File(photoPath),
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
           ),
-        ],
+        ),
+      );
+    }
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: AuthService().isSuperAdmin
+            ? const LinearGradient(colors: [Colors.purple, Colors.deepPurpleAccent])
+            : const LinearGradient(colors: [NexoraTokens.brandCyan, Color(0xFF0077B6)]),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Icon(
+          AuthService().isSuperAdmin ? Icons.stars_rounded : Icons.person_rounded,
+          color: Colors.white,
+          size: size * 0.5,
+        ),
       ),
     );
   }
 
-  IconData _getDeviceIcon(DeviceType type) {
-    switch (type) {
-      case DeviceType.gate:
-        return Icons.sensor_door_outlined;
-      case DeviceType.light:
-        return Icons.lightbulb_outline;
-      case DeviceType.slidingDoor:
-        return Icons.meeting_room_outlined;
-      case DeviceType.curtain:
-        return Icons.view_sidebar_outlined;
-      case DeviceType.waterPump:
-        return Icons.opacity_outlined;
-    }
-  }
-
-  Color _getDeviceColor(DeviceType type) {
-    switch (type) {
-      case DeviceType.gate:
-        return NexoraTokens.brandCyan;
-      case DeviceType.light:
-        return const Color(0xFFEAB308);
-      case DeviceType.slidingDoor:
-        return const Color(0xFF6366F1);
-      case DeviceType.curtain:
-        return const Color(0xFFEC4899);
-      case DeviceType.waterPump:
-        return const Color(0xFF0EA5E9);
-    }
-  }
-
-  void _showAddDeviceSheet(BuildContext context) {
-    final nameCtrl = TextEditingController();
-    final pinCtrl = TextEditingController(text: 'GPIO 2 (%QX0.0)');
-    final idCtrl = TextEditingController();
-    DeviceType selectedType = DeviceType.gate;
+  // ==========================================
+  // SHEET EDIT PROFIL & FOTO
+  // ==========================================
+  void _showEditProfileSheet(BuildContext context) {
+    HapticFeedback.lightImpact();
+    final nameCtrl = TextEditingController(
+      text: AuthService().currentUserName,
+    );
+    String? tempPhotoPath = AuthService().currentUser?.photoPath;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) {
+        builder: (modalCtx, setModalState) {
           return Container(
             padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
+              left: 24,
+              right: 24,
               top: 20,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              bottom: MediaQuery.of(modalCtx).viewInsets.bottom + 24,
             ),
             decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Center(
                     child: Container(
-                      width: 40,
+                      width: 44,
                       height: 4,
                       decoration: BoxDecoration(
                         color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Tambah Perangkat Baru',
+                    'Edit Profil Pengguna',
                     style: TextStyle(
                       fontFamily: NexoraTokens.fontFamilySans,
                       fontSize: 18,
@@ -729,346 +700,198 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Perangkat langsung aktif di Beranda & dapat dites via ESP32 / PLC.',
-                    style: TextStyle(fontSize: 12, color: NexoraTokens.inkSecondary),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Tipe Perangkat
-                  const Text(
-                    'Tipe Perangkat',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary),
-                  ),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<DeviceType>(
-                    value: selectedType,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: DeviceType.gate, child: Text('Pagar / Gerbang Otomatis')),
-                      DropdownMenuItem(value: DeviceType.light, child: Text('Lampu Pintar (Dimmer/Relay)')),
-                      DropdownMenuItem(value: DeviceType.slidingDoor, child: Text('Pintu Geser')),
-                      DropdownMenuItem(value: DeviceType.curtain, child: Text('Gorden Elektrik')),
-                      DropdownMenuItem(value: DeviceType.waterPump, child: Text('Pompa Air / Toren')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setModalState(() {
-                          selectedType = val;
-                          if (val == DeviceType.gate) {
-                            pinCtrl.text = 'GPIO 2 (%QX0.0)';
-                          } else if (val == DeviceType.light) {
-                            pinCtrl.text = 'GPIO 4 (%QX0.3)';
-                          }
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Nama Perangkat
-                  const Text(
-                    'Nama Perangkat (contoh: Gerbang Belakang, Lampu Taman)',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary),
-                  ),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'Misal: Gerbang Belakang',
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    'Ubah foto profil dan nama akun Nexora Anda.',
+                    style: TextStyle(
+                      fontFamily: NexoraTokens.fontFamilySans,
+                      fontSize: 12.5,
+                      color: NexoraTokens.inkSecondary,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 20),
 
-                  // ID MQTT
-                  const Text(
-                    'ID Perangkat MQTT (opsional, contoh: pagar_belakang)',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary),
-                  ),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: idCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'Biarkan kosong untuk otomatis',
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Pin Hardware
-                  const Text(
-                    'Pin ESP32 / Alamat PLC FX5U (contoh: GPIO 4 atau %QX0.1)',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary),
-                  ),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: pinCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'GPIO 4 (%QX0.1)',
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        final name = nameCtrl.text.trim();
-                        if (name.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Nama perangkat tidak boleh kosong!')),
-                          );
-                          return;
-                        }
-                        DeviceManagerService().addDevice(
-                          name: name,
-                          type: selectedType,
-                          customId: idCtrl.text.trim().isNotEmpty ? idCtrl.text.trim() : null,
-                          hardwarePin: pinCtrl.text.trim().isNotEmpty ? pinCtrl.text.trim() : null,
-                        );
-                        Navigator.pop(ctx);
-                        HapticFeedback.mediumImpact();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            behavior: SnackBarBehavior.floating,
-                            backgroundColor: NexoraTokens.statusGreen,
-                            content: Text('✅ Perangkat "$name" berhasil ditambahkan!'),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        primary: NexoraTokens.brandCyan,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Simpan & Pasang Perangkat',
-                        style: TextStyle(
-                          fontFamily: NexoraTokens.fontFamilySans,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  void _showEditDeviceSheet(BuildContext context, CustomDeviceItem dev) {
-    final nameCtrl = TextEditingController(text: dev.name);
-    final pinCtrl = TextEditingController(text: dev.hardwarePin);
-    DeviceType selectedType = dev.type;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) {
-          return Container(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 20,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-            ),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                  // Avatar Preview dengan Tombol Ubah
                   Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 88,
+                          height: 88,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: NexoraTokens.brandCyan, width: 2.5),
+                          ),
+                          child: ClipOval(
+                            child: (tempPhotoPath != null && tempPhotoPath!.isNotEmpty && File(tempPhotoPath!).existsSync())
+                                ? Image.file(File(tempPhotoPath!), width: 88, height: 88, fit: BoxFit.cover)
+                                : Container(
+                                    color: const Color(0xFFE0F2FE),
+                                    child: Icon(
+                                      AuthService().isSuperAdmin ? Icons.stars_rounded : Icons.person_rounded,
+                                      color: NexoraTokens.brandCyan,
+                                      size: 46,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: NexoraTokens.brandCyan,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 16),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+
                   const SizedBox(height: 16),
+
+                  // Pilihan Ambil Foto: Galeri atau Kamera
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: _getDeviceColor(selectedType).withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          _getDeviceIcon(selectedType),
-                          size: 19,
-                          color: _getDeviceColor(selectedType),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          HapticFeedback.lightImpact();
+                          final picker = ImagePicker();
+                          final picked = await picker.pickImage(
+                            source: ImageSource.gallery,
+                            maxWidth: 600,
+                            maxHeight: 600,
+                            imageQuality: 85,
+                          );
+                          if (picked != null) {
+                            setModalState(() {
+                              tempPhotoPath = picked.path;
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.photo_library_outlined, size: 16),
+                        label: const Text('Dari Galeri'),
+                        style: OutlinedButton.styleFrom(
+                          primary: NexoraTokens.ink,
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Edit Perangkat',
-                              style: const TextStyle(
-                                fontFamily: NexoraTokens.fontFamilySans,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                                color: NexoraTokens.ink,
-                              ),
-                            ),
-                            Text(
-                              'Topic MQTT: nexora/${dev.id}/set',
-                              style: const TextStyle(
-                                fontFamily: 'JetBrains Mono',
-                                fontSize: 10,
-                                color: NexoraTokens.inkSecondary,
-                              ),
-                            ),
-                          ],
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          HapticFeedback.lightImpact();
+                          final picker = ImagePicker();
+                          final picked = await picker.pickImage(
+                            source: ImageSource.camera,
+                            maxWidth: 600,
+                            maxHeight: 600,
+                            imageQuality: 85,
+                          );
+                          if (picked != null) {
+                            setModalState(() {
+                              tempPhotoPath = picked.path;
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                        label: const Text('Kamera'),
+                        style: OutlinedButton.styleFrom(
+                          primary: NexoraTokens.ink,
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
 
-                  // Tipe Perangkat
-                  const Text(
-                    'Tipe Perangkat',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary),
-                  ),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<DeviceType>(
-                    value: selectedType,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: DeviceType.gate, child: Text('Pagar / Gerbang Otomatis')),
-                      DropdownMenuItem(value: DeviceType.light, child: Text('Lampu Pintar (Dimmer/Relay)')),
-                      DropdownMenuItem(value: DeviceType.slidingDoor, child: Text('Pintu Geser')),
-                      DropdownMenuItem(value: DeviceType.curtain, child: Text('Gorden Elektrik')),
-                      DropdownMenuItem(value: DeviceType.waterPump, child: Text('Pompa Air / Toren')),
+                  const SizedBox(height: 20),
+
+                  // Input Nama Pengguna
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Nama Pengguna',
+                        style: TextStyle(
+                          fontFamily: NexoraTokens.fontFamilySans,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: NexoraTokens.inkSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: nameCtrl,
+                        style: const TextStyle(
+                          fontFamily: NexoraTokens.fontFamilySans,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: NexoraTokens.ink,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Masukkan nama Anda...',
+                          prefixIcon: const Icon(Icons.person_outline_rounded, size: 20, color: NexoraTokens.brandCyan),
+                          filled: true,
+                          fillColor: const Color(0xFFF1F5F9),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: NexoraTokens.brandCyan, width: 1.5),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                      ),
                     ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setModalState(() {
-                          selectedType = val;
-                        });
-                      }
-                    },
                   ),
-                  const SizedBox(height: 14),
 
-                  // Nama Perangkat
-                  const Text(
-                    'Nama Perangkat',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary),
-                  ),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'Misal: Gerbang Belakang',
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 24),
 
-                  // Pin ESP32 / Alamat PLC
-                  const Text(
-                    'Pin ESP32 / Alamat PLC (contoh: GPIO 4 atau %QX0.1)',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary),
-                  ),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: pinCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'GPIO 4 (%QX0.1)',
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-
+                  // Tombol Simpan
                   SizedBox(
                     width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        final updatedName = nameCtrl.text.trim();
-                        final updatedPin = pinCtrl.text.trim();
-                        if (updatedName.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Nama perangkat tidak boleh kosong!')),
-                          );
-                          return;
-                        }
-
-                        DeviceManagerService().updateDevice(
-                          dev.id,
-                          newName: updatedName,
-                          newPin: updatedPin.isNotEmpty ? updatedPin : dev.hardwarePin,
-                          newType: selectedType,
-                        );
-
-                        Navigator.pop(ctx);
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
                         HapticFeedback.mediumImpact();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            behavior: SnackBarBehavior.floating,
-                            backgroundColor: NexoraTokens.statusGreen,
-                            content: Text('✅ Perangkat "$updatedName" berhasil diperbarui!'),
-                          ),
+                        final newName = nameCtrl.text.trim();
+                        await AuthService().updateProfile(
+                          newName: newName,
+                          newPhotoPath: tempPhotoPath,
                         );
+                        if (mounted) {
+                          setState(() {});
+                          Navigator.pop(modalCtx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              behavior: SnackBarBehavior.floating,
+                              backgroundColor: NexoraTokens.statusGreen,
+                              content: Text('✅ Profil berhasil diperbarui!'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
                       },
+                      icon: const Icon(Icons.check_rounded, size: 18),
+                      label: const Text('Simpan Perubahan'),
                       style: ElevatedButton.styleFrom(
                         primary: NexoraTokens.brandCyan,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        onPrimary: Colors.white,
                         elevation: 0,
-                      ),
-                      child: const Text(
-                        'Simpan Perubahan',
-                        style: TextStyle(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        textStyle: const TextStyle(
                           fontFamily: NexoraTokens.fontFamilySans,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
-                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -1082,48 +905,14 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  void _confirmDeleteDevice(BuildContext context, CustomDeviceItem dev) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Hapus "${dev.name}"?'),
-        content: Text('Perangkat dengan ID "${dev.id}" akan dihapus dari sistem dan dashboard.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              DeviceManagerService().removeDevice(dev.id);
-              Navigator.pop(ctx);
-              HapticFeedback.mediumImpact();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: Colors.redAccent,
-                  content: Text('🗑️ Perangkat "${dev.name}" telah dihapus.'),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(primary: Colors.redAccent, elevation: 0),
-            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ==========================================
-  // MANAJEMEN KAMERA CCTV (RTSP / ONVIF)
+  // 📱 KLASIFIKASI MENU PERANGKAT & CCTV
   // ==========================================
-  Widget _buildCctvManagementSection() {
+  Widget _buildDeviceClassificationCard() {
     final lang = LanguageService();
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: NexoraTokens.borderRadiusCard,
@@ -1133,268 +922,65 @@ class _SettingsViewState extends State<SettingsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.videocam_rounded, size: 16, color: NexoraTokens.brandCyan),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  lang.isIndonesian ? 'Kamera Pengawas (RTSP / ONVIF)' : 'Surveillance Cameras (RTSP / ONVIF)',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+            child: Row(
+              children: const [
+                Icon(Icons.dns_rounded, size: 18, color: NexoraTokens.brandCyan),
+                SizedBox(width: 8),
+                Text(
+                  'Manajemen Perangkat & Pengawasan',
+                  style: TextStyle(
                     fontFamily: NexoraTokens.fontFamilySans,
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: NexoraTokens.ink,
+                    color: NexoraTokens.inkSecondary,
+                    letterSpacing: 0.2,
                   ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              ElevatedButton.icon(
-                onPressed: () => _showAddCctvSheet(context),
-                icon: const Icon(Icons.add, size: 15),
-                label: Text(lang.isIndonesian ? 'Tambah' : 'Add'),
-                style: ElevatedButton.styleFrom(
-                  primary: const Color(0xFF0F172A),
-                  onPrimary: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  textStyle: const TextStyle(
-                    fontFamily: NexoraTokens.fontFamilySans,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            lang.isIndonesian
-                ? 'Streaming video real-time via jalur RTSP & ONVIF langsung dari IP Cam ke HP tanpa membebani MQTT broker.'
-                : 'Real-time video stream directly over RTSP & ONVIF from IP Cam without burdening the MQTT broker.',
-            style: const TextStyle(
-              fontFamily: NexoraTokens.fontFamilySans,
-              fontSize: 12,
-              color: NexoraTokens.inkSecondary,
+              ],
             ),
           ),
-          const SizedBox(height: 16),
+          const Divider(height: 1, color: NexoraTokens.cardBorder),
 
-          StreamBuilder<List<CctvCameraItem>>(
+          // Menu 1: Kamera Pengawas (CCTV)
+          _buildClassificationMenuItem(
+            icon: Icons.videocam_rounded,
+            iconBg: const Color(0xFFE0F2FE),
+            iconColor: NexoraTokens.brandCyan,
+            title: lang.isIndonesian ? 'Kamera CCTV Pengawas' : 'Surveillance Cameras (CCTV)',
             stream: CctvManagerService().camerasStream,
-            initialData: CctvManagerService().allCameras,
-            builder: (context, snapshot) {
-              final cameras = CctvManagerService().allCameras;
-              if (cameras.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Center(
-                    child: Text(
-                      'Belum ada kamera CCTV terdaftar.',
-                      style: TextStyle(fontSize: 12, color: NexoraTokens.inkMuted),
-                    ),
-                  ),
-                );
-              }
+            initialCount: CctvManagerService().allCameras.length,
+            subtitleBuilder: (count) => lang.isIndonesian
+                ? '$count Kamera Terdaftar • Live RTSP'
+                : '$count Registered Cameras • Live RTSP',
+            onTap: () {
+              HapticFeedback.lightImpact();
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CctvManagementScreen()),
+              );
+            },
+          ),
 
-              return Column(
-                children: cameras.map((cam) {
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFF1E293B)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: NexoraTokens.brandCyan.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(
-                                Icons.videocam_outlined,
-                                size: 19,
-                                color: NexoraTokens.brandCyan,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          cam.name,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontFamily: NexoraTokens.fontFamilySans,
-                                            fontSize: 13.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF065F46),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: const Text(
-                                          'RTSP LIVE',
-                                          style: TextStyle(
-                                            fontFamily: 'JetBrains Mono',
-                                            fontSize: 8.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFF6EE7B7),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${cam.location} • ${cam.resolution}',
-                                    style: const TextStyle(
-                                      fontFamily: NexoraTokens.fontFamilySans,
-                                      fontSize: 11,
-                                      color: Color(0xFF94A3B8),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Tombol Preview Live Stream
-                            InkWell(
-                              onTap: () {
-                                CctvStreamSheet.show(
-                                  context,
-                                  camera: cam,
-                                  gateId: cam.boundGateId,
-                                  gateName: cam.name,
-                                );
-                              },
-                              borderRadius: BorderRadius.circular(8),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: NexoraTokens.brandCyan,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.play_arrow_rounded, size: 14, color: Colors.white),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      lang.isIndonesian ? 'Pantau' : 'View',
-                                      style: const TextStyle(
-                                        fontFamily: NexoraTokens.fontFamilySans,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            InkWell(
-                              onTap: () => _showEditCctvSheet(context, cam),
-                              borderRadius: BorderRadius.circular(8),
-                              child: const Padding(
-                                padding: EdgeInsets.all(6),
-                                child: Icon(Icons.edit_outlined, size: 17, color: NexoraTokens.inkSecondary),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            InkWell(
-                              onTap: () => _confirmDeleteCctv(context, cam),
-                              borderRadius: BorderRadius.circular(8),
-                              child: const Padding(
-                                padding: EdgeInsets.all(6),
-                                child: Icon(Icons.delete_outline, size: 17, color: Colors.redAccent),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF020617),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFF1E293B)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.link, size: 12, color: Color(0xFF64748B)),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  cam.rtspUrl,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontFamily: 'JetBrains Mono',
-                                    fontSize: 10,
-                                    color: Color(0xFF38BDF8),
-                                  ),
-                                ),
-                              ),
-                              if (cam.boundGateId != null) ...[
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF1E293B),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    'Pagar: ${cam.boundGateId}',
-                                    style: const TextStyle(
-                                      fontFamily: 'JetBrains Mono',
-                                      fontSize: 9,
-                                      color: Color(0xFFCBD5E1),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
+          const Divider(height: 1, indent: 70, endIndent: 16, color: NexoraTokens.cardBorder),
+
+          // Menu 2: Perangkat IoT (ESP32 & PLC)
+          _buildClassificationMenuItem(
+            icon: Icons.developer_board_rounded,
+            iconBg: const Color(0xFFDCFCE7),
+            iconColor: const Color(0xFF16A34A),
+            title: lang.isIndonesian ? 'Perangkat IoT & Otomasi' : 'IoT Devices & Automation',
+            stream: DeviceManagerService().devicesStream,
+            initialCount: DeviceManagerService().allDevices.length,
+            subtitleBuilder: (count) => lang.isIndonesian
+                ? '$count Perangkat Terpasang • Relai & Sensor'
+                : '$count Installed Devices • Relay & Sensors',
+            onTap: () {
+              HapticFeedback.lightImpact();
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const IotDeviceManagementScreen()),
               );
             },
           ),
@@ -1403,536 +989,281 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  void _showAddCctvSheet(BuildContext context) {
-    final nameCtrl = TextEditingController();
-    final locationCtrl = TextEditingController(text: 'Pagar Depan');
-    final rtspCtrl = TextEditingController(text: 'rtsp://admin:123456@192.168.1.105:554/live/ch0');
-    final onvifHostCtrl = TextEditingController(text: '192.168.1.105');
-    final onvifPortCtrl = TextEditingController(text: '80');
-    String? selectedGateId = 'pagar';
-
-    final gateDevices = DeviceManagerService().allDevices.where((d) => d.type == DeviceType.gate).toList();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) {
-          return Container(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 20,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+  Widget _buildClassificationMenuItem({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String title,
+    required Stream stream,
+    required int initialCount,
+    required String Function(int count) subtitleBuilder,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 22),
             ),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: SingleChildScrollView(
+            const SizedBox(width: 14),
+            Expanded(
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Tambah Kamera CCTV (RTSP / ONVIF)',
-                    style: TextStyle(
+                  Text(
+                    title,
+                    style: const TextStyle(
                       fontFamily: NexoraTokens.fontFamilySans,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
                       color: NexoraTokens.ink,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Hubungkan feed kamera pengawas IP Cam ke kontrol gerbang.',
-                    style: TextStyle(fontSize: 12, color: NexoraTokens.inkSecondary),
-                  ),
-                  const SizedBox(height: 18),
-
-                  const Text('Nama Kamera', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'Misal: CCTV Pintu Masuk Satpam',
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  const Text('Lokasi / Area Pemasangan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: locationCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'Misal: Gerbang Utama & Halaman Depan',
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  const Text('RTSP Stream URL (H.264 / H.265)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: rtspCtrl,
-                    style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
-                    onChanged: (val) {
-                      try {
-                        final uri = Uri.parse(val.trim());
-                        if (uri.host.isNotEmpty) {
-                          onvifHostCtrl.text = uri.host;
-                          if (uri.hasPort && uri.port != 0) {
-                            onvifPortCtrl.text = uri.port.toString();
-                          } else {
-                            onvifPortCtrl.text = '554';
-                          }
-                        }
-                      } catch (_) {}
-                    },
-                    decoration: InputDecoration(
-                      hintText: 'rtsp://user:pass@ip:554/live/ch0',
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('IP Host ONVIF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: onvifHostCtrl,
-                              style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
-                              decoration: InputDecoration(
-                                hintText: '192.168.1.105',
-                                filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 1,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Port ONVIF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: onvifPortCtrl,
-                              keyboardType: TextInputType.number,
-                              style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
-                              decoration: InputDecoration(
-                                hintText: '80',
-                                filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  if (gateDevices.isNotEmpty) ...[
-                    const Text('Hubungkan ke Gerbang (Opsional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String?>(
-                      value: selectedGateId,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      ),
-                      items: [
-                        const DropdownMenuItem<String?>(value: null, child: Text('Tidak Terhubung (Kamera Bebas)')),
-                        ...gateDevices.map((g) => DropdownMenuItem<String?>(value: g.id, child: Text('${g.name} (${g.hardwarePin})'))),
-                      ],
-                      onChanged: (val) {
-                        setModalState(() => selectedGateId = val);
-                      },
-                    ),
-                    const SizedBox(height: 22),
-                  ],
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        final name = nameCtrl.text.trim();
-                        final rtsp = rtspCtrl.text.trim();
-                        if (name.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Nama kamera tidak boleh kosong!')),
-                          );
-                          return;
-                        }
-                        if (rtsp.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('RTSP URL tidak boleh kosong!')),
-                          );
-                          return;
-                        }
-                        final port = int.tryParse(onvifPortCtrl.text.trim()) ?? 80;
-
-                        CctvManagerService().addCamera(
-                          name: name,
-                          location: locationCtrl.text.trim(),
-                          rtspUrl: rtsp,
-                          onvifHost: onvifHostCtrl.text.trim(),
-                          onvifPort: port,
-                          boundGateId: selectedGateId,
-                        );
-                        Navigator.pop(ctx);
-                        HapticFeedback.mediumImpact();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            behavior: SnackBarBehavior.floating,
-                            backgroundColor: NexoraTokens.statusGreen,
-                            content: Text('✅ Kamera CCTV "$name" berhasil ditambahkan!'),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        primary: NexoraTokens.brandCyan,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Simpan & Pasang CCTV',
-                        style: TextStyle(
+                  const SizedBox(height: 3),
+                  StreamBuilder(
+                    stream: stream,
+                    builder: (context, snapshot) {
+                      int count = initialCount;
+                      if (snapshot.hasData && snapshot.data is List) {
+                        count = (snapshot.data as List).length;
+                      }
+                      return Text(
+                        subtitleBuilder(count),
+                        style: const TextStyle(
                           fontFamily: NexoraTokens.fontFamilySans,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: NexoraTokens.inkSecondary,
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 ],
               ),
             ),
-          );
-        },
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: NexoraTokens.inkMuted,
+              size: 22,
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  void _showEditCctvSheet(BuildContext context, CctvCameraItem cam) {
-    final nameCtrl = TextEditingController(text: cam.name);
-    final locationCtrl = TextEditingController(text: cam.location);
-    final rtspCtrl = TextEditingController(text: cam.rtspUrl);
-    final onvifHostCtrl = TextEditingController(text: cam.onvifHost);
-    final onvifPortCtrl = TextEditingController(text: cam.onvifPort.toString());
-    String? selectedGateId = cam.boundGateId;
-
-    final gateDevices = DeviceManagerService().allDevices.where((d) => d.type == DeviceType.gate).toList();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) {
-          return Container(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 20,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+  Widget _buildSimpleListTile({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
             ),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: SingleChildScrollView(
+            const SizedBox(width: 14),
+            Expanded(
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontFamily: NexoraTokens.fontFamilySans,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: NexoraTokens.ink,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: NexoraTokens.brandCyan.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.videocam_outlined,
-                          size: 20,
-                          color: NexoraTokens.brandCyan,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text(
-                          'Edit Kamera CCTV',
-                          style: TextStyle(
-                            fontFamily: NexoraTokens.fontFamilySans,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                            color: NexoraTokens.ink,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Nama Kamera
-                  const Text('Nama Kamera', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'Misal: CCTV Gerbang Utama',
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Lokasi
-                  const Text('Lokasi Kamera', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: locationCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'Misal: Pagar Depan & Jalan',
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // RTSP Stream URL
-                  const Text('RTSP Stream URL', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: rtspCtrl,
-                    style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
-                    onChanged: (val) {
-                      try {
-                        final uri = Uri.parse(val.trim());
-                        if (uri.host.isNotEmpty) {
-                          onvifHostCtrl.text = uri.host;
-                          if (uri.hasPort && uri.port != 0) {
-                            onvifPortCtrl.text = uri.port.toString();
-                          } else {
-                            onvifPortCtrl.text = '554';
-                          }
-                        }
-                      } catch (_) {}
-                    },
-                    decoration: InputDecoration(
-                      hintText: 'rtsp://192.168.0.104:8554/',
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // ONVIF Host & Port
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('IP / Host ONVIF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: onvifHostCtrl,
-                              style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
-                              decoration: InputDecoration(
-                                hintText: '192.168.0.104',
-                                filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 1,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Port ONVIF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: onvifPortCtrl,
-                              keyboardType: TextInputType.number,
-                              style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
-                              decoration: InputDecoration(
-                                hintText: '8554',
-                                filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  if (gateDevices.isNotEmpty) ...[
-                    const Text('Hubungkan ke Gerbang (Opsional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String?>(
-                      value: selectedGateId,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      ),
-                      items: [
-                        const DropdownMenuItem<String?>(value: null, child: Text('Tidak Terhubung (Kamera Bebas)')),
-                        ...gateDevices.map((g) => DropdownMenuItem<String?>(value: g.id, child: Text('${g.name} (${g.hardwarePin})'))),
-                      ],
-                      onChanged: (val) {
-                        setModalState(() => selectedGateId = val);
-                      },
-                    ),
-                    const SizedBox(height: 22),
-                  ],
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        final name = nameCtrl.text.trim();
-                        final rtsp = rtspCtrl.text.trim();
-                        if (name.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Nama kamera tidak boleh kosong!')),
-                          );
-                          return;
-                        }
-                        if (rtsp.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('RTSP URL tidak boleh kosong!')),
-                          );
-                          return;
-                        }
-                        final port = int.tryParse(onvifPortCtrl.text.trim()) ?? 80;
-
-                        CctvManagerService().updateCamera(
-                          cam.id,
-                          name: name,
-                          location: locationCtrl.text.trim(),
-                          rtspUrl: rtsp,
-                          onvifHost: onvifHostCtrl.text.trim(),
-                          onvifPort: port,
-                          boundGateId: selectedGateId,
-                        );
-
-                        Navigator.pop(ctx);
-                        HapticFeedback.mediumImpact();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            behavior: SnackBarBehavior.floating,
-                            backgroundColor: NexoraTokens.statusGreen,
-                            content: Text('✅ Kamera CCTV "$name" berhasil diperbarui!'),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        primary: NexoraTokens.brandCyan,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Simpan Perubahan',
-                        style: TextStyle(
-                          fontFamily: NexoraTokens.fontFamilySans,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontFamily: NexoraTokens.fontFamilySans,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                      color: NexoraTokens.inkSecondary,
                     ),
                   ),
                 ],
               ),
             ),
-          );
-        },
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: NexoraTokens.inkMuted,
+              size: 20,
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  void _confirmDeleteCctv(BuildContext context, CctvCameraItem cam) {
+  Widget _buildInfoRow(String label, String value, {bool isMono = false}) {
+    final displayValue = value.trim().isEmpty ? 'Belum ada data' : value.trim();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 105,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontFamily: NexoraTokens.fontFamilySans,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: NexoraTokens.inkSecondary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              displayValue,
+              textAlign: TextAlign.end,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: isMono ? 'JetBrains Mono' : NexoraTokens.fontFamilySans,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: NexoraTokens.ink,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // DIALOG TENTANG NEXORA
+  // ==========================================
+  void _showAboutDialog() {
+    HapticFeedback.lightImpact();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Hapus "${cam.name}"?'),
-        content: Text('Kamera CCTV dengan URL RTSP "${cam.rtspUrl}" akan dihapus dari sistem.'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0F2FE),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.home_work_rounded, color: NexoraTokens.brandCyan, size: 30),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Nexora Smart Home',
+              style: TextStyle(
+                fontFamily: NexoraTokens.fontFamilySans,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: NexoraTokens.ink,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Sistem Otomasi Gerbang, Perangkat Pintar & Pengawasan CCTV Terintegrasi.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: NexoraTokens.fontFamilySans,
+                fontSize: 12.5,
+                color: NexoraTokens.inkSecondary,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'v2.4.0 • Built with Flutter & MQTT',
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: NexoraTokens.inkMuted,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Center(
+            child: TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Tutup', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // DIALOG KONFIRMASI LOGOUT
+  // ==========================================
+  void _confirmLogout() {
+    HapticFeedback.mediumImpact();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text(
+          'Keluar dari Akun?',
+          style: TextStyle(
+            fontFamily: NexoraTokens.fontFamilySans,
+            fontWeight: FontWeight.w700,
+            fontSize: 17,
+          ),
+        ),
+        content: const Text(
+          'Anda akan diarahkan kembali ke layar Login Nexora.',
+          style: TextStyle(
+            fontFamily: NexoraTokens.fontFamilySans,
+            fontSize: 13,
+            color: NexoraTokens.inkSecondary,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -1940,12 +1271,21 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           ElevatedButton(
             onPressed: () {
-              CctvManagerService().removeCamera(cam.id);
+              AuthService().logout();
               Navigator.pop(ctx);
-              HapticFeedback.mediumImpact();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const AuthView()),
+                (route) => false,
+              );
             },
-            style: ElevatedButton.styleFrom(primary: Colors.redAccent, elevation: 0),
-            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              primary: Colors.redAccent,
+              onPrimary: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Keluar', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),

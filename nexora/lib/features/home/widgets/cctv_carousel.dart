@@ -123,10 +123,10 @@ class _CctvCarouselState extends State<CctvCarousel> {
                               duration: const Duration(milliseconds: 200),
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: isSelected ? const Color(0xFF0F172A) : Colors.white.withOpacity(0.85),
+                                color: isSelected ? NexoraTokens.brandCyan : Colors.white.withOpacity(0.85),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: isSelected ? const Color(0xFF0F172A) : const Color(0xFFCBD5E1),
+                                  color: isSelected ? NexoraTokens.brandCyan : const Color(0xFFCBD5E1),
                                   width: isSelected ? 1.5 : 1.0,
                                 ),
                                 boxShadow: isSelected
@@ -203,31 +203,32 @@ class _CctvCarouselState extends State<CctvCarousel> {
             return hasMultiple
                 ? SizedBox(
                     height: dynamicHeight,
-                    child: PageView.builder(
+                    child: PageView(
                       controller: _pageController,
                       physics: const BouncingScrollPhysics(),
-                      itemCount: widget.cameras.length,
                       onPageChanged: (idx) {
                         HapticFeedback.selectionClick();
                         setState(() {
                           _currentIndex = idx;
                         });
                       },
-                      itemBuilder: (ctx, index) {
+                      children: List.generate(widget.cameras.length, (index) {
                         final cam = widget.cameras[index];
                         return RepaintBoundary(
                           child: CctvCard(
                             key: ValueKey('cctv_${cam.id}'),
                             camera: cam,
+                            isActive: index == _currentIndex,
                           ),
                         );
-                      },
+                      }),
                     ),
                   )
                 : RepaintBoundary(
                     child: CctvCard(
                       key: ValueKey('cctv_${widget.cameras.first.id}'),
                       camera: widget.cameras.first,
+                      isActive: true,
                     ),
                   );
           },
@@ -247,7 +248,7 @@ class _CctvCarouselState extends State<CctvCarousel> {
                   width: isSelected ? 18 : 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF0F172A) : Colors.black26,
+                    color: isSelected ? NexoraTokens.brandCyan : const Color(0xFFCBD5E1),
                     borderRadius: BorderRadius.circular(3),
                   ),
                 );

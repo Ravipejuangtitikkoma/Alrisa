@@ -538,30 +538,78 @@ class _PresetsViewState extends State<PresetsView> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Bar
+            // Header Bar (Kontras Tinggi di Atas Ambient Sky)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'Skenario & Preset',
-                        style: TextStyle(
-                          fontFamily: NexoraTokens.fontFamilySans,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: NexoraTokens.ink,
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.20),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.40),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome_rounded,
+                          color: Colors.white,
+                          size: 22,
                         ),
                       ),
-                      SizedBox(height: 3),
-                      Text(
-                        'Aktifkan skenario rumah dalam satu sentuhan saklar.',
-                        style: TextStyle(
-                          fontFamily: NexoraTokens.fontFamilySans,
-                          fontSize: 12.5,
-                          color: NexoraTokens.inkSecondary,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Skenario & Preset',
+                              style: TextStyle(
+                                fontFamily: NexoraTokens.fontFamilySans,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: -0.5,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black54,
+                                    blurRadius: 10,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Aktifkan skenario rumah dalam satu sentuhan saklar.',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: NexoraTokens.fontFamilySans,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white.withOpacity(0.92),
+                                shadows: const [
+                                  Shadow(
+                                    color: Colors.black38,
+                                    blurRadius: 8,
+                                    offset: Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
