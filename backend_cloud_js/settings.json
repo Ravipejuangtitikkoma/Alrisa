@@ -1,17 +1,552 @@
 {
-  "mqtt_broker": "broker.emqx.io",
-  "mqtt_port": 1883,
-  "mqtt_ws_port": 8083,
-  "mqtt_prefix": "alrisa",
-  "mqtt_user": "",
-  "mqtt_pass": "",
-  "mqtt_client_id": "ALRISA_NodeClient",
-  "wifi_ssid": "ALRISA_OFFICE_WIFI",
-  "wifi_password": "",
-  "plc_ip": "192.168.1.100",
-  "plc_port": 502,
-  "plc_type": "Mitsubishi FX5U (Modbus TCP Port 502)",
-  "api_secret_key": "alrisa_secret_token_2026",
-  "app_name": "ALRISA Industrial IoT Suite",
-  "updated_at": "2026-10-21T10:50:00.000Z"
+  "active_account_id": "acc_superadmin",
+  "system": {
+    "app_name": "ALRISA & NEXORA Multi-Tenant Cloud Studio (Node.js Edition)",
+    "mqtt_default_broker": "broker.emqx.io",
+    "mqtt_default_port": 1883,
+    "api_secret_key": "alrisa_secret_token_2026",
+    "updated_at": "2026-10-24 10:10:00"
+  },
+  "accounts": [
+    {
+      "id": "acc_superadmin",
+      "name": "Ravi Armanza (Super Admin)",
+      "email": "raviarmanza149@gmail.com",
+      "password": "ravi18",
+      "role": "superadmin",
+      "hardware_type": "ESP32 Smart Automation Hub",
+      "hardware_desc": "Raspberry Pi 4 8GB + 8-Channel Relay Module + Modbus RTU",
+      "mqtt_broker": "broker.emqx.io",
+      "mqtt_port": 1883,
+      "mqtt_ws_port": 8083,
+      "mqtt_prefix": "alrisa/admin",
+      "mqtt_user": "",
+      "mqtt_pass": "",
+      "plc_ip": "192.168.1.100",
+      "plc_port": 502,
+      "plc_type": "Mitsubishi FX5U (Modbus TCP)",
+      "wifi_ssid": "ALRISA_HQ_5G",
+      "wifi_password": "",
+      "devices": [
+        {
+          "id": "pagar",
+          "name": "Gerbang Utama Depan",
+          "type": 0,
+          "category": "Keamanan",
+          "hardwarePin": "GPIO 2 (%QX0.0)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Terkunci"
+        },
+        {
+          "id": "pagar_belakang",
+          "name": "Gerbang Belakang",
+          "type": 0,
+          "category": "Keamanan",
+          "hardwarePin": "GPIO 4 (%QX0.1)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Terkunci"
+        },
+        {
+          "id": "lampu_teras",
+          "name": "Lampu Teras Depan",
+          "type": 1,
+          "category": "Pencahayaan",
+          "hardwarePin": "GPIO 4 (%QX0.3)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Mati"
+        },
+        {
+          "id": "pintu_geser",
+          "name": "Pintu Geser Ruang Tamu",
+          "type": 2,
+          "category": "Akses",
+          "hardwarePin": "GPIO 5 (%QX0.1)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Terkunci"
+        },
+        {
+          "id": "gorden",
+          "name": "Gorden Otomatis",
+          "type": 3,
+          "category": "Akses",
+          "hardwarePin": "GPIO 18 (%QX0.2)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Mati"
+        },
+        {
+          "id": "pompa_toren",
+          "name": "Pompa Pengisi Toren",
+          "type": 4,
+          "category": "Akses",
+          "hardwarePin": "GPIO 19 (%QX0.4)",
+          "isActive": false,
+          "value": 82,
+          "statusText": "Mati"
+        }
+      ],
+      "cctv": [
+        {
+          "id": "cctv_gerbang_depan",
+          "name": "CCTV Gerbang Utama",
+          "location": "Pagar Depan & Jalan",
+          "rtspUrl": "rtsp://192.168.0.102:8554/",
+          "onvifHost": "192.168.0.102",
+          "onvifPort": 8554,
+          "boundGateId": "pagar",
+          "isOnline": true,
+          "fps": 30,
+          "resolution": "1080P FHD (H.264)"
+        },
+        {
+          "id": "cctv_gerbang_belakang",
+          "name": "CCTV Gerbang Belakang",
+          "location": "Area Servis & Garasi",
+          "rtspUrl": "rtsp://admin:123456@192.168.1.102:554/live/ch0",
+          "onvifHost": "192.168.1.102",
+          "onvifPort": 80,
+          "boundGateId": "pagar_belakang",
+          "isOnline": true,
+          "fps": 25,
+          "resolution": "1080P FHD • 25 FPS"
+        },
+        {
+          "id": "cctv_halaman_dalam",
+          "name": "CCTV Halaman Samping",
+          "location": "Taman Samping & Teras",
+          "rtspUrl": "rtsp://admin:123456@192.168.1.103:554/live/ch0",
+          "onvifHost": "192.168.1.103",
+          "onvifPort": 80,
+          "boundGateId": "pagar",
+          "isOnline": true,
+          "fps": 25,
+          "resolution": "720P HD • 25 FPS"
+        }
+      ]
+    },
+    {
+      "id": "acc_bos_01",
+      "name": "Bpk. Bos (Head Office)",
+      "email": "bos@nexora.id",
+      "password": "bos2026",
+      "role": "superadmin",
+      "hardware_type": "Mitsubishi FX5U PLC (Industrial Hub)",
+      "hardware_desc": "Mitsubishi Electric FX5U-32MT/ES (Modbus TCP Port 502)",
+      "mqtt_broker": "broker.emqx.io",
+      "mqtt_port": 1883,
+      "mqtt_ws_port": 8083,
+      "mqtt_prefix": "alrisa/bos",
+      "mqtt_user": "",
+      "mqtt_pass": "",
+      "plc_ip": "192.168.1.100",
+      "plc_port": 502,
+      "plc_type": "Mitsubishi FX5U (Modbus TCP)",
+      "wifi_ssid": "NEXORA_OFFICE_WIFI",
+      "wifi_password": "",
+      "devices": [
+        {
+          "id": "pagar_kantor",
+          "name": "Gerbang Utama Kantor",
+          "type": 0,
+          "category": "Keamanan",
+          "hardwarePin": "%QX0.0 (Relay 1)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Terkunci"
+        },
+        {
+          "id": "pintu_kantor",
+          "name": "Pintu Akses Ruang Direksi",
+          "type": 2,
+          "category": "Akses",
+          "hardwarePin": "%QX0.1 (Relay 2)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Terkunci"
+        },
+        {
+          "id": "lampu_lobby",
+          "name": "Lampu Lobby & Teras",
+          "type": 1,
+          "category": "Pencahayaan",
+          "hardwarePin": "%QX0.3 (Relay 3)",
+          "isActive": false,
+          "value": 100,
+          "statusText": "Mati"
+        },
+        {
+          "id": "pompa_gedung",
+          "name": "Pompa Toren Utama Gedung",
+          "type": 4,
+          "category": "Air",
+          "hardwarePin": "%QX0.4 (Relay 4)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Mati"
+        }
+      ],
+      "cctv": [
+        {
+          "id": "cctv_kantor_gerbang",
+          "name": "Kamera Gerbang Utama Kantor",
+          "location": "Pos Satpam Kantor",
+          "rtspUrl": "rtsp://admin:bos2026@192.168.1.50:554/live",
+          "onvifHost": "192.168.1.50",
+          "onvifPort": 80,
+          "boundGateId": "pagar_kantor",
+          "isOnline": true,
+          "fps": 25,
+          "resolution": "1080P FHD (H.264)"
+        },
+        {
+          "id": "cctv_kantor_lobby",
+          "name": "Kamera Lobby & Resepsionis",
+          "location": "Lobby Lantai 1",
+          "rtspUrl": "rtsp://admin:bos2026@192.168.1.51:554/live",
+          "onvifHost": "192.168.1.51",
+          "onvifPort": 80,
+          "boundGateId": "pintu_kantor",
+          "isOnline": true,
+          "fps": 25,
+          "resolution": "1080P FHD"
+        }
+      ]
+    },
+    {
+      "id": "acc_client_villa",
+      "name": "Bpk. Budi (Klien Villa Puncak)",
+      "email": "villa.budi@nexora.id",
+      "password": "villa123",
+      "role": "user",
+      "hardware_type": "Raspberry Pi 4 Gateway",
+      "hardware_desc": "Raspberry Pi 4 4GB + Modbus Gateway + 4 Relai",
+      "mqtt_broker": "broker.emqx.io",
+      "mqtt_port": 1883,
+      "mqtt_ws_port": 8083,
+      "mqtt_prefix": "alrisa/acc_client_villa",
+      "mqtt_user": "",
+      "mqtt_pass": "",
+      "plc_ip": "192.168.1.200",
+      "plc_port": 502,
+      "plc_type": "Modbus TCP Gateway",
+      "wifi_ssid": "NEXORA_TEST_WIFI",
+      "wifi_password": "",
+      "devices": [
+        {
+          "id": "pagar_villa",
+          "name": "Gerbang Utama Villa",
+          "type": 0,
+          "category": "Keamanan",
+          "hardwarePin": "GPIO 2 (%QX0.0)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Terkunci"
+        },
+        {
+          "id": "lampu_taman",
+          "name": "Lampu Taman & Kolam",
+          "type": 1,
+          "category": "Pencahayaan",
+          "hardwarePin": "Pi4 GPIO 27 (Pin 13)",
+          "isActive": true,
+          "value": 100,
+          "statusText": "Menyala 100%"
+        },
+        {
+          "id": "pompa_air_villa",
+          "name": "Pompa Sumber Air Pegunungan",
+          "type": 4,
+          "category": "Air",
+          "hardwarePin": "Pi4 GPIO 22 (Pin 15)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Mati"
+        }
+      ],
+      "cctv": [
+        {
+          "id": "cctv_villa_gate",
+          "name": "Kamera Gerbang Villa",
+          "location": "Pos Keamanan Villa",
+          "rtspUrl": "rtsp://admin:villa2026@192.168.1.100:554/stream1",
+          "onvifHost": "192.168.1.100",
+          "onvifPort": 80,
+          "boundGateId": "pagar_villa",
+          "isOnline": true,
+          "fps": 30,
+          "resolution": "4K Ultra-HD (H.265)"
+        },
+        {
+          "id": "cctv_villa_pool",
+          "name": "Kamera Kolam Renang",
+          "location": "Area Belakang Villa",
+          "rtspUrl": "rtsp://admin:villa2026@192.168.1.101:554/stream1",
+          "onvifHost": "192.168.1.101",
+          "onvifPort": 80,
+          "boundGateId": "pagar_villa",
+          "isOnline": true,
+          "fps": 25,
+          "resolution": "1080P FHD (H.264)"
+        }
+      ]
+    },
+    {
+      "id": "acc_client_home",
+      "name": "Ibu Maya (Rumah Minimalis)",
+      "email": "user@nexora.id",
+      "password": "user123",
+      "role": "user",
+      "hardware_type": "ESP32 Automation Hub",
+      "hardware_desc": "NodeMCU ESP32-WROOM-32D + 4-Ch Relay",
+      "mqtt_broker": "broker.emqx.io",
+      "mqtt_port": 1883,
+      "mqtt_ws_port": 8083,
+      "mqtt_prefix": "alrisa/maya_home",
+      "mqtt_user": "",
+      "mqtt_pass": "",
+      "plc_ip": "",
+      "plc_port": 502,
+      "plc_type": "Standar ESP32 GPIO",
+      "wifi_ssid": "MAYA_HOME_FIBER",
+      "wifi_password": "",
+      "devices": [
+        {
+          "id": "pagar_maya",
+          "name": "Pagar Minimalis Depan",
+          "type": 0,
+          "category": "Keamanan",
+          "hardwarePin": "ESP32 GPIO 2",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Terkunci"
+        },
+        {
+          "id": "lampu_teras_maya",
+          "name": "Lampu Teras Otomatis",
+          "type": 1,
+          "category": "Pencahayaan",
+          "hardwarePin": "ESP32 GPIO 4",
+          "isActive": true,
+          "value": 100,
+          "statusText": "Menyala 100%"
+        },
+        {
+          "id": "pintu_depan_maya",
+          "name": "Pintu Depan Elektrik",
+          "type": 2,
+          "category": "Akses",
+          "hardwarePin": "ESP32 GPIO 5",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Terkunci"
+        }
+      ],
+      "cctv": [
+        {
+          "id": "cctv_maya_carport",
+          "name": "CCTV Carport Depan",
+          "location": "Depan Garasi",
+          "rtspUrl": "rtsp://user:maya123@192.168.1.200:554/live",
+          "onvifHost": "192.168.1.200",
+          "onvifPort": 80,
+          "boundGateId": "pagar_maya",
+          "isOnline": true,
+          "fps": 20,
+          "resolution": "1080P FHD"
+        }
+      ]
+    },
+    {
+      "id": "acc_mvpf4m17",
+      "name": "suhendra",
+      "email": "suhend@gmail.com",
+      "password": "123456",
+      "role": "user",
+      "hardware_type": "ESP32 Smart Automation Hub",
+      "mqtt_prefix": "alrisa/acc_mvpf4m17",
+      "devices": [
+        {
+          "id": "pagar_suhend_gmail_com",
+          "name": "Gerbang Utama",
+          "type": 0,
+          "category": "Keamanan",
+          "hardwarePin": "GPIO 2 (%QX0.0)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Terkunci"
+        },
+        {
+          "id": "lampu_suhend_gmail_com",
+          "name": "Lampu Teras",
+          "type": 1,
+          "category": "Pencahayaan",
+          "hardwarePin": "GPIO 4 (%QX0.3)",
+          "isActive": false,
+          "value": 100,
+          "statusText": "Mati"
+        }
+      ],
+      "cctv": [
+        {
+          "id": "cctv_user_utama",
+          "name": "CCTV Gerbang Rumah",
+          "location": "Depan Rumah",
+          "rtspUrl": "rtsp://192.168.1.9:8554/",
+          "onvifHost": "192.168.1.9",
+          "onvifPort": 8554,
+          "boundGateId": "pagar",
+          "isOnline": true,
+          "fps": 25,
+          "resolution": "1080P FHD"
+        }
+      ]
+    },
+    {
+      "id": "acc_hendra_mrm6",
+      "name": "Bpk. Hendra Wijaya",
+      "email": "hendra@nexora.id",
+      "password": "hendra2026",
+      "role": "user",
+      "hardware_type": "ESP32 Smart Automation Hub",
+      "hardware_desc": "Modul Otomasi Cerdas Nexora Cloud IoT",
+      "mqtt_broker": "broker.emqx.io",
+      "mqtt_port": 1883,
+      "mqtt_ws_port": 8083,
+      "mqtt_prefix": "alrisa/hendra",
+      "mqtt_user": "",
+      "mqtt_pass": "",
+      "plc_ip": "192.168.1.100",
+      "plc_port": 502,
+      "plc_type": "Mitsubishi FX5U (Modbus TCP)",
+      "wifi_ssid": "NEXORA_SMART_WIFI",
+      "wifi_password": "",
+      "devices": [
+        {
+          "id": "hendra_pagar",
+          "name": "Gerbang Utama",
+          "type": 0,
+          "category": "Keamanan",
+          "hardwarePin": "GPIO 2 (%QX0.0)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Terkunci"
+        },
+        {
+          "id": "hendra_lampu",
+          "name": "Lampu Teras & Luar",
+          "type": 1,
+          "category": "Pencahayaan",
+          "hardwarePin": "GPIO 4 (%QX0.3)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Mati"
+        },
+        {
+          "id": "hendra_pintu",
+          "name": "Pintu Akses Tamu",
+          "type": 2,
+          "category": "Akses",
+          "hardwarePin": "GPIO 5 (%QX0.1)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Terkunci"
+        }
+      ],
+      "cctv": []
+    },
+    {
+      "id": "acc_admin_ilham_0kv6",
+      "name": "Bpk. Ilham Kurniawan",
+      "email": "ilham@nexora.id",
+      "password": "ilham2026",
+      "role": "admin",
+      "division": "Teknisi PLC & Otomasi",
+      "created_at": "2026-10-27",
+      "hardware_type": "ESP32 Smart Automation Hub",
+      "hardware_desc": "Sistem Kontrol Administrator Nexora Dash",
+      "mqtt_broker": "broker.emqx.io",
+      "mqtt_port": 1883,
+      "mqtt_ws_port": 8083,
+      "mqtt_prefix": "alrisa/admin_ilham",
+      "mqtt_user": "",
+      "mqtt_pass": "",
+      "plc_ip": "192.168.1.100",
+      "plc_port": 502,
+      "plc_type": "Mitsubishi FX5U (Modbus TCP)",
+      "wifi_ssid": "NEXORA_ADMIN_HQ",
+      "wifi_password": "",
+      "devices": [],
+      "cctv": []
+    },
+    {
+      "id": "acc_imah_ada2",
+      "name": "Soimah",
+      "email": "imah@gmail.com",
+      "password": "123456",
+      "role": "user",
+      "hardware_type": "ESP32 Smart Automation Hub",
+      "hardware_desc": "Modul Otomasi Cerdas Nexora Cloud IoT",
+      "mqtt_broker": "broker.emqx.io",
+      "mqtt_port": 1883,
+      "mqtt_ws_port": 8083,
+      "mqtt_prefix": "alrisa/soimah",
+      "mqtt_user": "",
+      "mqtt_pass": "",
+      "plc_ip": "192.168.1.100",
+      "plc_port": 502,
+      "plc_type": "Mitsubishi FX5U (Modbus TCP)",
+      "wifi_ssid": "NEXORA_SMART_WIFI",
+      "wifi_password": "",
+      "devices": [
+        {
+          "id": "imah_pagar",
+          "name": "Gerbang Utama",
+          "type": 0,
+          "category": "Keamanan",
+          "hardwarePin": "GPIO 2 (%QX0.0)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Terkunci"
+        },
+        {
+          "id": "imah_lampu",
+          "name": "Lampu Teras & Luar",
+          "type": 1,
+          "category": "Pencahayaan",
+          "hardwarePin": "GPIO 4 (%QX0.3)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Mati"
+        },
+        {
+          "id": "imah_pintu",
+          "name": "Pintu Akses Tamu",
+          "type": 2,
+          "category": "Akses",
+          "hardwarePin": "GPIO 5 (%QX0.1)",
+          "isActive": false,
+          "value": 0,
+          "statusText": "Terkunci"
+        }
+      ],
+      "cctv": [
+        {
+          "id": "cctv_1793287165173",
+          "name": "CCTV Garasi 1",
+          "location": "Area Belakang 1",
+          "rtspUrl": "rtsp://192.168.1.50:554/live/ch0",
+          "onvifHost": "192.168.1.50",
+          "onvifPort": 554,
+          "boundGateId": null,
+          "isOnline": true,
+          "fps": 25,
+          "resolution": "1080P FHD (H.264)"
+        }
+      ]
+    }
+  ]
 }

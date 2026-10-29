@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Administrator — NEXORA Smart Home & IoT</title>
+  
+  <!-- Modern Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ========================================================= */
+    /* 1. COLOR TOKENS (LIGHT MODE DEFAULT & DARK MODE TOGGLE)   */
+    /* ========================================================= */
+    :root, [data-theme="light"] {
+      --bg-page: #F8FAFC;
+      --bg-card: #FFFFFF;
+      --bg-input: #FFFFFF;
+      --bg-input-focus: #FFFFFF;
+      --bg-subtle: #F1F5F9;
+      --bg-pill: #E2E8F0;
+      
+      --text-main: #0F172A;
+      --text-secondary: #475569;
+      --text-muted: #64748B;
+      
+      --border-card: #E2E8F0;
+      --border-input: #CBD5E1;
+      --border-focus: #0284C7;
+      
+      --primary: #0284C7;
+      --primary-hover: #0369A1;
+      --primary-light: #E0F2FE;
+      --primary-glow: rgba(2, 132, 199, 0.18);
+      
+      --card-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 12px 24px -4px rgba(15, 23, 42, 0.06);
+      --status-bg: #F1F5F9;
+      --status-border: #E2E8F0;
+      --status-text: #475569;
+      
+      --success: #059669;
+      --error-bg: #FEF2F2;
+      --error-border: #FCA5A5;
+      --error-text: #991B1B;
+    }
+
+    [data-theme="dark"] {
+      --bg-page: #0B1120;
+      --bg-card: #111827;
+      --bg-input: #0F172A;
+      --bg-input-focus: #172238;
+      --bg-subtle: #1F2937;
+      --bg-pill: #1E293B;
+      
+      --text-main: #F8FAFC;
+      --text-secondary: #94A3B8;
+      --text-muted: #64748B;
+      
+      --border-card: #1F2937;
+      --border-input: #334155;
+      --border-focus: #38BDF8;
+      
+      --primary: #0284C7;
+      --primary-hover: #38BDF8;
+      --primary-light: rgba(2, 132, 199, 0.15);
+      --primary-glow: rgba(56, 189, 248, 0.25);
+      
+      --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+      --status-bg: #162032;
+      --status-border: #1E293B;
+      --status-text: #94A3B8;
+      
+      --success: #10B981;
+      --error-bg: rgba(244, 63, 94, 0.1);
+      --error-border: rgba(244, 63, 94, 0.35);
+      --error-text: #FECDD3;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      transition: background-color 0.25s ease, color 0.25s ease;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Top Navigation bar: Theme Toggle */
+    .top-bar {
+      position: fixed;
+      top: 18px;
+      right: 20px;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .theme-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      color: var(--text-secondary);
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      transition: all 0.2s ease;
+    }
+    .theme-toggle-btn:hover {
+      color: var(--text-main);
+      border-color: var(--border-input);
+    }
+    .theme-toggle-btn svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    /* Main Container */
+    .login-container {
+      width: 100%;
+      max-width: 420px;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* Smart Home Card */
+    .login-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 20px;
+      padding: 38px 34px;
+      box-shadow: var(--card-shadow);
+      transition: all 0.25s ease;
+    }
+
+    /* Brand Header */
+    .brand-header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .brand-logo-wrap {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+    .brand-logo-img {
+      max-height: 48px;
+      max-width: 190px;
+      object-fit: contain;
+    }
+
+    .smart-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--primary);
+      background: var(--primary-light);
+      padding: 4px 11px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+      letter-spacing: 0.2px;
+    }
+    .smart-badge svg {
+      width: 13px;
+      height: 13px;
+    }
+
+    .brand-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.3px;
+      margin-bottom: 6px;
+    }
+    .brand-subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* Form Fields */
+    .form-group {
+      margin-bottom: 18px;
+    }
+    .form-label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 7px;
+    }
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .input-icon {
+      position: absolute;
+      left: 14px;
+      color: var(--text-muted);
+      pointer-events: none;
+      display: flex;
+    }
+    .input-icon svg {
+      width: 17px;
+      height: 17px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 12px 14px 12px 42px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-input);
+      border-radius: 11px;
+      color: var(--text-main);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    .form-input::placeholder {
+      color: var(--text-muted);
+    }
+    .form-input:focus {
+      background: var(--bg-input-focus);
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    .toggle-pass-btn {
+      position: absolute;
+      right: 12px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 4px;
+      border-radius: 6px;
+      transition: color 0.15s;
+    }
+    .toggle-pass-btn:hover {
+      color: var(--text-main);
+    }
+    .toggle-pass-btn svg {
+      width: 17px;
+      height: 17px;
+    }
+
+    /* Extra row */
+    .form-extra {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12.5px;
+      margin-bottom: 22px;
+      margin-top: 2px;
+    }
+    .checkbox-wrap {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      user-select: none;
+    }
+    .checkbox-wrap input {
+      accent-color: var(--primary);
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+    .support-link {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      transition: opacity 0.15s;
+    }
+    .support-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Submit Button */
+    .btn-submit {
+      width: 100%;
+      padding: 13px 18px;
+      border-radius: 11px;
+      border: none;
+      background: var(--primary);
+      color: #FFFFFF;
+      font-size: 14.5px;
+      font-weight: 700;
+      font-family: inherit;
+      letter-spacing: -0.1px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+    }
+    .btn-submit:hover:not(:disabled) {
+      background: var(--primary-hover);
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+      transform: translateY(-1px);
+    }
+    .btn-submit:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    .btn-submit:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-submit svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Alert Banner */
+    .alert-box {
+      display: none;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 11px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.45;
+      margin-bottom: 18px;
+    }
+    .alert-box.error {
+      background: var(--error-bg);
+      border: 1px solid var(--error-border);
+      color: var(--error-text);
+    }
+    .alert-box.success {
+      background: rgba(5, 150, 105, 0.1);
+      border: 1px solid rgba(5, 150, 105, 0.3);
+      color: var(--success);
+    }
+    .alert-box svg {
+      width: 17px;
+      height: 17px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* Spinner */
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #FFFFFF;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Status Pill */
+    .system-status-wrap {
+      margin-top: 22px;
+      text-align: center;
+    }
+    .system-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: var(--status-bg);
+      border: 1px solid var(--status-border);
+      color: var(--status-text);
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #94A3B8;
+    }
+    .status-dot.online {
+      background: #10B981;
+      box-shadow: 0 0 6px rgba(16, 185, 129, 0.7);
+    }
+    .status-dot.offline {
+      background: #EF4444;
+    }
+
+    /* Footer */
+    .login-footer {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Modal Bantuan */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .modal-backdrop.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 18px;
+      padding: 26px;
+      box-shadow: var(--card-shadow);
+      transform: scale(0.96);
+      transition: transform 0.2s ease;
+    }
+    .modal-backdrop.active .modal-card {
+      transform: scale(1);
+    }
+    .modal-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 8px;
+    }
+    .modal-body {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+    }
+    .modal-btn {
+      padding: 9px 18px;
+      border-radius: 9px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-input);
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .modal-btn:hover {
+      background: var(--bg-pill);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Theme Toggle -->
+  <div class="top-bar">
+    <button type="button" class="theme-toggle-btn" id="themeToggleBtn" title="Ganti Mode Terang / Gelap">
+      <span id="themeIcon">🌙</span>
+      <span id="themeLabel">Mode Gelap</span>
+    </button>
+  </div>
+
+  <div class="login-container">
+    <div class="login-card">
+      
+      <!-- Brand Header -->
+      <div class="brand-header">
+        <div class="brand-logo-wrap">
+          <img 
+            src="logo_alrisa.png" 
+            alt="NEXORA" 
+            class="brand-logo-img" 
+            onerror="this.onerror=null; this.src='icon_alrisa.png'; this.style.maxHeight='44px';"
+          >
+        </div>
+        <div class="smart-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          <span>Smart Home & IoT Cloud</span>
+        </div>
+        <h1 class="brand-title">Portal Administrator</h1>
+        <p class="brand-subtitle">Silakan masukkan kredensial akun administrator Anda untuk mengakses dashboard kendali.</p>
+      </div>
+
+      <!-- Alert Box -->
+      <div class="alert-box error" id="alertBox">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span id="alertMessage">Pesan informasi</span>
+      </div>
+
+      <!-- Form -->
+      <form id="loginForm" autocomplete="on">
+        
+        <!-- Identifier Input -->
+        <div class="form-group">
+          <label class="form-label" for="loginIdentifier">Email atau ID Administrator</label>
+          <div class="input-wrapper">
+            <span class="input-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </span>
+            <input 
+              type="text" 
+              id="loginIdentifier" 
+              class="form-input" 
+              placeholder="admin@nexora.id" 
+              required
+              autofocus
+            />
+          </div>
+        </div>
+
+        <!-- Password Input -->
+        <div class="form-group">
+          <label class="form-label" for="loginPassword">Kata Sandi</label>
+          <div class="input-wrapper">
+            <span class="input-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </span>
+            <input 
+              type="password" 
+              id="loginPassword" 
+              class="form-input" 
+              placeholder="••••••••" 
+              required
+            />
+            <button type="button" class="toggle-pass-btn" id="togglePassBtn" title="Tampilkan sandi">
+              <svg id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Remember & Help -->
+        <div class="form-extra">
+          <label class="checkbox-wrap">
+            <input type="checkbox" id="rememberMe" checked>
+            <span>Ingat saya di perangkat ini</span>
+          </label>
+          <a href="#" class="support-link" id="helpBtn">Bantuan Akses</a>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="btn-submit" id="submitBtn">
+          <span id="btnText">Masuk ke Dashboard</span>
+          <svg id="btnArrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+          <div class="spinner" id="btnSpinner" style="display: none;"></div>
+        </button>
+
+      </form>
+
+      <!-- System Status -->
+      <div class="system-status-wrap">
+        <div class="system-status">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="serverStatusText">Menghubungkan ke gateway...</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="login-footer">
+      <p>© 2026 NEXORA Smart Home & IoT Automation System</p>
+      <p style="margin-top: 4px; font-size: 11.5px;">Portal khusus personel administrator yang berwenang.</p>
+    </div>
+  </div>
+
+  <!-- Modal Bantuan -->
+  <div class="modal-backdrop" id="supportModal">
+    <div class="modal-card">
+      <h3 class="modal-title">Bantuan Hak Akses Administrator</h3>
+      <p class="modal-body">
+        Portal ini khusus untuk pengelolaan sistem dan kontrol IoT oleh pihak Administrator.<br><br>
+        Pelanggan atau pengguna smartphone silakan gunakan <b>Aplikasi Mobile Nexora</b> di smartphone Anda.<br><br>
+        Jika Anda adalah staf administrator dan lupa kata sandi atau memerlukan akun baru, hubungi Head Administrator IT perusahaan.
+      </p>
+      <div class="modal-footer">
+        <button type="button" class="modal-btn" id="closeModalBtn">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 1. Theme Management (Light Mode Default, Toggleable)
+    const htmlEl = document.documentElement;
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    const themeIcon = document.getElementById('themeIcon');
+    const themeLabel = document.getElementById('themeLabel');
+
+    function applyTheme(theme) {
+      htmlEl.setAttribute('data-theme', theme);
+      localStorage.setItem('nexora_theme', theme);
+      if (theme === 'dark') {
+        themeIcon.textContent = '☀️';
+        themeLabel.textContent = 'Mode Terang';
+      } else {
+        themeIcon.textContent = '🌙';
+        themeLabel.textContent = 'Mode Gelap';
+      }
+    }
+
+    const savedTheme = localStorage.getItem('nexora_theme') || 'light';
+    applyTheme(savedTheme);
+
+    themeToggleBtn.addEventListener('click', () => {
+      const current = htmlEl.getAttribute('data-theme') || 'light';
+      applyTheme(current === 'light' ? 'dark' : 'light');
+    });
+
+    // 2. Form & Elements
+    const form = document.getElementById('loginForm');
+    const identifierInput = document.getElementById('loginIdentifier');
+    const passwordInput = document.getElementById('loginPassword');
+    const rememberMeInput = document.getElementById('rememberMe');
+    const submitBtn = document.getElementById('submitBtn');
+    const btnText = document.getElementById('btnText');
+    const btnArrow = document.getElementById('btnArrow');
+    const btnSpinner = document.getElementById('btnSpinner');
+    const alertBox = document.getElementById('alertBox');
+    const alertMessage = document.getElementById('alertMessage');
+    const togglePassBtn = document.getElementById('togglePassBtn');
+    const eyeIcon = document.getElementById('eyeIcon');
+    const statusDot = document.getElementById('statusDot');
+    const serverStatusText = document.getElementById('serverStatusText');
+    const supportModal = document.getElementById('supportModal');
+    const helpBtn = document.getElementById('helpBtn');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+
+    // 3. Healthcheck Server
+    async function checkServerHealth() {
+      try {
+        const res = await fetch('/api/health');
+        if (res.ok) {
+          statusDot.className = 'status-dot online';
+          serverStatusText.textContent = 'Cloud Gateway Online';
+        } else {
+          statusDot.className = 'status-dot offline';
+          serverStatusText.textContent = 'Koneksi Terbatas';
+        }
+      } catch (e) {
+        statusDot.className = 'status-dot offline';
+        serverStatusText.textContent = 'Gateway Offline';
+      }
+    }
+    checkServerHealth();
+
+    // 4. Toggle Password Visibility
+    togglePassBtn.addEventListener('click', () => {
+      const isPass = passwordInput.getAttribute('type') === 'password';
+      passwordInput.setAttribute('type', isPass ? 'text' : 'password');
+      eyeIcon.innerHTML = isPass 
+        ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>'
+        : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+    });
+
+    // 5. Alert Handler
+    function showAlert(msg, isError = true) {
+      if (!msg) {
+        alertBox.style.display = 'none';
+        return;
+      }
+      alertBox.className = `alert-box ${isError ? 'error' : 'success'}`;
+      alertMessage.textContent = msg;
+      alertBox.style.display = 'flex';
+    }
+
+    // 6. Support Modal
+    helpBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      supportModal.classList.add('active');
+    });
+    closeModalBtn.addEventListener('click', () => {
+      supportModal.classList.remove('active');
+    });
+    supportModal.addEventListener('click', (e) => {
+      if (e.target === supportModal) supportModal.classList.remove('active');
+    });
+
+    // 7. Submit Handler
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const identifier = identifierInput.value.trim();
+      const password = passwordInput.value.trim();
+
+      if (!identifier || !password) {
+        showAlert('Silakan masukkan email / ID dan kata sandi Anda.', true);
+        return;
+      }
+
+      submitBtn.disabled = true;
+      btnText.textContent = 'Memverifikasi...';
+      btnArrow.style.display = 'none';
+      btnSpinner.style.display = 'block';
+      showAlert('', false);
+
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: identifier, password: password, portal: 'web_admin' })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          showAlert('Autentikasi administrator berhasil. Membuka dashboard...', false);
+          
+          const sessionData = {
+            user: result.user,
+            token: result.token,
+            loginAt: new Date().toISOString()
+          };
+
+          localStorage.setItem('nexora_auth_user', JSON.stringify(sessionData));
+          if (rememberMeInput.checked) {
+            localStorage.setItem('nexora_remember', 'true');
+          } else {
+            sessionStorage.setItem('nexora_auth_user', JSON.stringify(sessionData));
+          }
+
+          // Sinkronkan akun aktif di backend
+          try {
+            await fetch('/api/accounts/switch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ account_id: result.user.id })
+            });
+          } catch (_) {}
+
+          setTimeout(() => {
+            window.location.href = 'index.html';
+          }, 450);
+
+        } else {
+          showAlert(result.message || 'Login gagal. Periksa kembali email dan kata sandi Anda.', true);
+          submitBtn.disabled = false;
+          btnText.textContent = 'Masuk ke Dashboard';
+          btnArrow.style.display = 'block';
+          btnSpinner.style.display = 'none';
+        }
+      } catch (err) {
+        showAlert('Tidak dapat terhubung ke server cloud. Pastikan koneksi server aktif.', true);
+        submitBtn.disabled = false;
+        btnText.textContent = 'Masuk ke Dashboard';
+        btnArrow.style.display = 'block';
+        btnSpinner.style.display = 'none';
+      }
+    });
+
+    // 8. Cek pesan akses ditolak dari pengalihan dashboard
+    window.addEventListener('DOMContentLoaded', () => {
+      const deniedMsg = sessionStorage.getItem('nexora_access_denied_msg');
+      if (deniedMsg) {
+        sessionStorage.removeItem('nexora_access_denied_msg');
+        showAlert(deniedMsg, true);
+      }
+    });
+  </script>
+</body>
+</html>

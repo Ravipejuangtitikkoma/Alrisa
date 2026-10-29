@@ -57,6 +57,7 @@ try {
                     'id' => $d['id'],
                     'name' => $d['name'],
                     'category' => $d['category'] ?? 'Umum',
+                    'type' => $d['type'] ?? 0,
                     'state' => ($d['isActive'] ?? false) ? 'ON' : 'OFF',
                     'value' => intval($d['value'] ?? 0),
                     'pending_command' => null,

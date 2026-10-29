@@ -7,6 +7,7 @@ import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:nexora/core/config/mqtt_config.dart';
 import 'package:nexora/services/device_manager_service.dart';
 import 'package:nexora/services/preset_manager_service.dart';
+import 'package:nexora/services/cloud_sync_service.dart';
 
 /// Model payload pesan MQTT NEXORA: {"state": bool, "value": num?, "pin": int?, "hardwarePin": String?}
 class DevicePayload {
@@ -210,13 +211,19 @@ class MqttService {
     _reconnectTimer?.cancel();
     _connectionController.add(true);
 
-    // Subscribe ke semua status perangkat sesuai kontrak: alrisa/+/state dan nexora/+/state
+    // Subscribe ke semua status perangkat: alrisa/+/state, alrisa/+/+/state, dan nexora/+/state
     final topic = MqttConfig.allStateTopics();
     debugPrint('📡 [MQTT] Subscribe ke topik: $topic');
     _client?.subscribe(topic, MqttQos.atLeastOnce);
-    if (MqttConfig.topicPrefix != 'nexora') {
-      _client?.subscribe('nexora/+/state', MqttQos.atLeastOnce);
-    }
+    _client?.subscribe('alrisa/+/state', MqttQos.atLeastOnce);
+    _client?.subscribe('alrisa/+/+/state', MqttQos.atLeastOnce);
+    _client?.subscribe('nexora/+/state', MqttQos.atLeastOnce);
+
+    // Subscribe ke topik sinkronisasi Cloud (2-arah dinamis antara Website & HP)
+    _client?.subscribe('alrisa/sync', MqttQos.atLeastOnce);
+    _client?.subscribe('nexora/sync', MqttQos.atLeastOnce);
+    _client?.subscribe('alrisa/+/sync', MqttQos.atLeastOnce);
+    _client?.subscribe('nexora/+/sync', MqttQos.atLeastOnce);
 
     // Dengarkan pesan masuk dari broker secara aman tanpa duplicate listener
     _updatesSub?.cancel();
@@ -257,7 +264,11 @@ class MqttService {
     });
   }
 
-  /// Memproses pesan masuk dari topic: nexora/<device_id>/state
+  /// Memproses pesan masuk dari topik state apa pun:
+  /// - nexora/<device_id>/state
+  /// - alrisa/<device_id>/state
+  /// - alrisa/<prefix>/<device_id>/state
+  /// - alrisa/sync atau nexora/sync (Sinyal sinkronisasi perangkat dari Website)
   void _onMessageReceived(List<MqttReceivedMessage<MqttMessage>> messages) {
     for (final message in messages) {
       final recMess = message.payload as MqttPublishMessage;
@@ -269,37 +280,70 @@ class MqttService {
       _lastMessage = '$topic: $payloadString';
       _lastMessageTime = DateTime.now();
 
-      // Ekstrak device_id dari topik "nexora/<device_id>/state"
+      // Sinyal sinkronisasi perangkat dari website (tambah/hapus/ubah PIN di web)
+      if (topic.endsWith('/sync') || payloadString.contains('SYNC_DEVICES')) {
+        debugPrint('🔔 [MQTT SYNC] Sinyal pembaruan perangkat diterima dari Website! Menarik data terbaru...');
+        CloudSyncService().fetchFromCloud();
+        continue;
+      }
+
+      // Ekstrak device_id dari topik yang berakhiran /state
       final parts = topic.split('/');
-      if (parts.length >= 3 && parts[0] == MqttConfig.topicPrefix && parts[2] == 'state') {
-        final deviceId = parts[1];
-        try {
-          final jsonMap = jsonDecode(payloadString) as Map<String, dynamic>;
-          final payload = DevicePayload.fromJson(jsonMap);
+      if (parts.length >= 3 && parts.last == 'state') {
+        final deviceId = parts[parts.length - 2];
+        final cleanPayload = payloadString.trim();
+        DevicePayload? payload;
 
-          // Update cache state (Single Source of Truth)
-          _deviceStates[deviceId] = payload;
-
-          // Siarkan event ke listener UI
-          _stateController.add(DeviceStateEvent(deviceId: deviceId, payload: payload));
-
-          // Sinkronkan ke DeviceManagerService
-          DeviceManagerService().updateState(
-            deviceId,
-            isActive: payload.state,
-            value: payload.value?.toDouble(),
-            statusText: (deviceId.contains('pagar') || deviceId.contains('gate') || deviceId.contains('pintu'))
-                ? (payload.state ? 'Terbuka' : 'Terkunci')
-                : (payload.state ? 'Menyala' : 'Mati'),
-          );
-        } catch (e) {
-          debugPrint('⚠️ [MQTT] Format JSON tidak valid pada topik $topic: $e');
+        // 1. Coba parse JSON payload: {"state": true, "value": 50}
+        if (cleanPayload.startsWith('{') && cleanPayload.endsWith('}')) {
+          try {
+            final jsonMap = jsonDecode(cleanPayload) as Map<String, dynamic>;
+            payload = DevicePayload.fromJson(jsonMap);
+          } catch (_) {}
         }
+
+        // 2. Parse Plain String payload (dari Web Server, ESP32, PLC: "ON", "OFF", "OPEN", "LOCKED", "85")
+        if (payload == null) {
+          final upper = cleanPayload.toUpperCase();
+          final isTrue = upper == 'ON' || upper == 'BUKA' || upper == 'TERBUKA' || upper == 'OPEN' || upper == '1' || upper == 'TRUE';
+          final isFalse = upper == 'OFF' || upper == 'TUTUP' || upper == 'TERTUTUP' || upper == 'LOCKED' || upper == 'CLOSE' || upper == '0' || upper == 'FALSE';
+
+          num? numVal;
+          if (RegExp(r'^\d+(\.\d+)?$').hasMatch(cleanPayload)) {
+            numVal = num.tryParse(cleanPayload);
+          }
+
+          bool finalState = isTrue;
+          if (!isTrue && !isFalse && numVal != null) {
+            finalState = numVal > 0;
+          }
+
+          payload = DevicePayload(
+            state: finalState,
+            value: numVal,
+          );
+        }
+
+        // Update cache state (Single Source of Truth)
+        _deviceStates[deviceId] = payload;
+
+        // Siarkan event ke listener UI
+        _stateController.add(DeviceStateEvent(deviceId: deviceId, payload: payload));
+
+        // Sinkronkan ke DeviceManagerService
+        DeviceManagerService().updateState(
+          deviceId,
+          isActive: payload.state,
+          value: payload.value?.toDouble(),
+          statusText: (deviceId.contains('pagar') || deviceId.contains('gate') || deviceId.contains('pintu'))
+              ? (payload.state ? 'Terbuka' : 'Terkunci')
+              : (payload.state ? 'Menyala' : 'Mati'),
+        );
       }
     }
   }
 
-  /// Publish perintah ke topik "nexora/<device_id>/set"
+  /// Publish perintah ke broker MQTT
   /// Payload: {"state": bool, "value": num?, "pin": int?, "hardwarePin": String?}
   void publishSet(
     String deviceId, {
@@ -370,6 +414,20 @@ class MqttService {
         MqttQos.atLeastOnce,
         builder.payload!,
       );
+
+      // Siarkan juga ke nexora/<deviceId>/set agar ESP32 & Web Server lokal langsung sinkron
+      if (topic != 'nexora/$deviceId/set') {
+        final nexoraBuilder = MqttClientPayloadBuilder();
+        final rawAction = state
+            ? (deviceId.contains('pagar') || deviceId.contains('pintu') || deviceId.contains('gorden') ? 'BUKA' : 'ON')
+            : (deviceId.contains('pagar') || deviceId.contains('pintu') || deviceId.contains('gorden') ? 'TUTUP' : 'OFF');
+        nexoraBuilder.addString(rawAction);
+        _client!.publishMessage(
+          'nexora/$deviceId/set',
+          MqttQos.atLeastOnce,
+          nexoraBuilder.payload!,
+        );
+      }
     } catch (e) {
       debugPrint('⚠️ [MQTT] Gagal publish: $e');
     }

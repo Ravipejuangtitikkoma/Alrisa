@@ -117,50 +117,28 @@ class _AmbientSkyBackgroundState extends State<AmbientSkyBackground>
     return RepaintBoundary(
       child: Stack(
         children: [
-          // 1. Lapisan Awan Beneran (Fotografi Langit Nyata dengan Animasi Ken-Burns Perlahan yang di-cache child-nya)
+          // 1. Lapisan Awan Beneran (Fotografi Langit Statis Ter-cache GPU, Zero Resampling Lag saat Scroll)
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             height: skyHeight,
             child: RepaintBoundary(
-              child: AnimatedBuilder(
-                animation: _animController,
-                child: Image.asset(
-                  _getSkyAssetPath(_currentWeather),
-                  fit: BoxFit.cover,
-                  cacheWidth: 800, // Memory image caching hemat RAM & GPU
-                  errorBuilder: (ctx, err, stack) {
-                    return Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Color(0xFF4C6377),
-                            Color(0xFF869DAF),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                builder: (context, cachedImage) {
-                  if (reduceMotion || !widget.isPageActive) {
-                    return cachedImage!;
-                  }
-                  final p = _animController.value;
-                  // Gerakan mengalir Ken-Burns sangat hemat matrix
-                  final panX = math.sin(p * 2 * math.pi) * 10.0;
-                  final panY = math.cos(p * 2 * math.pi) * 4.0;
-                  final scale = 1.05 + (math.sin(p * 2 * math.pi) * 0.015);
-
-                  return ClipRect(
-                    child: Transform.scale(
-                      scale: scale,
-                      child: Transform.translate(
-                        offset: Offset(panX, panY),
-                        child: cachedImage,
+              child: Image.asset(
+                _getSkyAssetPath(_currentWeather),
+                fit: BoxFit.cover,
+                cacheWidth: 720,
+                filterQuality: FilterQuality.low,
+                errorBuilder: (ctx, err, stack) {
+                  return Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0xFF4C6377),
+                          Color(0xFF869DAF),
+                        ],
                       ),
                     ),
                   );

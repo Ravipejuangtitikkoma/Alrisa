@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:nexora/core/config/mqtt_config.dart';
 import 'package:nexora/services/mqtt_service.dart';
+import 'package:nexora/services/cloud_sync_service.dart';
 
 enum UserRole {
   superadmin,
@@ -277,20 +279,133 @@ class AuthService {
     return _usersDatabase.containsKey(cleanEmail);
   }
 
-  /// Proses Login Menggunakan Akun Kantor
+  /// Sinkronisasi daftar akun klien terbaru dari server Node.js Cloud Hub
+  Future<bool> syncAccountsFromCloud() async {
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 4);
+
+      final uri = Uri.parse('${CloudSyncService().baseUrl}/api/accounts/sync');
+      final request = await client.getUrl(uri);
+      final response = await request.close();
+
+      if (response.statusCode == 200) {
+        final body = await response.transform(utf8.decoder).join();
+        final resData = json.decode(body);
+        if (resData['success'] == true && resData['accounts'] is List) {
+          for (final item in resData['accounts']) {
+            final email = (item['email'] ?? '').toString().trim().toLowerCase();
+            if (email.isNotEmpty) {
+              _usersDatabase[email] = UserModel(
+                id: item['id'] ?? '',
+                name: item['name'] ?? '',
+                email: email,
+                password: item['password'] ?? '',
+                role: item['role'] == 0 ? UserRole.superadmin : UserRole.user,
+                hardwareType: item['hardwareType'] ?? 'ESP32 Smart Automation Hub',
+                mqttPrefix: item['mqttPrefix'] ?? 'alrisa/${item['id']}',
+                mqttBroker: item['mqttBroker'] ?? 'broker.emqx.io',
+                mqttPort: (item['mqttPort'] ?? 1883) is int ? item['mqttPort'] : int.tryParse(item['mqttPort'].toString()) ?? 1883,
+                createdAt: DateTime.now(),
+              );
+            }
+          }
+          await _saveUsersDbToFile();
+          debugPrint('✅ [AUTH SYNC] Berhasil sinkronisasi ${_usersDatabase.length} akun dari server web!');
+          client.close();
+          return true;
+        }
+      }
+      client.close();
+    } catch (e) {
+      debugPrint('⚠️ [AUTH SYNC] Server web tidak terjangkau saat sinkron: $e');
+    }
+    return false;
+  }
+
+  /// Proses Login (Otomatis verifikasi ke Server Cloud Node.js terlebih dahulu, dengan fallback lokal)
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 600)); // Simulasi proses aman
-
     final cleanEmail = email.trim().toLowerCase();
     final cleanPassword = password.trim();
 
+    // 1. Coba Autentikasi Langsung ke Server Cloud Node.js
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 4);
+
+      final uri = Uri.parse('${CloudSyncService().baseUrl}/api/login');
+      final request = await client.postUrl(uri);
+      request.headers.contentType = ContentType.json;
+      request.write(json.encode({
+        'email': cleanEmail,
+        'password': cleanPassword,
+      }));
+
+      final response = await request.close();
+      final body = await response.transform(utf8.decoder).join();
+      client.close();
+
+      if (response.statusCode == 200) {
+        final resData = json.decode(body);
+        if (resData['success'] == true && resData['user'] != null) {
+          final u = resData['user'];
+          final user = UserModel(
+            id: u['id'] ?? 'acc_user',
+            name: u['name'] ?? 'Pengguna',
+            email: u['email'] ?? cleanEmail,
+            password: cleanPassword,
+            role: u['role'] == 0 ? UserRole.superadmin : UserRole.user,
+            hardwareType: u['hardwareType'] ?? 'ESP32 Smart Automation Hub',
+            mqttPrefix: u['mqttPrefix'] ?? 'alrisa/${u['id']}',
+            mqttBroker: u['mqttBroker'] ?? 'broker.emqx.io',
+            mqttPort: (u['mqttPort'] ?? 1883) is int ? u['mqttPort'] : int.tryParse(u['mqttPort'].toString()) ?? 1883,
+            createdAt: DateTime.now(),
+          );
+
+          // Simpan ke database lokal
+          _usersDatabase[cleanEmail] = user;
+          await _saveUsersDbToFile();
+
+          _currentUser = user;
+          _lastActiveTime = DateTime.now();
+          _authController.add(_currentUser);
+
+          // Update MQTT Config
+          MqttConfig.updateConfig(
+            newBroker: user.mqttBroker,
+            newPort: user.mqttPort,
+            newPrefix: user.mqttPrefix,
+          );
+          MqttService().reconnect();
+
+          await _saveSessionToFile(_currentUser!, _lastActiveTime!);
+          CloudSyncService().fetchFromCloud();
+
+          return {
+            'success': true,
+            'message': resData['message'] ?? 'Selamat datang, ${user.name}!',
+            'user': user,
+          };
+        }
+      } else if (response.statusCode == 401 || response.statusCode == 404) {
+        final resData = json.decode(body);
+        return {
+          'success': false,
+          'message': resData['message'] ?? 'Email atau kata sandi tidak cocok.',
+        };
+      }
+    } catch (e) {
+      debugPrint('⚠️ [LOGIN CLOUD] Koneksi ke server cloud gagal ($e), mencoba database lokal HP...');
+    }
+
+    // 2. Fallback: Cek Database Akun Lokal HP
     if (!_usersDatabase.containsKey(cleanEmail)) {
       return {
         'success': false,
-        'message': 'Email belum terdaftar di sistem kantor Alrisa. Silakan hubungi administrator kantor Anda.',
+        'message': 'Email belum terdaftar. Pastikan HP tersambung ke jaringan WiFi yang sama dengan laptop server.',
       };
     }
 
@@ -306,7 +421,6 @@ class AuthService {
     _lastActiveTime = DateTime.now();
     _authController.add(_currentUser);
 
-    // Otomatis sinkronkan MQTT config & topik khusus akun ini
     MqttConfig.updateConfig(
       newBroker: user.mqttBroker,
       newPort: user.mqttPort,
@@ -314,7 +428,6 @@ class AuthService {
     );
     MqttService().reconnect();
 
-    // Simpan sesi agar saat aplikasi ditutup tidak perlu login lagi
     await _saveSessionToFile(_currentUser!, _lastActiveTime!);
 
     return {

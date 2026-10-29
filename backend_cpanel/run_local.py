@@ -101,18 +101,34 @@ mqtt_client = mqtt.Client(client_id="NexoraLocalWebServer")
 
 def on_mqtt_connect(client, userdata, flags, rc):
     print("✅ Web Server Lokal terhubung ke Broker MQTT (broker.emqx.io)!")
-    # Subscribe ke semua pesan (set dari HP dan state dari PLC/sensor)
+    # Subscribe ke semua pesan nexora/# dan alrisa/# (dari Flutter App, Web, ESP32, dan PLC)
     client.subscribe("nexora/#")
+    client.subscribe("alrisa/#")
 
 def update_device_internal(dev_id, payload, source="MQTT"):
     if dev_id not in devices:
         return
-    
-    clean_p = payload.strip().upper()
+
+    clean_p = payload.strip()
+    # Jika payload berupa JSON dari Flutter App: {"state": true, "value": 50}
+    if clean_p.startswith('{') and clean_p.endswith('}'):
+        try:
+            pj = json.loads(clean_p)
+            if 'value' in pj and pj['value'] is not None:
+                devices[dev_id]["value"] = int(pj['value'])
+            st = pj.get('state')
+            if st is True:
+                clean_p = "TERBUKA" if dev_id in ["pagar", "pintu_geser", "gorden"] else "ON"
+            elif st is False:
+                clean_p = "TERTUTUP" if dev_id in ["pagar", "pintu_geser", "gorden"] else "OFF"
+        except Exception:
+            pass
+
+    clean_p = clean_p.upper()
     if clean_p in ["BUKA", "TERBUKA", "OPEN"]:
         devices[dev_id]["state"] = "TERBUKA"
         devices[dev_id]["pending_command"] = None
-    elif clean_p in ["TUTUP", "TERTUTUP", "CLOSE"]:
+    elif clean_p in ["TUTUP", "TERTUTUP", "CLOSE", "LOCKED"]:
         devices[dev_id]["state"] = "TERTUTUP"
         devices[dev_id]["pending_command"] = None
     elif clean_p in ["ON", "HIDUP"]:
@@ -121,13 +137,13 @@ def update_device_internal(dev_id, payload, source="MQTT"):
     elif clean_p in ["OFF", "MATI"]:
         devices[dev_id]["state"] = "OFF"
         devices[dev_id]["pending_command"] = None
-    elif payload.isdigit():
-        val = int(payload)
+    elif clean_p.isdigit():
+        val = int(clean_p)
         devices[dev_id]["value"] = val
         devices[dev_id]["state"] = "ON" if val > 0 else "OFF"
         devices[dev_id]["pending_command"] = None
     else:
-        devices[dev_id]["state"] = payload
+        devices[dev_id]["state"] = clean_p
 
     recent_logs.insert(0, {
         "id": len(recent_logs) + 1,
@@ -145,19 +161,30 @@ def on_mqtt_message(client, userdata, msg):
         payload = msg.payload.decode('utf-8')
         parts = topic.split('/')
         if len(parts) >= 3:
-            dev_id = parts[1]
-            channel = parts[2] # 'set' atau 'state'
-            
-            # Abaikan jika ini echo dari Web Server sendiri
-            source_tag = "Flutter App (SET)" if channel == "set" else "PLC (STATE)"
-            print(f"📥 [{source_tag}] {dev_id.upper()} -> {payload}")
-            
-            update_device_internal(dev_id, payload, source_tag)
-            
-            # Jika menerima 'set' dari HP, broadcast balik ke 'state' agar semua sinkron
-            if channel == "set":
-                state_val = devices[dev_id]["state"]
-                client.publish(f"nexora/{dev_id}/state", state_val)
+            dev_id = parts[-2]
+            channel = parts[-1] # 'set' atau 'state'
+
+            if dev_id in devices:
+                source_tag = "Flutter App (SET)" if channel == "set" else "Hardware/PLC (STATE)"
+                print(f"📥 [{source_tag}] {topic} -> {payload}")
+
+                update_device_internal(dev_id, payload, source_tag)
+
+                # Jika menerima 'set' dari Flutter / Web, broadcast balik ke 'state' agar semua sinkron
+                if channel == "set":
+                    state_val = devices[dev_id]["state"]
+                    is_active = state_val in ["ON", "TERBUKA", "BUKA"]
+                    json_state = json.dumps({
+                        "state": is_active,
+                        "value": devices[dev_id]["value"],
+                        "hardwarePin": devices[dev_id].get("plc_address")
+                    })
+
+                    # Broadcast ke topik nexora dan alrisa
+                    client.publish(f"nexora/{dev_id}/state", state_val)
+                    client.publish(f"nexora/{dev_id}/state", json_state)
+                    client.publish(f"alrisa/{dev_id}/state", json_state)
+                    client.publish(f"alrisa/admin/{dev_id}/state", json_state)
     except Exception as e:
         print(f"❌ Error parse MQTT message: {e}")
 
@@ -238,11 +265,43 @@ class NexoraLocalHandler(http.server.SimpleHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
             self.end_headers()
+
+            target_account_id = None
+            if 'account_id=' in self.path:
+                target_account_id = self.path.split('account_id=')[1].split('&')[0]
+
+            account_devices = devices
+            if target_account_id:
+                json_path = os.path.join(DIRECTORY, 'settings.json')
+                if os.path.exists(json_path):
+                    try:
+                        with open(json_path, 'r', encoding='utf-8') as f:
+                            sdata = json.load(f)
+                            for a in sdata.get('accounts', []):
+                                if a.get('id') == target_account_id:
+                                    dev_map = {}
+                                    for d in a.get('devices', []):
+                                        dev_map[d['id']] = {
+                                            "id": d['id'],
+                                            "name": d['name'],
+                                            "category": d.get('category', 'Umum'),
+                                            "type": d.get('type', 0),
+                                            "state": "ON" if d.get('isActive') else "OFF",
+                                            "value": int(d.get('value', 0)),
+                                            "pending_command": None,
+                                            "plc_address": d.get('hardwarePin', 'GPIO 2')
+                                        }
+                                    if dev_map:
+                                        account_devices = dev_map
+                                    break
+                    except Exception:
+                        pass
+
             resp = {
                 "success": True,
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "total_devices": len(devices),
-                "devices": devices,
+                "total_devices": len(account_devices),
+                "devices": account_devices,
                 "recent_logs": recent_logs[:10]
             }
             self.wfile.write(json.dumps(resp).encode('utf-8'))
@@ -300,8 +359,34 @@ class NexoraLocalHandler(http.server.SimpleHTTPRequestHandler):
                         self.wfile.write(content)
                 return
 
+        # Serve dashboard.php as HTML (Nexora Home OS Device Dashboard)
+        if self.path.startswith('/dashboard.php'):
+            dash_path = os.path.join(DIRECTORY, 'dashboard.php')
+            if os.path.exists(dash_path):
+                try:
+                    import subprocess
+                    env = os.environ.copy()
+                    query = self.path.split('?')[1] if '?' in self.path else ''
+                    env['QUERY_STRING'] = query
+                    res = subprocess.run(['php', 'dashboard.php'], capture_output=True, cwd=DIRECTORY, env=env)
+                    if res.returncode == 0 and res.stdout:
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'text/html; charset=utf-8')
+                        self.end_headers()
+                        self.wfile.write(res.stdout)
+                        return
+                except Exception:
+                    pass
+
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.end_headers()
+                with open(dash_path, 'rb') as f:
+                    self.wfile.write(f.read())
+                return
+
         # Serve index.php as HTML
-        if self.path == '/' or self.path == '/index.php' or self.path == '/index.html':
+        if self.path == '/' or self.path.startswith('/index.php') or self.path == '/index.html':
             index_path = os.path.join(DIRECTORY, 'index.php')
             if os.path.exists(index_path):
                 try:
@@ -446,16 +531,24 @@ class NexoraLocalHandler(http.server.SimpleHTTPRequestHandler):
                     else:
                         update_device_internal(dev_id, action, source)
 
-                    # Publish ke MQTT agar Flutter dan visual_plc langsung merespon!
-                    set_topic = f"nexora/{dev_id}/set"
-                    state_topic = f"nexora/{dev_id}/state"
-                    
+                    # Publish ke MQTT agar Flutter, ESP32, dan visual_plc langsung merespon!
+                    is_active = devices[dev_id]["state"] in ["ON", "TERBUKA", "BUKA"]
+                    json_state = json.dumps({
+                        "state": is_active,
+                        "value": devices[dev_id]["value"],
+                        "hardwarePin": devices[dev_id].get("plc_address")
+                    })
+
                     if action == "SET_BRIGHTNESS" and val is not None:
-                        mqtt_client.publish(set_topic, str(val))
-                        mqtt_client.publish(state_topic, str(val))
+                        mqtt_client.publish(f"nexora/{dev_id}/set", str(val))
+                        mqtt_client.publish(f"nexora/{dev_id}/state", str(val))
                     else:
-                        mqtt_client.publish(set_topic, action)
-                        mqtt_client.publish(state_topic, devices[dev_id]["state"])
+                        mqtt_client.publish(f"nexora/{dev_id}/set", action)
+                        mqtt_client.publish(f"nexora/{dev_id}/state", devices[dev_id]["state"])
+
+                    # Broadcast ke Flutter
+                    mqtt_client.publish(f"alrisa/{dev_id}/state", json_state)
+                    mqtt_client.publish(f"alrisa/admin/{dev_id}/state", json_state)
 
                     print(f"⚡ [WEB KONTROL] {dev_id.upper()} -> {action} ({devices[dev_id]['state']})")
 

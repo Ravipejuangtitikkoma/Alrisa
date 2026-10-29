@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:nexora/services/auth_service.dart';
+import 'package:nexora/services/cloud_sync_service.dart';
 
 class CctvCameraItem {
   final String id;
@@ -314,7 +316,51 @@ class CctvManagerService {
     _cctvController.add(List.unmodifiable(_cameras));
     if (saveDisk) {
       _saveToDisk(_activeUserKey);
+      CloudSyncService().scheduleSyncToCloud();
     }
+  }
+
+  /// Sinkronisasi daftar kamera CCTV & URL RTSP dari Website Cloud ke HP secara real-time
+  void setCamerasFromRemote(List<CctvCameraItem> newCameras, {String? targetUserKey}) {
+    final key = targetUserKey?.toLowerCase().trim() ?? _activeUserKey;
+
+    bool streamChanged = false;
+    if (_activeUserKey == key) {
+      if (_cameras.length != newCameras.length) {
+        streamChanged = true;
+      } else {
+        for (int i = 0; i < newCameras.length; i++) {
+          final oldCam = _cameras.firstWhere(
+            (c) => c.id == newCameras[i].id,
+            orElse: () => CctvCameraItem(id: '', name: '', location: '', rtspUrl: ''),
+          );
+          if (oldCam.id.isEmpty ||
+              oldCam.rtspUrl.trim() != newCameras[i].rtspUrl.trim() ||
+              oldCam.name != newCameras[i].name ||
+              oldCam.location != newCameras[i].location ||
+              oldCam.boundGateId != newCameras[i].boundGateId) {
+            streamChanged = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!streamChanged && _activeUserKey == key) {
+      return;
+    }
+
+    _userCamerasDb[key] = List.from(newCameras);
+    if (_activeUserKey == key) {
+      _cameras.clear();
+      _cameras.addAll(newCameras);
+      _cctvController.add(List.unmodifiable(_cameras));
+      if (streamChanged) {
+        triggerRefresh();
+      }
+    }
+    _saveToDisk(key);
+    debugPrint('📹 [CCTV SYNC] Berhasil sinkronisasi ${newCameras.length} CCTV dari Website ke HP untuk $key');
   }
 
   CctvCameraItem? getCameraForGate(String gateId) {
@@ -339,25 +385,39 @@ class CctvManagerService {
   }) {
     final idx = _cameras.indexWhere((c) => c.id == id);
     if (idx != -1) {
-      if (name != null) _cameras[idx].name = name;
-      if (location != null) _cameras[idx].location = location;
-      if (rtspUrl != null) {
-        _cameras[idx].rtspUrl = rtspUrl.trim();
+      final old = _cameras[idx];
+      String updatedRtsp = rtspUrl != null ? rtspUrl.trim() : old.rtspUrl;
+      String updatedHost = onvifHost != null ? onvifHost.trim() : old.onvifHost;
+      int updatedPort = onvifPort ?? old.onvifPort;
+
+      if (rtspUrl != null && updatedRtsp.isNotEmpty) {
         try {
-          final uri = Uri.parse(rtspUrl.trim());
+          final uri = Uri.parse(updatedRtsp);
           if (uri.host.isNotEmpty && (onvifHost == null || onvifHost.trim().isEmpty)) {
-            _cameras[idx].onvifHost = uri.host;
+            updatedHost = uri.host;
           }
           if (uri.hasPort && uri.port != 0 && onvifPort == null) {
-            _cameras[idx].onvifPort = uri.port;
+            updatedPort = uri.port;
           }
         } catch (_) {}
       }
-      if (onvifHost != null) _cameras[idx].onvifHost = onvifHost.trim();
-      if (onvifPort != null) _cameras[idx].onvifPort = onvifPort;
-      if (boundGateId != null) _cameras[idx].boundGateId = boundGateId;
-      if (resolution != null) _cameras[idx].resolution = resolution;
+
+      final updatedCam = CctvCameraItem(
+        id: old.id,
+        name: name != null && name.trim().isNotEmpty ? name.trim() : old.name,
+        location: location != null && location.trim().isNotEmpty ? location.trim() : old.location,
+        rtspUrl: updatedRtsp,
+        onvifHost: updatedHost,
+        onvifPort: updatedPort,
+        boundGateId: boundGateId ?? old.boundGateId,
+        isOnline: old.isOnline,
+        fps: old.fps,
+        resolution: resolution ?? old.resolution,
+      );
+
+      _cameras[idx] = updatedCam;
       _notify(saveDisk: true);
+      CloudSyncService().pushCctvToCloud(updatedCam);
     }
   }
 
@@ -369,20 +429,20 @@ class CctvManagerService {
     int? onvifPort,
     String? boundGateId,
   }) {
-    final cleanUrl = rtspUrl.trim().isNotEmpty
-        ? rtspUrl.trim()
-        : 'rtsp://admin:123456@192.168.1.50:554/live/ch0';
+    final cleanUrl = rtspUrl.trim();
     String derivedHost = onvifHost?.trim() ?? '';
     int derivedPort = onvifPort ?? 554;
-    try {
-      final uri = Uri.parse(cleanUrl);
-      if (derivedHost.isEmpty && uri.host.isNotEmpty) {
-        derivedHost = uri.host;
-      }
-      if (uri.hasPort && uri.port != 0 && onvifPort == null) {
-        derivedPort = uri.port;
-      }
-    } catch (_) {}
+    if (cleanUrl.isNotEmpty) {
+      try {
+        final uri = Uri.parse(cleanUrl);
+        if (derivedHost.isEmpty && uri.host.isNotEmpty) {
+          derivedHost = uri.host;
+        }
+        if (uri.hasPort && uri.port != 0 && onvifPort == null) {
+          derivedPort = uri.port;
+        }
+      } catch (_) {}
+    }
     if (derivedHost.isEmpty) derivedHost = '192.168.1.50';
 
     final newId = 'cctv_${DateTime.now().millisecondsSinceEpoch}';
@@ -398,10 +458,12 @@ class CctvManagerService {
     );
     _cameras.add(newCam);
     _notify(saveDisk: true);
+    CloudSyncService().pushCctvToCloud(newCam);
   }
 
   void removeCamera(String id) {
     _cameras.removeWhere((c) => c.id == id);
     _notify(saveDisk: true);
+    CloudSyncService().deleteCctvFromCloud(id);
   }
 }

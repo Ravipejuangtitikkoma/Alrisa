@@ -38,7 +38,9 @@ class _CctvCardState extends State<CctvCard>
   late AnimationController _pulseController;
   Timer? _timer;
   Timer? _connectTimeoutTimer;
-  String _timestamp = '';
+  final ValueNotifier<String> _timestampNotifier = ValueNotifier<String>('');
+  String _lastLoadedRtspUrl = '';
+  int _playerEpoch = 0;
   VlcPlayerController? _vlcViewController;
   String? _selectedGateId;
   StreamSubscription<void>? _refreshSub;
@@ -90,9 +92,9 @@ class _CctvCardState extends State<CctvCard>
       } catch (_) {}
     });
 
-    // Dengarkan trigger refresh dari Pull-to-Refresh layar
+    // Dengarkan trigger refresh dari Pull-to-Refresh layar atau sinkronisasi RTSP dari Website
     _refreshSub = CctvManagerService().refreshStream.listen((_) {
-      if (widget.isActive) {
+      if (widget.isActive || widget.camera.rtspUrl.trim() != _lastLoadedRtspUrl) {
         _refreshStream();
       }
     });
@@ -101,7 +103,13 @@ class _CctvCardState extends State<CctvCard>
   @override
   void didUpdateWidget(covariant CctvCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.isActive != widget.isActive) {
+    if (oldWidget.camera.rtspUrl.trim() != widget.camera.rtspUrl.trim() ||
+        widget.camera.rtspUrl.trim() != _lastLoadedRtspUrl) {
+      WidgetsBinding.instance?.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _refreshStream();
+      });
+    } else if (oldWidget.isActive != widget.isActive) {
       WidgetsBinding.instance?.addPostFrameCallback((_) {
         if (!mounted) return;
         if (widget.isActive) {
@@ -121,17 +129,10 @@ class _CctvCardState extends State<CctvCard>
             }
           }
         } else {
-          // Ketika digeser ke kamera lain, cukup matikan volume latar belakang
-          // Biarkan koneksi video tetap terhubung agar saat digeser langsung tampil tanpa loading 3 detik
           try {
             _vlcViewController?.setVolume(0);
           } catch (_) {}
         }
-      });
-    } else if (widget.isActive && oldWidget.camera.rtspUrl != widget.camera.rtspUrl) {
-      WidgetsBinding.instance?.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _refreshStream();
       });
     }
   }
@@ -238,6 +239,17 @@ class _CctvCardState extends State<CctvCard>
 
     try {
       final url = widget.camera.rtspUrl.trim();
+      _lastLoadedRtspUrl = url;
+      if (url.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _vlcViewController = null;
+            _isConnecting = false;
+            _isStreamOnline = false;
+          });
+        }
+        return;
+      }
       final isLocal = url.contains('192.168.') ||
           url.contains('10.') ||
           url.contains('127.0.0.1') ||
@@ -273,6 +285,7 @@ class _CctvCardState extends State<CctvCard>
 
       if (mounted) {
         setState(() {
+          _playerEpoch++;
           _vlcViewController = controller;
           _isConnecting = true;
           _isStreamOnline = false;
@@ -319,9 +332,7 @@ class _CctvCardState extends State<CctvCard>
     final h = now.hour.toString().padLeft(2, '0');
     final m = now.minute.toString().padLeft(2, '0');
     final s = now.second.toString().padLeft(2, '0');
-    setState(() {
-      _timestamp = '$h:$m:$s';
-    });
+    _timestampNotifier.value = '$h:$m:$s';
   }
 
   @override
@@ -331,6 +342,7 @@ class _CctvCardState extends State<CctvCard>
     _refreshSub?.cancel();
     _mqttSub?.cancel();
     _timer?.cancel();
+    _timestampNotifier.dispose();
     _pulseController.dispose();
     _disposeVlcPlayer(shouldSetState: false);
     super.dispose();
@@ -425,12 +437,9 @@ class _CctvCardState extends State<CctvCard>
     }
   }
 
-  /// Modal Dialog Edit Konfigurasi IP, Port, Codec & Nama Kamera
+  /// Modal Dialog Edit Nama & Lokasi Kamera (Tanpa Input IP / Server / RTSP Teknis)
   void _showEditConfigDialog() {
     HapticFeedback.mediumImpact();
-    final ipController = TextEditingController(text: widget.camera.onvifHost);
-    final portController = TextEditingController(text: widget.camera.onvifPort.toString());
-    final urlController = TextEditingController(text: widget.camera.rtspUrl);
     final nameController = TextEditingController(text: widget.camera.name);
     final locationController = TextEditingController(text: widget.camera.location);
 
@@ -474,11 +483,11 @@ class _CctvCardState extends State<CctvCard>
                       Expanded(
                         child: Row(
                           children: const [
-                            Icon(Icons.settings_suggest_rounded, color: NexoraTokens.brandCyan, size: 22),
+                            Icon(Icons.videocam_rounded, color: NexoraTokens.brandCyan, size: 22),
                             SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Edit Konfigurasi Kamera CCTV',
+                                'Ubah Identitas Kamera CCTV',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -498,79 +507,48 @@ class _CctvCardState extends State<CctvCard>
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F9FF),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFBAE6FD)),
+                    ),
+                    child: Row(
+                      children: const [
+                        Icon(Icons.cloud_done_rounded, color: Color(0xFF0284C7), size: 18),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'URL Stream RTSP dikelola terpusat melalui Website Dash Admin dan otomatis tersinkron ke aplikasi ini.',
+                            style: TextStyle(
+                              fontFamily: NexoraTokens.fontFamilySans,
+                              fontSize: 11.5,
+                              color: Color(0xFF0369A1),
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 14),
 
-                  // URL Lengkap RTSP Stream (Prioritas Utama)
                   _buildTextField(
-                    controller: urlController,
-                    label: 'URL Stream RTSP Lengkap (Lokal / Cloud Internet)',
-                    hint: 'rtsp://rtsp.rtsplink.com/live/... atau rtsp://192.168.0.104:8554/',
-                    icon: Icons.link_rounded,
-                    onChanged: (val) {
-                      try {
-                        final uri = Uri.parse(val.trim());
-                        if (uri.host.isNotEmpty) {
-                          ipController.text = uri.host;
-                          portController.text = uri.hasPort && uri.port != 0 ? uri.port.toString() : '554';
-                        }
-                      } catch (_) {}
-                    },
+                    controller: nameController,
+                    label: 'Nama Kamera',
+                    hint: 'Contoh: CCTV Gerbang Utama',
+                    icon: Icons.videocam_rounded,
                   ),
                   const SizedBox(height: 12),
 
-                  // IP / Host Address & Port
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: _buildTextField(
-                          controller: ipController,
-                          label: 'Host / IP Kamera',
-                          hint: 'Contoh: rtsp.rtsplink.com / 192.168.0.104',
-                          icon: Icons.wifi_rounded,
-                          onChanged: (val) {
-                            if (urlController.text.isEmpty) {
-                              final port = portController.text.trim().isNotEmpty ? portController.text.trim() : '554';
-                              urlController.text = 'rtsp://${val.trim()}:$port/';
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 2,
-                        child: _buildTextField(
-                          controller: portController,
-                          label: 'Port RTSP',
-                          hint: '554 / 8554',
-                          icon: Icons.tag_rounded,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Nama & Lokasi
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildTextField(
-                          controller: nameController,
-                          label: 'Nama Kamera',
-                          hint: 'CCTV Gerbang Utama',
-                          icon: Icons.videocam_rounded,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _buildTextField(
-                          controller: locationController,
-                          label: 'Lokasi',
-                          hint: 'Pagar Depan',
-                          icon: Icons.location_on_rounded,
-                        ),
-                      ),
-                    ],
+                  _buildTextField(
+                    controller: locationController,
+                    label: 'Lokasi Pemasangan',
+                    hint: 'Contoh: Pagar Depan',
+                    icon: Icons.location_on_rounded,
                   ),
                   const SizedBox(height: 18),
 
@@ -580,19 +558,8 @@ class _CctvCardState extends State<CctvCard>
                     child: ElevatedButton.icon(
                       onPressed: () {
                         HapticFeedback.heavyImpact();
-                        final url = urlController.text.trim();
-                        String ip = ipController.text.trim();
-                        int port = int.tryParse(portController.text.trim()) ?? 554;
                         final name = nameController.text.trim();
                         final loc = locationController.text.trim();
-
-                        if (ip.isEmpty && url.isNotEmpty) {
-                          try {
-                            final uri = Uri.parse(url);
-                            if (uri.host.isNotEmpty) ip = uri.host;
-                            if (uri.hasPort && uri.port != 0) port = uri.port;
-                          } catch (_) {}
-                        }
 
                         Navigator.of(context).pop();
 
@@ -600,9 +567,6 @@ class _CctvCardState extends State<CctvCard>
                           widget.camera.id,
                           name: name.isNotEmpty ? name : null,
                           location: loc.isNotEmpty ? loc : null,
-                          onvifHost: ip.isNotEmpty ? ip : null,
-                          onvifPort: port,
-                          rtspUrl: url.isNotEmpty ? url : null,
                         );
 
                         if (mounted) {
@@ -611,13 +575,13 @@ class _CctvCardState extends State<CctvCard>
                               behavior: SnackBarBehavior.floating,
                               backgroundColor: const Color(0xFF059669),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              content: const Text('✅ Konfigurasi CCTV berhasil diperbarui!'),
+                              content: const Text('✅ Nama & lokasi CCTV berhasil diperbarui!'),
                             ),
                           );
                         }
                       },
                       icon: const Icon(Icons.check_circle_rounded, size: 18),
-                      label: const Text('Simpan & Terapkan Stream'),
+                      label: const Text('Simpan Perubahan'),
                       style: ElevatedButton.styleFrom(
                         primary: const Color(0xFF0284C7),
                         onPrimary: Colors.white,
@@ -700,30 +664,31 @@ class _CctvCardState extends State<CctvCard>
     final lang = LanguageService();
     final cam = widget.camera;
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: NexoraTokens.borderRadiusCard,
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 5),
-          ),
-          BoxShadow(
-            color: NexoraTokens.brandCyan.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return RepaintBoundary(
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: NexoraTokens.borderRadiusCard,
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 5),
+            ),
+            BoxShadow(
+              color: NexoraTokens.brandCyan.withOpacity(0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             // 1. Header Card CCTV: Judul, Lokasi, Tombol Edit Config, & Status Stream
             Row(
               children: [
@@ -869,17 +834,17 @@ class _CctvCardState extends State<CctvCard>
                 const SizedBox(width: 6),
 
                 // ── Pemilih Pilihan Gerbang (Slide/Selector Pagar Dinamis) ──
-                StreamBuilder<List<CustomDeviceItem>>(
-                  stream: DeviceManagerService().devicesStream,
-                  initialData: DeviceManagerService().allDevices,
-                  builder: (context, snapshot) {
-                    final gates = DeviceManagerService().gates;
-                    final validSelectedGate = gates.any((g) => g.id == _selectedGateId)
-                        ? _selectedGateId
-                        : (gates.isNotEmpty ? gates.first.id : null);
+                Expanded(
+                  child: StreamBuilder<List<CustomDeviceItem>>(
+                    stream: DeviceManagerService().devicesStream,
+                    initialData: DeviceManagerService().allDevices,
+                    builder: (context, snapshot) {
+                      final gates = DeviceManagerService().gates;
+                      final validSelectedGate = gates.any((g) => g.id == _selectedGateId)
+                          ? _selectedGateId
+                          : (gates.isNotEmpty ? gates.first.id : null);
 
-                    return Expanded(
-                      child: Container(
+                      return Container(
                         height: 36,
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         decoration: BoxDecoration(
@@ -921,9 +886,9 @@ class _CctvCardState extends State<CctvCard>
                             },
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
 
                 const SizedBox(width: 6),
@@ -1031,6 +996,7 @@ class _CctvCardState extends State<CctvCard>
             ),
           ],
         ),
+      ),
     );
   }
 
@@ -1133,16 +1099,16 @@ class _CctvCardState extends State<CctvCard>
 
   /// Viewport video: VlcPlayer selalu terpasang di widget tree jika controller ada, agar TextureView Android aktif
   Widget _buildVideoViewport(CctvCameraItem cam) {
-    if (_vlcViewController == null) {
+    if (!widget.isActive || _vlcViewController == null) {
       return _buildOfflineViewport(cam, isConnecting: _isConnecting);
     }
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 1. Native VLC Player TextureView dengan key stabil per-kamera (mencegah duplikasi texture)
+        // 1. Native VLC Player TextureView dengan key unik per-epoch (mencegah duplikasi texture)
         VlcPlayer(
-          key: ValueKey('vlc_player_${widget.camera.id}'),
+          key: ValueKey('vlc_player_${widget.camera.id}_$_playerEpoch'),
           controller: _vlcViewController!,
           aspectRatio: 16 / 9,
           placeholder: Container(color: const Color(0xFF1E293B)),
@@ -1200,13 +1166,16 @@ class _CctvCardState extends State<CctvCard>
                     color: Colors.black.withOpacity(0.65),
                     borderRadius: BorderRadius.circular(5),
                   ),
-                  child: Text(
-                    _timestamp,
-                    style: const TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFE2E8F0),
+                  child: ValueListenableBuilder<String>(
+                    valueListenable: _timestampNotifier,
+                    builder: (_, ts, __) => Text(
+                      ts,
+                      style: const TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFE2E8F0),
+                      ),
                     ),
                   ),
                 ),
@@ -1427,13 +1396,16 @@ class _CctvCardState extends State<CctvCard>
                     color: Colors.black.withOpacity(0.45),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Text(
-                    _timestamp,
-                    style: const TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFE2E8F0),
+                  child: ValueListenableBuilder<String>(
+                    valueListenable: _timestampNotifier,
+                    builder: (_, ts, __) => Text(
+                      ts,
+                      style: const TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFE2E8F0),
+                      ),
                     ),
                   ),
                 ),

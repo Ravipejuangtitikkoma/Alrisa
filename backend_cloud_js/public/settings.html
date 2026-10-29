@@ -3,29 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ALRISA WebDesk (Node.js) — Central IoT & Broker Configuration Studio</title>
+  <title>NEXORA & ALRISA Studio v3.0 — Central Multi-Tenant IoT Broker & Gateway</title>
   
   <!-- Modern Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
   <!-- Paho MQTT WebSocket Client untuk Live Diagnostic -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
 
   <style>
-    /* ========================================================= */
-    /* THEME VARIABLES: DARK MODE (DEFAULT)                      */
-    /* ========================================================= */
     :root, [data-theme="dark"] {
       --bg-base: #07090E;
       --bg-surface: #0E131F;
       --bg-card: rgba(16, 22, 36, 0.75);
-      --bg-card-hover: rgba(22, 30, 50, 0.85);
+      --bg-card-hover: rgba(22, 30, 50, 0.90);
       --bg-input: #090D15;
       --bg-node: #0B0F1A;
       --bg-terminal: #05070B;
-      --bg-dock: rgba(14, 20, 32, 0.90);
+      --bg-dock: rgba(14, 20, 32, 0.92);
       
       --cyan: #00F0FF;
       --cyan-glow: rgba(0, 240, 255, 0.35);
@@ -36,7 +33,7 @@
       --emerald-subtle: rgba(16, 185, 129, 0.1);
       
       --amber: #F59E0B;
-      --amber-subtle: rgba(245, 158, 11, 0.1);
+      --amber-subtle: rgba(245, 158, 11, 0.12);
       
       --rose: #F43F5E;
       --rose-subtle: rgba(244, 63, 94, 0.12);
@@ -44,7 +41,7 @@
       --purple: #8B5CF6;
       --indigo: #6366F1;
       
-      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-subtle: rgba(255, 255, 255, 0.09);
       --border-active: rgba(0, 240, 255, 0.4);
       --border-focus: #00F0FF;
       
@@ -55,23 +52,20 @@
       --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.4);
       --shadow-dock: 0 16px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 240, 255, 0.15);
       --mesh-bg: 
-        radial-gradient(at 10% 10%, rgba(0, 240, 255, 0.09) 0px, transparent 45%),
-        radial-gradient(at 90% 15%, rgba(139, 92, 246, 0.08) 0px, transparent 40%),
+        radial-gradient(at 10% 10%, rgba(0, 240, 255, 0.08) 0px, transparent 45%),
+        radial-gradient(at 90% 15%, rgba(139, 92, 246, 0.07) 0px, transparent 40%),
         radial-gradient(at 50% 90%, rgba(16, 185, 129, 0.06) 0px, transparent 50%);
     }
 
-    /* ========================================================= */
-    /* THEME VARIABLES: LIGHT MODE                               */
-    /* ========================================================= */
     [data-theme="light"] {
       --bg-base: #F1F5F9;
       --bg-surface: #FFFFFF;
-      --bg-card: rgba(255, 255, 255, 0.88);
+      --bg-card: rgba(255, 255, 255, 0.90);
       --bg-card-hover: #FFFFFF;
-      --bg-input: #FFFFFF;
+      --bg-input: #F8FAFC;
       --bg-node: #F8FAFC;
       --bg-terminal: #0F172A;
-      --bg-dock: rgba(255, 255, 255, 0.94);
+      --bg-dock: rgba(255, 255, 255, 0.96);
       
       --cyan: #0284C7;
       --cyan-glow: rgba(2, 132, 199, 0.25);
@@ -102,28 +96,14 @@
       --shadow-dock: 0 16px 40px rgba(15, 23, 42, 0.12), 0 0 20px rgba(2, 132, 199, 0.12);
       --mesh-bg: 
         radial-gradient(at 10% 10%, rgba(2, 132, 199, 0.08) 0px, transparent 50%),
-        radial-gradient(at 90% 15%, rgba(124, 58, 237, 0.06) 0px, transparent 50%),
-        radial-gradient(at 50% 90%, rgba(5, 150, 105, 0.06) 0px, transparent 50%);
-    }
-
-    /* COMMON SYSTEM TOKENS */
-    :root {
-      --radius-xl: 24px;
-      --radius-lg: 16px;
-      --radius-md: 12px;
-      --radius-sm: 8px;
-      
-      --font-display: 'Outfit', sans-serif;
-      --font-body: 'Plus Jakarta Sans', sans-serif;
-      --font-code: 'JetBrains Mono', monospace;
+        radial-gradient(at 90% 15%, rgba(124, 58, 237, 0.06) 0px, transparent 45%),
+        radial-gradient(at 50% 90%, rgba(5, 150, 105, 0.05) 0px, transparent 50%);
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      -webkit-font-smoothing: antialiased;
-      transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
     }
 
     body {
@@ -131,18 +111,19 @@
       background-image: var(--mesh-bg);
       background-attachment: fixed;
       color: var(--text-white);
-      font-family: var(--font-body);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       min-height: 100vh;
-      padding: 24px 20px 100px;
+      padding: 24px 20px 140px;
+      -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
     }
 
     .container {
-      max-width: 1240px;
+      max-width: 1280px;
       margin: 0 auto;
     }
 
-    /* TOP HEADER & TELEMETRY */
+    /* 1. TOP HEADER */
     .top-header {
       display: flex;
       justify-content: space-between;
@@ -150,36 +131,34 @@
       margin-bottom: 24px;
       flex-wrap: wrap;
       gap: 16px;
-      padding: 16px 24px;
-      background: var(--bg-card);
-      backdrop-filter: blur(20px);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-xl);
-      box-shadow: var(--shadow-card);
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-subtle);
     }
 
     .brand-group {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 14px;
     }
 
     .brand-logo-badge {
-      width: 52px;
-      height: 52px;
-      border-radius: var(--radius-lg);
-      background: linear-gradient(135deg, #00F0FF, #3B82F6);
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #0284C7, #00F0FF);
+      color: #000;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 26px;
-      box-shadow: 0 0 25px var(--cyan-glow);
-      position: relative;
+      font-size: 24px;
+      font-weight: 900;
+      box-shadow: 0 4px 20px var(--cyan-glow);
+      flex-shrink: 0;
     }
 
     .brand-title-wrap h1 {
-      font-family: var(--font-display);
-      font-size: 24px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 22px;
       font-weight: 800;
       letter-spacing: -0.5px;
       display: flex;
@@ -187,29 +166,31 @@
       gap: 8px;
     }
 
-    .brand-title-wrap h1 span.gradient-text {
-      color: var(--text-white);
+    .brand-title-wrap h1 .gradient-text {
+      background: linear-gradient(135deg, var(--text-white), var(--text-secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
 
-    .brand-title-wrap h1 span.cyan-text {
+    .brand-title-wrap h1 .cyan-text {
       color: var(--cyan);
     }
 
-    .node-engine-badge {
-      font-size: 10px;
-      font-family: var(--font-code);
-      background: var(--emerald-subtle);
-      color: var(--emerald);
+    .version-tag {
+      font-size: 11px;
+      background: var(--cyan-subtle);
+      color: var(--cyan);
+      border: 1px solid var(--border-active);
       padding: 2px 8px;
-      border-radius: 999px;
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      font-weight: 800;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
     }
 
     .brand-title-wrap p {
       font-size: 13px;
       color: var(--text-secondary);
-      margin-top: 2px;
+      margin-top: 3px;
     }
 
     .header-actions {
@@ -222,121 +203,81 @@
     .live-telemetry-pill {
       display: flex;
       align-items: center;
-      gap: 10px;
-      background: var(--bg-node);
+      gap: 8px;
+      background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
       padding: 8px 16px;
       border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 12px;
-      font-family: var(--font-code);
+      box-shadow: var(--shadow-card);
     }
 
     .pulse-dot {
-      width: 9px;
-      height: 9px;
+      width: 8px;
+      height: 8px;
+      background-color: var(--emerald);
       border-radius: 50%;
-      background: var(--emerald);
-      box-shadow: 0 0 12px var(--emerald);
-      animation: pulseLive 1.5s infinite alternate;
+      box-shadow: 0 0 10px var(--emerald);
+      animation: pulse 1.6s infinite;
     }
 
-    @keyframes pulseLive {
-      from { transform: scale(0.9); opacity: 0.6; }
-      to { transform: scale(1.3); opacity: 1; }
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.3); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
     }
 
     .btn-top {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-white);
+      padding: 8px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      background: var(--bg-node);
-      border: 1px solid var(--border-subtle);
-      color: var(--text-white);
-      padding: 9px 18px;
-      border-radius: var(--radius-md);
-      font-size: 13px;
-      font-weight: 700;
+      transition: all 0.2s ease;
       text-decoration: none;
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      cursor: pointer;
-      user-select: none;
     }
 
     .btn-top:hover {
       border-color: var(--cyan);
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px var(--cyan-subtle);
       color: var(--cyan);
+      transform: translateY(-1px);
     }
 
     .btn-top.active-dash {
-      background: var(--cyan-subtle);
-      border-color: var(--cyan);
-      color: var(--cyan);
+      background: linear-gradient(135deg, #0284C7, #00F0FF);
+      color: #000;
+      border: none;
+      box-shadow: 0 4px 15px var(--cyan-glow);
     }
 
-    /* THEME TOGGLE BUTTON SPECIAL STYLING */
-    .btn-theme-toggle {
-      background: linear-gradient(135deg, var(--cyan-subtle), var(--amber-subtle));
-      border: 1.5px solid var(--border-subtle);
-      color: var(--text-white);
-      padding: 8px 16px;
-      border-radius: var(--radius-md);
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      transition: all 0.25s;
-    }
-
-    .btn-theme-toggle:hover {
-      border-color: var(--cyan);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 16px var(--cyan-subtle);
-    }
-
-    /* TOPOLOGY CARD */
+    /* 2. TOPOLOGY MAP STRIP (PERSIS GAMBAR KEDUA USER) */
     .topology-card {
       background: var(--bg-card);
-      backdrop-filter: blur(20px);
+      backdrop-filter: blur(16px);
       border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-xl);
-      padding: 24px;
-      margin-bottom: 28px;
-      position: relative;
-      overflow: hidden;
+      border-radius: 20px;
+      padding: 20px 24px;
+      margin-bottom: 24px;
       box-shadow: var(--shadow-card);
-    }
-
-    .topology-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 10%;
-      right: 10%;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
     }
 
     .topology-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
-    }
-
-    .topology-header h3 {
-      font-family: var(--font-display);
-      font-size: 15px;
-      font-weight: 700;
+      margin-bottom: 16px;
+      font-size: 12.5px;
+      font-weight: 800;
       color: var(--text-secondary);
       text-transform: uppercase;
-      letter-spacing: 1px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      letter-spacing: 0.5px;
     }
 
     .topology-flow {
@@ -344,55 +285,40 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      position: relative;
-      padding: 10px 0;
     }
 
     .node-box {
       flex: 1;
       background: var(--bg-node);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: 16px;
+      border: 1.5px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 14px 18px;
       display: flex;
       align-items: center;
-      gap: 14px;
-      position: relative;
-      transition: all 0.3s;
+      gap: 12px;
+      transition: all 0.25s ease;
     }
 
     .node-box:hover {
       border-color: var(--cyan);
       transform: translateY(-2px);
-      box-shadow: 0 8px 24px var(--cyan-subtle);
     }
 
     .node-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: var(--radius-md);
-      display: flex;
-      align-items: center;
-      justify-content: center;
       font-size: 22px;
-      flex-shrink: 0;
     }
 
-    .node-icon.app { background: rgba(59, 130, 246, 0.15); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.3); }
-    .node-icon.broker { background: var(--cyan-subtle); color: var(--cyan); border: 1px solid var(--cyan); }
-    .node-icon.plc { background: var(--emerald-subtle); color: var(--emerald); border: 1px solid rgba(16, 185, 129, 0.3); }
-
     .node-info .title {
-      font-size: 14px;
-      font-weight: 700;
+      font-size: 13.5px;
+      font-weight: 800;
       color: var(--text-white);
-      margin-bottom: 2px;
     }
 
     .node-info .sub {
-      font-size: 11px;
+      font-size: 11.5px;
       color: var(--text-dim);
-      font-family: var(--font-code);
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 2px;
     }
 
     .pipe-connector {
@@ -400,355 +326,479 @@
       flex-direction: column;
       align-items: center;
       gap: 4px;
-      color: var(--cyan);
-      font-size: 11px;
-      font-family: var(--font-code);
-      font-weight: 700;
-      min-width: 90px;
-      text-align: center;
+      padding: 0 4px;
     }
 
     .pipe-line {
-      width: 100%;
+      width: 48px;
       height: 2px;
-      background: linear-gradient(90deg, #3B82F6, var(--cyan));
+      background: linear-gradient(90deg, var(--border-subtle), var(--cyan), var(--border-subtle));
       position: relative;
-      overflow: hidden;
-      border-radius: 999px;
     }
 
-    .pipe-line::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -40%;
-      width: 40%;
-      height: 100%;
-      background: #FFFFFF;
-      box-shadow: 0 0 8px #FFFFFF;
-      animation: pipePulse 2s infinite linear;
+    .pipe-connector span {
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: var(--cyan);
     }
 
-    @keyframes pipePulse {
-      0% { left: -40%; }
-      100% { left: 140%; }
-    }
-
-    /* NAVIGATION TABS */
+    /* 3. TAB NAVIGATION (PERSIS GAMBAR KEDUA USER) */
     .tab-bar-nav {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       margin-bottom: 24px;
       overflow-x: auto;
-      padding-bottom: 4px;
+      padding-bottom: 6px;
     }
 
     .tab-pill-btn {
-      background: var(--bg-card);
+      background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
       color: var(--text-secondary);
-      padding: 12px 22px;
-      border-radius: var(--radius-lg);
-      font-size: 13px;
+      padding: 10px 20px;
+      border-radius: 14px;
+      font-size: 13.5px;
       font-weight: 700;
       cursor: pointer;
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      gap: 10px;
-      transition: all 0.25s;
+      gap: 8px;
       white-space: nowrap;
-      font-family: var(--font-body);
+      transition: all 0.2s ease;
     }
 
     .tab-pill-btn:hover {
-      background: var(--bg-card-hover);
+      border-color: var(--cyan);
       color: var(--text-white);
-      border-color: var(--border-active);
     }
 
     .tab-pill-btn.active {
       background: var(--cyan-subtle);
       border-color: var(--cyan);
       color: var(--cyan);
-      box-shadow: 0 4px 20px var(--cyan-subtle);
+      box-shadow: 0 0 16px var(--cyan-glow);
     }
 
-    /* BENTO GRID */
-    .bento-grid {
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: 20px;
-    }
-
+    /* BENTO CARD DESIGN */
     .bento-card {
       background: var(--bg-card);
-      backdrop-filter: blur(20px);
+      backdrop-filter: blur(16px);
       border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-xl);
-      padding: 28px;
-      position: relative;
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 24px;
       box-shadow: var(--shadow-card);
-      transition: border-color 0.3s ease;
     }
-
-    .bento-card:hover {
-      border-color: var(--border-active);
-    }
-
-    .col-12 { grid-column: span 12; }
-    .col-8 { grid-column: span 8; }
-    .col-4 { grid-column: span 4; }
-    .col-6 { grid-column: span 6; }
 
     .card-title-group {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 22px;
-      padding-bottom: 16px;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
       border-bottom: 1px solid var(--border-subtle);
+      flex-wrap: wrap;
+      gap: 12px;
     }
 
     .card-title-left {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
     }
 
     .card-icon-badge {
-      width: 42px;
-      height: 42px;
-      border-radius: var(--radius-md);
-      background: var(--cyan-subtle);
-      color: var(--cyan);
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: rgba(0, 240, 255, 0.12);
+      border: 1px solid rgba(0, 240, 255, 0.25);
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 20px;
-      border: 1px solid rgba(0, 240, 255, 0.2);
-    }
-
-    .card-icon-badge.emerald {
-      background: var(--emerald-subtle);
-      color: var(--emerald);
-      border-color: rgba(16, 185, 129, 0.2);
-    }
-
-    .card-icon-badge.purple {
-      background: rgba(139, 92, 246, 0.12);
-      color: var(--purple);
-      border-color: rgba(139, 92, 246, 0.2);
     }
 
     .card-title-left h2 {
-      font-family: var(--font-display);
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 800;
       color: var(--text-white);
-      letter-spacing: -0.3px;
     }
 
     .card-title-left p {
-      font-size: 12px;
-      color: var(--text-dim);
+      font-size: 12.5px;
+      color: var(--text-secondary);
       margin-top: 2px;
     }
 
-    /* PRESETS */
-    .presets-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      font-weight: 800;
-      color: var(--text-dim);
-      letter-spacing: 0.8px;
-      margin-bottom: 12px;
+    /* ACTIVE ACCOUNT BANNER FOR BROKER SETTINGS */
+    .active-account-broker-banner {
+      background: rgba(0, 240, 255, 0.08);
+      border: 1.5px solid var(--border-active);
+      border-radius: 16px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
     }
 
+    .user-avatar-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #00F0FF, #3B82F6);
+      font-weight: 800;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      box-shadow: 0 4px 14px rgba(0, 240, 255, 0.3);
+      flex-shrink: 0;
+    }
+
+    /* PRESETS GRID */
     .presets-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 12px;
-      margin-bottom: 24px;
+      margin-bottom: 22px;
     }
 
     .preset-card-item {
       background: var(--bg-node);
       border: 1.5px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: 16px;
+      border-radius: 14px;
+      padding: 14px 16px;
       cursor: pointer;
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      position: relative;
+      transition: all 0.2s ease;
     }
 
     .preset-card-item:hover {
       border-color: var(--cyan);
-      background: var(--bg-card-hover);
       transform: translateY(-2px);
-      box-shadow: 0 8px 20px var(--cyan-subtle);
     }
 
     .preset-card-item.selected {
       border-color: var(--cyan);
-      background: var(--cyan-subtle);
-      box-shadow: 0 0 20px var(--cyan-glow);
-    }
-
-    .preset-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
+      background: rgba(0, 240, 255, 0.07);
+      box-shadow: 0 0 16px var(--cyan-glow);
     }
 
     .preset-name {
+      font-weight: 800;
       font-size: 14px;
-      font-weight: 700;
       color: var(--text-white);
     }
 
     .preset-tag {
       font-size: 10px;
-      padding: 2px 7px;
-      border-radius: 999px;
-      font-family: var(--font-code);
       font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
     }
 
-    .preset-tag.global { background: var(--cyan-subtle); color: var(--cyan); }
-    .preset-tag.private { background: var(--emerald-subtle); color: var(--emerald); }
-    .preset-tag.local { background: var(--amber-subtle); color: var(--amber); }
+    .preset-tag.global { background: rgba(0, 240, 255, 0.15); color: var(--cyan); }
+    .preset-tag.private { background: rgba(16, 185, 129, 0.15); color: var(--emerald); }
+    .preset-tag.local { background: rgba(245, 158, 11, 0.15); color: var(--amber); }
 
     .preset-host {
+      font-family: 'JetBrains Mono', monospace;
       font-size: 12px;
-      font-family: var(--font-code);
-      color: var(--text-secondary);
+      color: var(--text-dim);
+      margin-top: 6px;
     }
 
-    /* FORM CONTROLS */
+    /* FORM ROW & INPUTS */
     .form-row-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       gap: 18px;
-      margin-bottom: 18px;
+      margin-bottom: 20px;
     }
 
     .form-group-box {
       display: flex;
       flex-direction: column;
+      gap: 8px;
     }
 
     .form-group-box label {
-      font-size: 12px;
+      font-size: 12.5px;
       font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
       color: var(--text-secondary);
-      margin-bottom: 8px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      gap: 6px;
     }
 
-    .form-group-box label span.field-badge {
+    .field-badge {
       font-size: 10px;
-      font-family: var(--font-code);
-      color: var(--cyan);
-      background: var(--cyan-subtle);
       padding: 1px 6px;
       border-radius: 4px;
-    }
-
-    .input-wrapper {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-
-    .input-icon {
-      position: absolute;
-      left: 14px;
-      font-size: 16px;
-      color: var(--text-dim);
-      pointer-events: none;
+      background: rgba(244, 63, 94, 0.15);
+      color: var(--rose);
+      font-weight: 800;
     }
 
     .app-input {
-      width: 100%;
       background: var(--bg-input);
       border: 1.5px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      padding: 13px 16px 13px 44px;
       color: var(--text-white);
-      font-size: 14px;
-      font-family: var(--font-body);
-      transition: all 0.25s;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 13.5px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s ease;
+      width: 100%;
     }
 
     .app-input.mono {
-      font-family: var(--font-code);
+      font-family: 'JetBrains Mono', monospace;
       font-size: 13px;
     }
 
     .app-input:focus {
-      outline: none;
       border-color: var(--border-focus);
-      background: var(--bg-surface);
-      box-shadow: 0 0 0 3px var(--cyan-glow);
+      box-shadow: 0 0 16px var(--cyan-glow);
     }
 
-    .input-tip {
+    /* TABEL MANAJEMEN AKUN (TAB 1) */
+    .accounts-table-wrapper {
+      overflow-x: auto;
+      border-radius: 14px;
+      border: 1px solid var(--border-subtle);
+      margin-bottom: 20px;
+    }
+
+    .accounts-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    .accounts-table th {
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      font-size: 11.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 14px 18px;
+      border-bottom: 1.5px solid var(--border-subtle);
+    }
+
+    .accounts-table td {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: middle;
+      background: var(--bg-card);
+      transition: background 0.15s;
+    }
+
+    .accounts-table tr:hover td {
+      background: var(--bg-card-hover);
+    }
+
+    .accounts-table tr.active-row td {
+      background: rgba(0, 240, 255, 0.06);
+      border-left: 3px solid var(--cyan);
+    }
+
+    .user-avatar-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-name-title {
+      font-weight: 800;
+      color: var(--text-white);
+      font-size: 13.5px;
+    }
+
+    .user-id-subtitle {
       font-size: 11px;
       color: var(--text-dim);
-      margin-top: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 2px;
     }
 
-    /* TERMINAL (Always High-Contrast Dark Console) */
-    .terminal-window {
+    .role-badge {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+    .role-badge.superadmin {
+      background: rgba(139, 92, 246, 0.2);
+      color: var(--purple);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+    }
+    .role-badge.user {
+      background: rgba(0, 240, 255, 0.12);
+      color: var(--cyan);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+    }
+
+    .credential-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+
+    .credential-cell input {
+      background: transparent;
+      border: none;
+      color: var(--text-white);
+      font-family: inherit;
+      font-size: inherit;
+      outline: none;
+      width: 100%;
+      cursor: pointer;
+    }
+
+    .credential-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px;
+      transition: color 0.15s;
+    }
+    .credential-btn:hover {
+      color: var(--cyan);
+    }
+
+    .hw-badge-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-subtle);
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--text-white);
+      font-weight: 600;
+    }
+
+    .action-btn-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+
+    .btn-act-dashboard {
+      background: linear-gradient(135deg, #0284C7, #00F0FF);
+      color: #000;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      text-decoration: none;
+      box-shadow: 0 2px 10px var(--cyan-glow);
+      transition: all 0.2s;
+    }
+    .btn-act-dashboard:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px var(--cyan-glow);
+    }
+
+    .btn-act-edit {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-white);
+      padding: 7px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+    .btn-act-edit:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    .btn-act-del {
+      background: rgba(244, 63, 94, 0.1);
+      border: 1px solid rgba(244, 63, 94, 0.25);
+      color: var(--rose);
+      padding: 7px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-act-del:hover {
+      background: var(--rose);
+      color: #FFF;
+    }
+
+    /* TERMINAL DIAGNOSTIC */
+    .terminal-container {
       background: var(--bg-terminal);
-      border: 1px solid #1E293B;
-      border-radius: var(--radius-lg);
+      border: 1.5px solid var(--border-subtle);
+      border-radius: 16px;
       overflow: hidden;
-      font-family: var(--font-code);
       margin-top: 20px;
-      box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.6);
     }
 
-    .terminal-bar {
-      background: #0B0E17;
+    .terminal-header {
+      background: var(--bg-node);
       padding: 10px 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid #1E293B;
+      border-bottom: 1px solid var(--border-subtle);
     }
 
-    .window-dots {
+    .terminal-dots {
       display: flex;
       gap: 6px;
     }
 
-    .window-dot {
+    .terminal-dot {
       width: 10px;
       height: 10px;
       border-radius: 50%;
     }
-
-    .window-dot.red { background: #EF4444; }
-    .window-dot.yellow { background: #F59E0B; }
-    .window-dot.green { background: #10B981; }
-
-    .terminal-title {
-      font-size: 11px;
-      color: #94A3B8;
-      font-weight: 600;
-    }
+    .terminal-dot.red { background: var(--rose); }
+    .terminal-dot.yellow { background: var(--amber); }
+    .terminal-dot.green { background: var(--emerald); }
 
     .terminal-body {
       padding: 16px;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 12px;
-      min-height: 140px;
-      max-height: 220px;
+      max-height: 180px;
       overflow-y: auto;
       line-height: 1.6;
     }
@@ -758,106 +808,50 @@
       gap: 8px;
       margin-bottom: 4px;
     }
-
-    .term-time { color: #64748B; }
-    .term-prefix { color: #00F0FF; font-weight: 700; }
-    .term-msg { color: #E2E8F0; }
-    .term-msg.success { color: #34D399; font-weight: 600; }
-    .term-msg.error { color: #F87171; font-weight: 600; }
-    .term-msg.warn { color: #FBBF24; }
+    .term-time { color: var(--text-dim); }
+    .term-prefix { color: var(--cyan); font-weight: 700; }
+    .term-msg { color: var(--text-white); }
+    .term-msg.success { color: var(--emerald); }
+    .term-msg.error { color: var(--rose); }
 
     .terminal-footer {
-      background: #080B12;
-      padding: 10px 16px;
+      padding: 12px 16px;
+      background: var(--bg-node);
+      border-top: 1px solid var(--border-subtle);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-top: 1px solid #1E293B;
       flex-wrap: wrap;
       gap: 10px;
     }
 
     .tester-btn {
-      background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(59, 130, 246, 0.2));
-      border: 1px solid var(--cyan);
-      color: var(--cyan);
-      padding: 8px 18px;
-      border-radius: var(--radius-sm);
-      font-size: 12px;
-      font-weight: 700;
-      font-family: var(--font-display);
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      transition: all 0.2s;
-    }
-
-    .tester-btn:hover {
-      background: var(--cyan);
-      color: #000;
-      box-shadow: 0 0 20px var(--cyan-glow);
-    }
-
-    /* API SYNC */
-    .sync-box {
-      background: var(--bg-node);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-
-    .sync-url-code {
-      font-family: var(--font-code);
-      font-size: 13px;
-      color: var(--cyan);
-      background: var(--cyan-subtle);
-      padding: 10px 14px;
-      border-radius: var(--radius-md);
-      border: 1px dashed var(--cyan);
-      word-break: break-all;
-      flex: 1;
-    }
-
-    .copy-chip-btn {
-      background: var(--cyan);
+      background: linear-gradient(135deg, #0284C7, #00F0FF);
       color: #000;
       border: none;
-      padding: 11px 20px;
-      border-radius: var(--radius-md);
-      font-size: 12px;
+      padding: 8px 18px;
+      border-radius: 10px;
+      font-size: 12.5px;
       font-weight: 800;
       cursor: pointer;
-      display: inline-flex;
+      box-shadow: 0 2px 10px var(--cyan-glow);
+      display: flex;
       align-items: center;
       gap: 6px;
-      transition: all 0.2s;
-      white-space: nowrap;
-    }
-
-    .copy-chip-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 18px var(--cyan-glow);
     }
 
     /* FLOATING ACTION DOCK */
     .floating-save-dock {
       position: fixed;
-      bottom: 24px;
+      bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
-      width: calc(100% - 40px);
-      max-width: 1240px;
+      width: min(1200px, 94vw);
       background: var(--bg-dock);
-      backdrop-filter: blur(24px);
-      border: 1px solid var(--border-active);
-      border-radius: var(--radius-xl);
-      padding: 16px 28px;
+      backdrop-filter: blur(20px);
+      border: 1.5px solid var(--border-active);
+      border-radius: 20px;
+      padding: 14px 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -871,167 +865,224 @@
       gap: 14px;
     }
 
-    .dock-icon {
-      font-size: 24px;
-    }
-
     .dock-text .title {
+      font-weight: 800;
       font-size: 14px;
-      font-weight: 700;
       color: var(--text-white);
     }
 
     .dock-text .sub {
       font-size: 12px;
       color: var(--text-secondary);
+      margin-top: 2px;
     }
 
     .dock-btn-group {
       display: flex;
-      align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
 
     .btn-dock-reset {
-      background: transparent;
+      background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
       color: var(--text-secondary);
-      padding: 12px 20px;
-      border-radius: var(--radius-md);
+      padding: 10px 18px;
+      border-radius: 12px;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-dock-reset:hover {
-      background: var(--bg-card-hover);
-      color: var(--text-white);
-      border-color: var(--border-active);
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     .btn-dock-save {
-      background: linear-gradient(135deg, var(--cyan), #0284C7);
-      border: none;
+      background: linear-gradient(135deg, #0284C7, #00F0FF);
       color: #000;
-      padding: 13px 32px;
-      border-radius: var(--radius-md);
-      font-size: 14px;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 12px;
+      font-size: 13.5px;
       font-weight: 800;
       cursor: pointer;
-      display: inline-flex;
+      box-shadow: 0 4px 20px var(--cyan-glow);
+      display: flex;
       align-items: center;
-      gap: 10px;
-      box-shadow: 0 8px 25px var(--cyan-glow);
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      gap: 8px;
+      transition: all 0.2s;
     }
 
     .btn-dock-save:hover {
       transform: translateY(-2px);
-      box-shadow: 0 12px 30px var(--cyan-glow);
-      filter: brightness(1.1);
+      box-shadow: 0 6px 25px var(--cyan-glow);
+    }
+
+    /* MODAL */
+    .modal-backdrop-custom {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(10px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9990;
+      padding: 20px;
+    }
+    .modal-box-custom {
+      background: var(--bg-surface);
+      border: 1.5px solid var(--border-active);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 580px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 240, 255, 0.1);
+      overflow: hidden;
+      animation: modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes modalSlideIn {
+      from { transform: translateY(20px) scale(0.96); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    .modal-header-custom {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-card);
+    }
+    .modal-body-custom {
+      padding: 22px 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .modal-footer-custom {
+      padding: 14px 24px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-card);
+      gap: 12px;
     }
 
     /* TOAST */
     .toast-popup {
       position: fixed;
-      top: 30px;
-      right: 30px;
+      top: 24px; right: 24px;
       background: var(--bg-dock);
       backdrop-filter: blur(20px);
       border: 1px solid var(--emerald);
       color: var(--text-white);
-      padding: 16px 22px;
-      border-radius: var(--radius-lg);
+      padding: 14px 20px;
+      border-radius: 14px;
       display: flex;
       align-items: center;
-      gap: 14px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), 0 0 20px var(--emerald-glow);
+      gap: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), 0 0 20px var(--emerald-glow);
       transform: translateY(-100px);
       opacity: 0;
-      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
       z-index: 9999;
     }
-
     .toast-popup.show {
       transform: translateY(0);
       opacity: 1;
     }
 
+    /* SYNC BOX */
+    .sync-box {
+      background: var(--bg-input);
+      border: 1.5px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .sync-url-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      color: var(--cyan);
+      word-break: break-all;
+    }
+
     @media (max-width: 900px) {
-      .col-8, .col-4, .col-6 { grid-column: span 12; }
       .topology-flow { flex-direction: column; }
-      .pipe-connector { transform: rotate(90deg); margin: 10px 0; }
-      .floating-save-dock { flex-direction: column; gap: 14px; text-align: center; }
+      .pipe-connector { transform: rotate(90deg); margin: 8px 0; }
+      .floating-save-dock { flex-direction: column; gap: 12px; text-align: center; }
       .dock-status-info { flex-direction: column; }
     }
   </style>
 </head>
 <body>
 
-  <!-- TOAST ALERT -->
+  <!-- TOAST NOTIFICATION -->
   <div class="toast-popup" id="toastAlert">
-    <div style="font-size: 24px;" id="toastIcon">✅</div>
+    <div style="font-size: 22px;" id="toastIcon">✅</div>
     <div>
-      <div style="font-weight: 700; font-size: 14px;" id="toastTitle">Berhasil Disimpan</div>
-      <div style="font-size: 12px; color: var(--text-secondary);" id="toastMessage">Konfigurasi baru sudah tersimpan di server Node.js.</div>
+      <div style="font-weight: 800; font-size: 13.5px;" id="toastTitle">Tersimpan</div>
+      <div style="font-size: 12px; color: var(--text-secondary);" id="toastMessage">Konfigurasi berhasil diperbarui.</div>
     </div>
   </div>
 
   <div class="container">
 
-    <!-- 1. TOP HEADER -->
+    <!-- 1. TOP HEADER (PERSIS GAMBAR KEDUA USER) -->
     <header class="top-header">
       <div class="brand-group">
         <div class="brand-logo-badge">⚡</div>
         <div class="brand-title-wrap">
           <h1>
-            <span class="gradient-text">ALRISA</span>
-            <span class="cyan-text">WebDesk</span>
-            <span class="node-engine-badge">NODE.JS ENGINE</span>
+            <span class="gradient-text">NEXORA & ALRISA</span>
+            <span class="cyan-text">Studio</span>
+            <span class="version-tag">v3.0</span>
           </h1>
-          <p>Real-Time Event-Driven MQTT Hub & Industrial PLC Gateway Studio</p>
+          <p>Central Multi-Tenant IoT Broker, Multi-Account Hub & Visual PLC Gateway</p>
         </div>
       </div>
 
       <div class="header-actions">
-        <!-- THEME TOGGLE BUTTON -->
-        <button type="button" class="btn-theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="Klik untuk beralih antara Mode Terang dan Mode Gelap">
-          <span id="themeIcon">☀️</span>
-          <span id="themeText">Mode Terang</span>
+        <button type="button" class="btn-top" onclick="toggleTheme()" id="themeToggleBtn" title="Ganti Mode Gelap / Terang">
+          <span id="themeIcon">☀️</span> <span id="themeText">Mode Terang</span>
         </button>
 
         <div class="live-telemetry-pill">
           <div class="pulse-dot"></div>
-          <span style="color: var(--emerald); font-weight: 700;">NODE DAEMON ACTIVE</span>
+          <span style="color: var(--emerald); font-weight: 800;">BROKER AKTIF</span>
           <span style="color: var(--text-dim);">•</span>
-          <span style="color: var(--cyan);" id="headerPingText">LATENSI: -- ms</span>
+          <span style="color: var(--cyan);" id="headerPingText">LATENSI: 18ms</span>
         </div>
 
-        <a href="/" class="btn-top active-dash">
-          <span>🏠</span> Web Dashboard
+        <a href="dashboard.html" id="btnHeaderDashboard" class="btn-top active-dash" target="_blank" title="Buka Halaman Web Dashboard Nexora Home OS">
+          <span>🏠</span> Buka Web Dashboard
         </a>
-        <a href="/api/settings" target="_blank" class="btn-top">
-          <span>⚡</span> JSON Endpoint
+        <a href="/api/settings" target="_blank" class="btn-top" title="Lihat Endpoint Konfigurasi JSON REST">
+          <span>⚡</span> JSON API
         </a>
       </div>
     </header>
 
-    <!-- 2. ARCHITECTURE TOPOLOGY MAP -->
+    <!-- 2. TOPOLOGY MAP STRIP (PERSIS GAMBAR KEDUA USER) -->
     <section class="topology-card">
       <div class="topology-header">
-        <h3><span>🔗</span> Alur Integrasi Real-Time Multi-Platform ALRISA (Node.js)</h3>
-        <span style="font-size: 11px; font-family: var(--font-code); color: var(--cyan);" id="topoBrokerDisplay">
+        <span>🔗 Topologi Integrasi Real-Time Multi-Tenant Nexora IoT</span>
+        <span style="color: var(--cyan); font-family: 'JetBrains Mono', monospace;" id="topoBrokerDisplay">
           Broker: broker.emqx.io:1883
         </span>
       </div>
 
       <div class="topology-flow">
         <div class="node-box">
-          <div class="node-icon app">📱</div>
+          <div class="node-icon">📱</div>
           <div class="node-info">
-            <div class="title">Aplikasi HP ALRISA</div>
-            <div class="sub">Flutter Engine (Android)</div>
+            <div class="title">Aplikasi HP Android Nexora</div>
+            <div class="sub">Flutter Client Multi-Akun</div>
           </div>
         </div>
 
@@ -1041,9 +1092,9 @@
         </div>
 
         <div class="node-box" style="border-color: var(--cyan);">
-          <div class="node-icon broker">🌐</div>
+          <div class="node-icon">🌐</div>
           <div class="node-info">
-            <div class="title">Node.js MQTT Hub</div>
+            <div class="title">MQTT Message Broker</div>
             <div class="sub" id="topoBrokerSub">broker.emqx.io</div>
           </div>
         </div>
@@ -1054,330 +1105,207 @@
         </div>
 
         <div class="node-box">
-          <div class="node-icon plc">🏭</div>
+          <div class="node-icon">🏭</div>
           <div class="node-info">
-            <div class="title">Mitsubishi FX5U PLC</div>
+            <div class="title">Hardware Controller / PLC</div>
             <div class="sub" id="topoPlcSub">192.168.1.100:502</div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- 3. TAB NAVIGATION -->
+    <!-- 3. MAIN NAVIGATION TABS (5 TABS PERSIS GAMBAR KEDUA USER) -->
     <nav class="tab-bar-nav">
-      <button type="button" class="tab-pill-btn active" onclick="switchSection('section-broker', this)">
-        <span>📡</span> 1. Broker MQTT Engine
+      <button type="button" class="tab-pill-btn active" id="tabBtnAccounts" onclick="switchSection('section-accounts', this)">
+        <span>👥</span> 1. Akun, PIN Hardware & CCTV Klien
       </button>
-      <button type="button" class="tab-pill-btn" onclick="switchSection('section-hardware', this)">
-        <span>📶</span> 2. WiFi & IoT Hardware
+      <button type="button" class="tab-pill-btn" id="tabBtnBroker" onclick="switchSection('section-broker', this)">
+        <span>📡</span> 2. Broker MQTT Engine
       </button>
-      <button type="button" class="tab-pill-btn" onclick="switchSection('section-plc', this)">
-        <span>🏭</span> 3. Mitsubishi PLC Modbus
+      <button type="button" class="tab-pill-btn" id="tabBtnHardware" onclick="switchSection('section-hardware', this)">
+        <span>📶</span> 3. WiFi & IoT Hardware
       </button>
-      <button type="button" class="tab-pill-btn" onclick="switchSection('section-security', this)">
-        <span>🔐</span> 4. Keamanan & API Sync
+      <button type="button" class="tab-pill-btn" id="tabBtnPlc" onclick="switchSection('section-plc', this)">
+        <span>🏭</span> 4. Mitsubishi PLC Modbus
+      </button>
+      <button type="button" class="tab-pill-btn" id="tabBtnSecurity" onclick="switchSection('section-security', this)">
+        <span>🔐</span> 5. Keamanan & API Sync
       </button>
     </nav>
 
     <!-- FORM START -->
     <form id="mainConfigForm" onsubmit="handleFormSubmit(event)">
 
-      <!-- SECTION 1: BROKER MQTT -->
-      <div id="section-broker" class="tab-content">
-        <div class="bento-grid">
-          
-          <div class="bento-card col-12">
-            <div class="card-title-group">
-              <div class="card-title-left">
-                <div class="card-icon-badge">📡</div>
-                <div>
-                  <h2>Konfigurasi Broker MQTT (Jantung Komunikasi)</h2>
-                  <p>Server perantara yang mendistribusikan data saklar, sensor, dan gerbang secara instan.</p>
-                </div>
+      <!-- ===================================================================== -->
+      <!-- TAB 1: MASTER AKUN KLIEN & TABEL PENGGUNA                             -->
+      <!-- ===================================================================== -->
+      <div id="section-accounts" class="tab-content">
+        <div class="bento-card">
+          <div class="card-title-group">
+            <div class="card-title-left">
+              <div class="card-icon-badge">👥</div>
+              <div>
+                <h2>Tabel Master Akun & Kredensial Multi-Tenant</h2>
+                <p>Kelola data pemilik, username login HP, controller gateway, dan akses Web Dashboard.</p>
               </div>
             </div>
-
-            <!-- PRESET SERVER CARDS -->
-            <div class="presets-label">Pilih Preset Cepat Server Broker:</div>
-            <div class="presets-grid">
-              
-              <div class="preset-card-item selected" onclick="applyBrokerPreset('broker.emqx.io', 1883, 8083, 'alrisa', this)">
-                <div class="preset-top">
-                  <span class="preset-name">EMQX Global</span>
-                  <span class="preset-tag global">Cloud Public</span>
-                </div>
-                <div class="preset-host">broker.emqx.io:1883</div>
-              </div>
-
-              <div class="preset-card-item" onclick="applyBrokerPreset('broker.hivemq.com', 1883, 8000, 'alrisa', this)">
-                <div class="preset-top">
-                  <span class="preset-name">HiveMQ Cloud</span>
-                  <span class="preset-tag global">Cloud Public</span>
-                </div>
-                <div class="preset-host">broker.hivemq.com:1883</div>
-              </div>
-
-              <div class="preset-card-item" onclick="applyBrokerPreset('192.168.1.100', 1883, 8083, 'alrisa', this)">
-                <div class="preset-top">
-                  <span class="preset-name">Mini PC Kantor</span>
-                  <span class="preset-tag private">Private LAN</span>
-                </div>
-                <div class="preset-host">192.168.1.100:1883</div>
-              </div>
-
-              <div class="preset-card-item" onclick="applyBrokerPreset('localhost', 1883, 8083, 'alrisa', this)">
-                <div class="preset-top">
-                  <span class="preset-name">Localhost PC</span>
-                  <span class="preset-tag local">Pengembang</span>
-                </div>
-                <div class="preset-host">127.0.0.1:1883</div>
-              </div>
-
-            </div>
-
-            <!-- INPUT FORM BROKER -->
-            <div class="form-row-grid">
-              <div class="form-group-box">
-                <label for="mqtt_broker">
-                  Domain / Alamat IP Broker
-                  <span class="field-badge">Wajib</span>
-                </label>
-                <div class="input-wrapper">
-                  <span class="input-icon">🌐</span>
-                  <input type="text" id="mqtt_broker" name="mqtt_broker" class="app-input mono" value="broker.emqx.io" required>
-                </div>
-                <div class="input-tip">💡 Rekomendasi internet: <code>broker.emqx.io</code></div>
-              </div>
-
-              <div class="form-group-box">
-                <label for="mqtt_prefix">
-                  Topic Prefix (Saluran Komunikasi)
-                  <span class="field-badge">Wajib</span>
-                </label>
-                <div class="input-wrapper">
-                  <span class="input-icon">🏷️</span>
-                  <input type="text" id="mqtt_prefix" name="mqtt_prefix" class="app-input mono" value="alrisa" required>
-                </div>
-                <div class="input-tip">Topik: <code>alrisa/+/set</code> dan <code>alrisa/+/state</code></div>
-              </div>
-            </div>
-
-            <div class="form-row-grid">
-              <div class="form-group-box">
-                <label for="mqtt_port">Port TCP (Aplikasi Android HP & PLC)</label>
-                <div class="input-wrapper">
-                  <span class="input-icon">🔌</span>
-                  <input type="number" id="mqtt_port" name="mqtt_port" class="app-input mono" value="1883" required>
-                </div>
-                <div class="input-tip">Default TCP: 1883 (Non-SSL) atau 8883 (SSL/TLS)</div>
-              </div>
-
-              <div class="form-group-box">
-                <label for="mqtt_ws_port">Port WebSocket (Untuk Web Browser)</label>
-                <div class="input-wrapper">
-                  <span class="input-icon">⚡</span>
-                  <input type="number" id="mqtt_ws_port" name="mqtt_ws_port" class="app-input mono" value="8083" required>
-                </div>
-                <div class="input-tip">Port browser: 8083 (EMQX) atau 9001 (Mosquitto)</div>
-              </div>
-            </div>
-
-            <div class="form-row-grid">
-              <div class="form-group-box">
-                <label for="mqtt_user">Username Autentikasi (Opsional)</label>
-                <div class="input-wrapper">
-                  <span class="input-icon">👤</span>
-                  <input type="text" id="mqtt_user" name="mqtt_user" class="app-input" placeholder="Biarkan kosong jika publik">
-                </div>
-              </div>
-
-              <div class="form-group-box">
-                <label for="mqtt_pass">Password Autentikasi (Opsional)</label>
-                <div class="input-wrapper">
-                  <span class="input-icon">🔑</span>
-                  <input type="password" id="mqtt_pass" name="mqtt_pass" class="app-input" placeholder="Biarkan kosong jika publik">
-                </div>
-              </div>
-            </div>
-
-            <!-- LIVE DIAGNOSTIC TERMINAL -->
-            <div class="terminal-window">
-              <div class="terminal-bar">
-                <div class="window-dots">
-                  <div class="window-dot red"></div>
-                  <div class="window-dot yellow"></div>
-                  <div class="window-dot green"></div>
-                </div>
-                <div class="terminal-title">ALRISA NODE.JS MQTT LIVE TERMINAL — SOCKET INSPECTOR</div>
-                <div style="font-size: 10px; color: #34D399;" id="termStatusBadge">● READY</div>
-              </div>
-
-              <div class="terminal-body" id="termOutput">
-                <div class="term-line">
-                  <span class="term-time">[INIT]</span>
-                  <span class="term-prefix">NODE_CORE:</span>
-                  <span class="term-msg">Engine konfigurasi Node.js aktif. Tekan tombol di bawah untuk ping server broker.</span>
-                </div>
-              </div>
-
-              <div class="terminal-footer">
-                <div style="font-size: 11px; color: #94A3B8;">
-                  Node Engine: Express + ws + mqtt client
-                </div>
-                <button type="button" class="tester-btn" onclick="runLiveDiagnosticTest()">
-                  <span>⚡</span> Uji Ping Koneksi Broker Sekarang
-                </button>
-              </div>
-            </div>
-
+            <button type="button" class="btn-top" style="background: var(--cyan); color: #000; border: none; font-weight: 800; box-shadow: 0 0 14px var(--cyan-glow);" onclick="openAccountModal()">
+              <span>➕</span> Tambah Akun Klien Baru
+            </button>
           </div>
 
+          <!-- TABEL AKUN MASTER -->
+          <div class="accounts-table-wrapper">
+            <table class="accounts-table">
+              <thead>
+                <tr>
+                  <th style="width: 250px;">Nama Pemilik / Klien</th>
+                  <th style="width: 220px;">Username / Email Login</th>
+                  <th style="width: 200px;">Kata Sandi (Password)</th>
+                  <th style="width: 220px;">Mesin Hardware Gateway</th>
+                  <th style="width: 140px;">Perangkat Terpasang</th>
+                  <th style="text-align: right; width: 250px;">Aksi Cepat</th>
+                </tr>
+              </thead>
+              <tbody id="accountsTableBody">
+                <!-- Dirender secara dinamis oleh JavaScript -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ACTIVE ACCOUNT DETAIL PANEL -->
+          <div id="accountDetailCard">
+            <!-- Dirender secara dinamis oleh JavaScript -->
+          </div>
         </div>
       </div>
 
-      <!-- SECTION 2: HARDWARE & WIFI -->
-      <div id="section-hardware" class="tab-content" style="display: none;">
-        <div class="bento-grid">
+      <!-- ===================================================================== -->
+      <!-- TAB 2: BROKER MQTT ENGINE (KHUSUS PER-AKUN)                           -->
+      <!-- ===================================================================== -->
+      <div id="section-broker" class="tab-content" style="display: none;">
+        <div class="bento-card">
           
-          <div class="bento-card col-6">
-            <div class="card-title-group">
-              <div class="card-title-left">
-                <div class="card-icon-badge emerald">📶</div>
-                <div>
-                  <h2>Konfigurasi WiFi IoT Hardware</h2>
-                  <p>Kredensial WiFi kantor/rumah untuk modul ESP32 & ESP8266.</p>
+          <!-- BANNER INDIKATOR AKUN AKTIF -->
+          <div class="active-account-broker-banner" id="activeAccountBrokerBanner">
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <div class="user-avatar-badge" id="brokerBannerAvatar">RA</div>
+              <div>
+                <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--cyan); letter-spacing: 0.8px;">⚙️ PENGATURAN BROKER AKTIF UNTUK AKUN:</div>
+                <div style="font-size: 17px; font-weight: 800; color: var(--text-white); margin-top: 2px;" id="brokerBannerName">Ravi Armanza (Super Admin)</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+                  ID: <span class="role-badge superadmin" id="brokerBannerId">acc_superadmin</span> •
+                  Hardware: <span id="brokerBannerHw" style="color: var(--cyan); font-weight: 600;">Raspberry Pi 4</span> •
+                  Prefix: <code id="brokerBannerPrefix" style="color: var(--emerald);">alrisa/admin</code>
                 </div>
               </div>
             </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <label style="font-size: 12.5px; font-weight: 700; color: var(--text-secondary);">Ganti Akun:</label>
+              <select id="brokerAccountSwitcher" class="app-input" style="width: auto; padding: 8px 14px; font-size: 12.5px; border-radius: 10px;" onchange="selectActiveAccount(this.value, true)">
+              </select>
+            </div>
+          </div>
 
-            <div class="form-group-box" style="margin-bottom: 18px;">
-              <label for="wifi_ssid">Nama Jaringan WiFi (SSID)</label>
-              <div class="input-wrapper">
-                <span class="input-icon">📡</span>
-                <input type="text" id="wifi_ssid" name="wifi_ssid" class="app-input" value="ALRISA_OFFICE_WIFI">
+          <div class="card-title-group">
+            <div class="card-title-left">
+              <div class="card-icon-badge">📡</div>
+              <div>
+                <h2>Konfigurasi Broker MQTT (Jantung Komunikasi)</h2>
+                <p>Server perantara yang mendistribusikan data saklar, sensor, gerbang, dan telemetry secara seketika untuk akun ini.</p>
               </div>
-              <div class="input-tip">Modul mikrokontroler akan otomatis terhubung ke hotspot ini.</div>
+            </div>
+          </div>
+
+          <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 12px;">
+            Pilih Preset Server Broker Cepat:
+          </div>
+          <div class="presets-grid">
+            <div class="preset-card-item" id="presetEmqx" onclick="applyBrokerPreset('broker.emqx.io', 1883, 8083, this)">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="preset-name">EMQX Global</span>
+                <span class="preset-tag global">Cloud Public</span>
+              </div>
+              <div class="preset-host">broker.emqx.io:1883</div>
             </div>
 
+            <div class="preset-card-item" id="presetHivemq" onclick="applyBrokerPreset('broker.hivemq.com', 1883, 8000, this)">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="preset-name">HiveMQ Cloud</span>
+                <span class="preset-tag global">Cloud Public</span>
+              </div>
+              <div class="preset-host">broker.hivemq.com:1883</div>
+            </div>
+
+            <div class="preset-card-item" id="presetMinipc" onclick="applyBrokerPreset('192.168.1.100', 1883, 8083, this)">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="preset-name">Mini PC Kantor</span>
+                <span class="preset-tag private">Private LAN</span>
+              </div>
+              <div class="preset-host">192.168.1.100:1883</div>
+            </div>
+
+            <div class="preset-card-item" id="presetLocal" onclick="applyBrokerPreset('127.0.0.1', 1883, 8083, this)">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="preset-name">Localhost PC</span>
+                <span class="preset-tag local">Pengembang</span>
+              </div>
+              <div class="preset-host">127.0.0.1:1883</div>
+            </div>
+          </div>
+
+          <div class="form-row-grid">
             <div class="form-group-box">
-              <label for="wifi_password">Kata Sandi WiFi (WPA2/WPA3)</label>
-              <div class="input-wrapper">
-                <span class="input-icon">🔒</span>
-                <input type="password" id="wifi_password" name="wifi_password" class="app-input" placeholder="Masukkan kata sandi WiFi">
-              </div>
+              <label for="mqtt_broker">Alamat Host / Domain Broker <span class="field-badge">Wajib</span></label>
+              <input type="text" id="mqtt_broker" name="mqtt_broker" class="app-input mono" placeholder="broker.emqx.io" required>
+            </div>
+            <div class="form-group-box">
+              <label for="mqtt_port">Port TCP (ESP32 / HP / Python) <span class="field-badge">Wajib</span></label>
+              <input type="number" id="mqtt_port" name="mqtt_port" class="app-input mono" placeholder="1883" required>
+            </div>
+            <div class="form-group-box">
+              <label for="mqtt_ws_port">Port WebSocket Browser (WSS)</label>
+              <input type="number" id="mqtt_ws_port" name="mqtt_ws_port" class="app-input mono" placeholder="8083">
             </div>
           </div>
 
-          <div class="bento-card col-6">
-            <div class="card-title-group">
-              <div class="card-title-left">
-                <div class="card-icon-badge emerald">🛠️</div>
-                <div>
-                  <h2>Keuntungan Node.js untuk IoT</h2>
-                  <p>Mengapa Node.js jauh lebih cepat dibanding PHP.</p>
-                </div>
-              </div>
+          <div class="form-row-grid">
+            <div class="form-group-box">
+              <label for="mqtt_prefix">Topic Root Prefix Akun Ini</label>
+              <input type="text" id="mqtt_prefix" name="mqtt_prefix" class="app-input mono" placeholder="alrisa/admin">
             </div>
-
-            <div style="font-size: 13px; line-height: 1.8; color: var(--text-secondary);">
-              <p>⚡ <strong>Non-Blocking I/O:</strong> Node.js mampu memproses ribuan pesan MQTT per detik tanpa jeda.</p>
-              <p>🔄 <strong>Persistent Connection:</strong> Server Node.js selalu hidup di background, menjaga koneksi ke broker 24/7 tanpa mati seperti PHP.</p>
-              <p>🚀 <strong>WebSocket Terintegrasi:</strong> Browser dan HP langsung tersambung via socket dua arah.</p>
+            <div class="form-group-box">
+              <label for="mqtt_user">Username Broker (Opsional)</label>
+              <input type="text" id="mqtt_user" name="mqtt_user" class="app-input" placeholder="Kosong jika public">
+            </div>
+            <div class="form-group-box">
+              <label for="mqtt_pass">Password Broker (Opsional)</label>
+              <input type="password" id="mqtt_pass" name="mqtt_pass" class="app-input" placeholder="Kosong jika public">
             </div>
           </div>
 
-        </div>
-      </div>
-
-      <!-- SECTION 3: MITSUBISHI PLC & MODBUS -->
-      <div id="section-plc" class="tab-content" style="display: none;">
-        <div class="bento-grid">
-          
-          <div class="bento-card col-12">
-            <div class="card-title-group">
-              <div class="card-title-left">
-                <div class="card-icon-badge purple">🏭</div>
-                <div>
-                  <h2>Integrasi Kontroler Mitsubishi FX5U (Modbus TCP)</h2>
-                  <p>Jembatan komunikasi industri antara Mini PC Gateway dan unit PLC Pagar.</p>
-                </div>
+          <!-- DIAGNOSTIC CONSOLE -->
+          <div class="terminal-container">
+            <div class="terminal-header">
+              <div class="terminal-dots">
+                <div class="terminal-dot red"></div>
+                <div class="terminal-dot yellow"></div>
+                <div class="terminal-dot green"></div>
+              </div>
+              <div style="font-size: 11px; color: var(--text-dim); font-weight: 700;">DIAGNOSTIC BROKER WEBSOCKET TERMINAL</div>
+              <div style="font-size: 11px; font-weight: 800; color: var(--emerald);" id="termStatusBadge">● READY</div>
+            </div>
+            <div class="terminal-body" id="termOutput">
+              <div class="term-line">
+                <span class="term-time">[LIVE]</span>
+                <span class="term-prefix">SYSTEM:</span>
+                <span class="term-msg">Konsol diagnostik siap menguji transmisi paket MQTT WebSocket akun ini.</span>
               </div>
             </div>
-
-            <div class="form-row-grid">
-              <div class="form-group-box">
-                <label for="plc_type">Model PLC & Driver Industri</label>
-                <div class="input-wrapper">
-                  <span class="input-icon">⚙️</span>
-                  <input type="text" id="plc_type" name="plc_type" class="app-input" value="Mitsubishi FX5U (Modbus TCP Port 502)">
-                </div>
-              </div>
-
-              <div class="form-group-box">
-                <label for="plc_ip">Alamat IP PLC (Ethernet LAN)</label>
-                <div class="input-wrapper">
-                  <span class="input-icon">🖥️</span>
-                  <input type="text" id="plc_ip" name="plc_ip" class="app-input mono" value="192.168.1.100" required>
-                </div>
-                <div class="input-tip">Contoh: <code>192.168.1.100</code></div>
-              </div>
-
-              <div class="form-group-box">
-                <label for="plc_port">Port Modbus TCP</label>
-                <div class="input-wrapper">
-                  <span class="input-icon">🔌</span>
-                  <input type="number" id="plc_port" name="plc_port" class="app-input mono" value="502" required>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- SECTION 4: SECURITY & API SYNC -->
-      <div id="section-security" class="tab-content" style="display: none;">
-        <div class="bento-grid">
-          
-          <div class="bento-card col-12">
-            <div class="card-title-group">
-              <div class="card-title-left">
-                <div class="card-icon-badge">🔐</div>
-                <div>
-                  <h2>Token Keamanan & Endpoint Sinkronisasi Aplikasi HP</h2>
-                  <p>Kunci autentikasi agar aplikasi Flutter ALRISA dapat mengunduh konfigurasi ini secara otomatis.</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="form-row-grid" style="margin-bottom: 24px;">
-              <div class="form-group-box">
-                <label for="api_secret_key">
-                  Kunci Rahasia API (X-API-KEY)
-                  <span class="field-badge">Penting</span>
-                </label>
-                <div class="input-wrapper">
-                  <span class="input-icon">🔑</span>
-                  <input type="text" id="api_secret_key" name="api_secret_key" class="app-input mono" value="alrisa_secret_token_2026" required>
-                </div>
-              </div>
-
-              <div class="form-group-box">
-                <label for="app_name">Label Ekosistem Rumah / Kantor</label>
-                <div class="input-wrapper">
-                  <span class="input-icon">🏢</span>
-                  <input type="text" id="app_name" name="app_name" class="app-input" value="ALRISA Industrial IoT Suite">
-                </div>
-              </div>
-            </div>
-
-            <label style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; display: block;">
-              URL Sinkronisasi Konfigurasi Otomatis (Node.js REST API):
-            </label>
-            <div class="sync-box">
-              <div class="sync-url-code" id="syncUrlPreview">Memuat URL Endpoint...</div>
-              <button type="button" class="copy-chip-btn" onclick="copySyncUrl()">
-                <span>📋</span> SALIN URL API
+            <div class="terminal-footer">
+              <span style="font-size: 11.5px; color: var(--text-secondary);">Gunakan tes ini untuk memastikan port WebSocket broker terbuka dan aktif.</span>
+              <button type="button" class="tester-btn" onclick="runLiveDiagnosticTest()">
+                <span>⚡</span> Uji Koneksi Broker Live
               </button>
             </div>
           </div>
@@ -1385,13 +1313,111 @@
         </div>
       </div>
 
+      <!-- ===================================================================== -->
+      <!-- TAB 3: WIFI & IOT HARDWARE                                            -->
+      <!-- ===================================================================== -->
+      <div id="section-hardware" class="tab-content" style="display: none;">
+        <div class="bento-card">
+          <div class="card-title-group">
+            <div class="card-title-left">
+              <div class="card-icon-badge">📶</div>
+              <div>
+                <h2>Pengaturan WiFi & Komunikasi Mikrokontroler (ESP32)</h2>
+                <p>Kredensial hotspot nirkabel yang digunakan oleh alat di lokasi akun ini.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row-grid">
+            <div class="form-group-box">
+              <label for="wifi_ssid">Nama WiFi SSID (2.4GHz) <span class="field-badge">Wajib</span></label>
+              <input type="text" id="wifi_ssid" name="wifi_ssid" class="app-input" placeholder="Nama WiFi Rumah / Kantor">
+            </div>
+            <div class="form-group-box">
+              <label for="wifi_password">Kata Sandi WiFi</label>
+              <input type="text" id="wifi_password" name="wifi_password" class="app-input mono" placeholder="Kosongkan jika tanpa password">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- TAB 4: MITSUBISHI PLC MODBUS                                          -->
+      <!-- ===================================================================== -->
+      <div id="section-plc" class="tab-content" style="display: none;">
+        <div class="bento-card">
+          <div class="card-title-group">
+            <div class="card-title-left">
+              <div class="card-icon-badge">🏭</div>
+              <div>
+                <h2>Integrasi Mitsubishi FX5U PLC & Modbus Gateway</h2>
+                <p>Alamat IP PLC industri dan port Modbus TCP (Port 502) untuk komunikasi gerbang industri dan relai contactor.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row-grid">
+            <div class="form-group-box">
+              <label for="plc_type">Jenis Controller Otomasi</label>
+              <input type="text" id="plc_type" name="plc_type" class="app-input" placeholder="Mitsubishi FX5U (Modbus TCP Port 502)">
+            </div>
+            <div class="form-group-box">
+              <label for="plc_ip">Alamat IP PLC (Ethernet LAN) <span class="field-badge">Wajib</span></label>
+              <input type="text" id="plc_ip" name="plc_ip" class="app-input mono" placeholder="192.168.1.100">
+            </div>
+            <div class="form-group-box">
+              <label for="plc_port">Port Modbus TCP</label>
+              <input type="number" id="plc_port" name="plc_port" class="app-input mono" placeholder="502">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- TAB 5: KEAMANAN & API SYNC                                            -->
+      <!-- ===================================================================== -->
+      <div id="section-security" class="tab-content" style="display: none;">
+        <div class="bento-card">
+          <div class="card-title-group">
+            <div class="card-title-left">
+              <div class="card-icon-badge">🔐</div>
+              <div>
+                <h2>Token Keamanan & REST API Sync Otomatis</h2>
+                <p>Kunci autentikasi agar aplikasi Flutter Nexora dapat mengunduh konfigurasi ini secara otomatis.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row-grid">
+            <div class="form-group-box">
+              <label for="api_secret_key">Kunci Rahasia API (X-API-KEY) <span class="field-badge">Penting</span></label>
+              <input type="text" id="api_secret_key" name="api_secret_key" class="app-input mono" value="alrisa_secret_token_2026" required>
+            </div>
+            <div class="form-group-box">
+              <label for="app_name">Label Ekosistem Rumah / Kantor</label>
+              <input type="text" id="app_name" name="app_name" class="app-input" value="ALRISA & NEXORA Multi-Tenant Cloud Studio">
+            </div>
+          </div>
+
+          <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px;">
+            URL Sinkronisasi Konfigurasi Otomatis (REST API):
+          </div>
+          <div class="sync-box">
+            <div class="sync-url-code" id="syncUrlPreview">Memuat URL Endpoint...</div>
+            <button type="button" class="btn-top" onclick="copySyncUrl()" style="background: var(--cyan); color: #000; border: none; font-weight: 800;">
+              <span>📋</span> Salin URL API
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- FLOATING ACTION DOCK -->
       <div class="floating-save-dock">
         <div class="dock-status-info">
-          <div class="dock-icon">🛡️</div>
+          <div style="font-size: 26px;">🛡️</div>
           <div class="dock-text">
-            <div class="title">Semua Parameter Konfigurasi Node.js Siap Diterapkan</div>
-            <div class="sub">Perubahan akan langsung aktif untuk HP, Simulator PLC, dan Web Dashboard.</div>
+            <div class="title" id="dockActiveAccountTitle">Konfigurasi Siap Diterapkan</div>
+            <div class="sub">Perubahan akan langsung aktif untuk HP Android, Simulator PLC, dan Web Dashboard.</div>
           </div>
         </div>
 
@@ -1400,19 +1426,348 @@
             <span>🔄</span> Bawaan Pabrik
           </button>
           <button type="submit" class="btn-dock-save" id="btnSubmitForm">
-            <span>💾</span> Simpan Konfigurasi Node.js
+            <span>💾</span> Simpan Konfigurasi
           </button>
         </div>
       </div>
 
     </form>
-
   </div>
 
+  <!-- MODAL: EDIT AKUN KLIEN & KREDENSIAL -->
+  <div class="modal-backdrop-custom" id="editAccountModal">
+    <div class="modal-box-custom">
+      <div class="modal-header-custom">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(0, 240, 255, 0.12); border: 1px solid rgba(0, 240, 255, 0.25); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            ✏️
+          </div>
+          <div>
+            <h3 style="font-size: 16px; font-weight: 800; color: var(--text-white);">Edit Data & Kredensial Akun</h3>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">Ubah nama pemilik, email login, password, dan controller</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeEditAccountModal()" style="background: none; border: none; font-size: 22px; color: var(--text-dim); cursor: pointer;">✕</button>
+      </div>
+
+      <div class="modal-body-custom">
+        <input type="hidden" id="editAccId">
+        
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="editAccName">Nama Pemilik / Klien <span class="field-badge">Wajib</span></label>
+          <input type="text" id="editAccName" class="app-input" placeholder="Contoh: Ravi Armanza (Super Admin)">
+        </div>
+
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="editAccEmail">Username / Email Login HP <span class="field-badge">Wajib</span></label>
+          <input type="email" id="editAccEmail" class="app-input mono" placeholder="nama@nexora.id">
+        </div>
+
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="editAccPassword">Password Login HP <span class="field-badge">Wajib</span></label>
+          <input type="text" id="editAccPassword" class="app-input mono" placeholder="Kata sandi akun">
+        </div>
+
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="editAccHw">Mesin Controller Hardware</label>
+          <select id="editAccHw" class="app-input">
+            <option value="Raspberry Pi 4 (Master Controller)">🍓 Raspberry Pi 4 (Master Controller)</option>
+            <option value="Raspberry Pi 4 Gateway">🍓 Raspberry Pi 4 Gateway</option>
+            <option value="Mitsubishi FX5U PLC (Industrial Hub)">🏭 Mitsubishi FX5U PLC (Industrial Hub)</option>
+            <option value="ESP32 Smart Automation Hub">⚡ ESP32 Smart Automation Hub</option>
+          </select>
+        </div>
+
+        <div class="form-group-box">
+          <label for="editAccPrefix">Topic MQTT Prefix Khusus Akun Ini</label>
+          <input type="text" id="editAccPrefix" class="app-input mono" placeholder="alrisa/admin">
+        </div>
+      </div>
+
+      <div class="modal-footer-custom">
+        <button type="button" class="btn-top" onclick="closeEditAccountModal()">Batal</button>
+        <button type="button" class="btn-dock-save" onclick="saveEditAccountModal()" style="padding: 10px 22px; font-size: 13px;">
+          <span>✅ Simpan Perubahan Akun</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: TAMBAH AKUN KLIEN BARU -->
+  <div class="modal-backdrop-custom" id="accountModal">
+    <div class="modal-box-custom">
+      <div class="modal-header-custom">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(139, 92, 246, 0.15); border: 1px solid rgba(139, 92, 246, 0.3); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            👤
+          </div>
+          <div>
+            <h3 style="font-size: 16px; font-weight: 800; color: var(--text-white);">Daftarkan Akun Klien Baru</h3>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">1 Akun = 1 HP / Lokasi Klien dengan Mesin Terpisah</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeAccountModal()" style="background: none; border: none; font-size: 22px; color: var(--text-dim); cursor: pointer;">✕</button>
+      </div>
+
+      <div class="modal-body-custom">
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="newAccName">Nama Pemilik / Klien <span class="field-badge">Wajib</span></label>
+          <input type="text" id="newAccName" class="app-input" placeholder="Contoh: Bpk. Hendra - Villa Puncak">
+        </div>
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="newAccEmail">Email / Username Login HP <span class="field-badge">Wajib</span></label>
+          <input type="email" id="newAccEmail" class="app-input mono" placeholder="hendra@nexora.id">
+        </div>
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="newAccPassword">Password Login HP <span class="field-badge">Wajib</span></label>
+          <input type="text" id="newAccPassword" class="app-input mono" value="123456">
+        </div>
+        <div class="form-group-box">
+          <label for="newAccHw">Mesin Controller Hardware</label>
+          <select id="newAccHw" class="app-input">
+            <option value="Raspberry Pi 4 (Master Controller)">🍓 Raspberry Pi 4 (Master Controller)</option>
+            <option value="Mitsubishi FX5U PLC (Industrial Hub)">🏭 Mitsubishi FX5U PLC (Industrial Hub)</option>
+            <option value="ESP32 Smart Automation Hub">⚡ ESP32 Smart Automation Hub</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-footer-custom">
+        <button type="button" class="btn-top" onclick="closeAccountModal()">Batal</button>
+        <button type="button" class="btn-dock-save" onclick="saveNewAccountModal()" style="padding: 10px 22px; font-size: 13px;">
+          <span>✅ Daftarkan Akun Klien</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: TAMBAH PERANGKAT BARU (SINKRON KE HP) -->
+  <div class="modal-backdrop-custom" id="deviceModal">
+    <div class="modal-box-custom">
+      <div class="modal-header-custom">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(0, 240, 255, 0.15); border: 1px solid rgba(0, 240, 255, 0.3); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            🔌
+          </div>
+          <div>
+            <h3 style="font-size: 16px; font-weight: 800; color: var(--text-white);">Tambah Perangkat Baru</h3>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">Perangkat ini otomatis muncul di Web dan Aplikasi HP</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeAddDeviceModal()" style="background: none; border: none; font-size: 22px; color: var(--text-dim); cursor: pointer;">✕</button>
+      </div>
+
+      <div class="modal-body-custom">
+        <input type="hidden" id="devTargetAccId">
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="newDevName">Nama Perangkat <span class="field-badge">Wajib</span></label>
+          <input type="text" id="newDevName" class="app-input" placeholder="Contoh: Gerbang Tengah / Pagar Depan / Lampu Taman">
+        </div>
+
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="newDevType">Tipe / Kategori Perangkat <span class="field-badge">Wajib</span></label>
+          <select id="newDevType" class="app-input" onchange="autoSuggestPinForType(this.value)">
+            <option value="0">🚪 Gerbang / Pagar Otomatis</option>
+            <option value="1">💡 Lampu / Penerangan</option>
+            <option value="2">🚪 Pintu Geser Elektrik</option>
+            <option value="3">🪟 Gorden Otomatis</option>
+            <option value="4">💧 Pompa Air / Toren</option>
+          </select>
+        </div>
+
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="newDevPin">PIN Hardware ESP32 / Alamat PLC (%QX) <span class="field-badge">Penting</span></label>
+          <input type="text" id="newDevPin" class="app-input mono" placeholder="Contoh: GPIO 16 (%QX0.2)">
+          <div style="font-size: 11px; color: var(--text-dim); margin-top: 6px;">Pilihan Cepat:</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+            <button type="button" class="btn-top" style="padding: 4px 10px; font-size: 11px; color: var(--cyan);" onclick="document.getElementById('newDevPin').value='GPIO 2 (%QX0.0)'">GPIO 2</button>
+            <button type="button" class="btn-top" style="padding: 4px 10px; font-size: 11px; color: var(--cyan);" onclick="document.getElementById('newDevPin').value='GPIO 4 (%QX0.1)'">GPIO 4</button>
+            <button type="button" class="btn-top" style="padding: 4px 10px; font-size: 11px; color: var(--cyan);" onclick="document.getElementById('newDevPin').value='GPIO 16 (%QX0.2)'">GPIO 16</button>
+            <button type="button" class="btn-top" style="padding: 4px 10px; font-size: 11px; color: var(--cyan);" onclick="document.getElementById('newDevPin').value='GPIO 17 (%QX0.3)'">GPIO 17</button>
+            <button type="button" class="btn-top" style="padding: 4px 10px; font-size: 11px; color: var(--cyan);" onclick="document.getElementById('newDevPin').value='GPIO 18 (%QX0.2)'">GPIO 18</button>
+            <button type="button" class="btn-top" style="padding: 4px 10px; font-size: 11px; color: var(--cyan);" onclick="document.getElementById('newDevPin').value='GPIO 19 (%QX0.4)'">GPIO 19</button>
+          </div>
+        </div>
+
+        <div class="form-group-box">
+          <label for="newDevId">ID MQTT (Opsional, otomatis dibuat jika kosong)</label>
+          <input type="text" id="newDevId" class="app-input mono" placeholder="Contoh: pagar_tengah / lampu_teras">
+        </div>
+      </div>
+
+      <div class="modal-footer-custom">
+        <button type="button" class="btn-top" onclick="closeAddDeviceModal()">Batal</button>
+        <button type="button" class="btn-dock-save" onclick="saveNewDeviceModal()" style="padding: 10px 22px; font-size: 13px;">
+          <span>✅ Simpan & Sinkron ke HP</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: UBAH PIN HARDWARE / GPIO (SINKRON KE HP) -->
+  <div class="modal-backdrop-custom" id="pinModal">
+    <div class="modal-box-custom">
+      <div class="modal-header-custom">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(0, 240, 255, 0.15); border: 1px solid rgba(0, 240, 255, 0.3); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            ⚙️
+          </div>
+          <div>
+            <h3 style="font-size: 16px; font-weight: 800; color: var(--text-white);">Ubah PIN Hardware Perangkat</h3>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" id="pinModalDeviceTitle">Memperbarui PIN GPIO / Alamat PLC</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeEditPinModal()" style="background: none; border: none; font-size: 22px; color: var(--text-dim); cursor: pointer;">✕</button>
+      </div>
+
+      <div class="modal-body-custom">
+        <input type="hidden" id="pinAccId">
+        <input type="hidden" id="pinDevId">
+
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label>Nama Perangkat</label>
+          <input type="text" id="pinDevName" class="app-input" readonly style="opacity: 0.75; cursor: not-allowed;">
+        </div>
+
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="editHardwarePinInput">PIN Hardware / GPIO / PLC Baru <span class="field-badge">Wajib</span></label>
+          <input type="text" id="editHardwarePinInput" class="app-input mono" placeholder="Contoh: GPIO 16 (%QX0.2)">
+        </div>
+
+        <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">Pilih Preset Cepat PIN:</div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn-top" style="padding: 6px 12px; font-size: 11.5px;" onclick="document.getElementById('editHardwarePinInput').value='GPIO 2 (%QX0.0)'">GPIO 2 (Relay 1)</button>
+          <button type="button" class="btn-top" style="padding: 6px 12px; font-size: 11.5px;" onclick="document.getElementById('editHardwarePinInput').value='GPIO 4 (%QX0.1)'">GPIO 4 (Relay 2)</button>
+          <button type="button" class="btn-top" style="padding: 6px 12px; font-size: 11.5px;" onclick="document.getElementById('editHardwarePinInput').value='GPIO 16 (%QX0.2)'">GPIO 16 (Relay 3)</button>
+          <button type="button" class="btn-top" style="padding: 6px 12px; font-size: 11.5px;" onclick="document.getElementById('editHardwarePinInput').value='GPIO 17 (%QX0.3)'">GPIO 17 (Relay 4)</button>
+          <button type="button" class="btn-top" style="padding: 6px 12px; font-size: 11.5px;" onclick="document.getElementById('editHardwarePinInput').value='GPIO 18 (%QX0.2)'">GPIO 18 (Gorden)</button>
+          <button type="button" class="btn-top" style="padding: 6px 12px; font-size: 11.5px;" onclick="document.getElementById('editHardwarePinInput').value='GPIO 19 (%QX0.4)'">GPIO 19 (Pompa)</button>
+          <button type="button" class="btn-top" style="padding: 6px 12px; font-size: 11.5px;" onclick="document.getElementById('editHardwarePinInput').value='GPIO 21'">GPIO 21</button>
+          <button type="button" class="btn-top" style="padding: 6px 12px; font-size: 11.5px;" onclick="document.getElementById('editHardwarePinInput').value='GPIO 22'">GPIO 22</button>
+          <button type="button" class="btn-top" style="padding: 6px 12px; font-size: 11.5px;" onclick="document.getElementById('editHardwarePinInput').value='%QX0.0 (Relay 1)'">%QX0.0</button>
+          <button type="button" class="btn-top" style="padding: 6px 12px; font-size: 11.5px;" onclick="document.getElementById('editHardwarePinInput').value='%QX0.1 (Relay 2)'">%QX0.1</button>
+        </div>
+      </div>
+
+      <div class="modal-footer-custom">
+        <button type="button" class="btn-top" onclick="closeEditPinModal()">Batal</button>
+        <button type="button" class="btn-dock-save" onclick="saveEditPinModal()" style="padding: 10px 22px; font-size: 13px;">
+          <span>✅ Simpan PIN & Sinkron ke HP</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: TAMBAH CCTV BARU (SUPER ADMIN) -->
+  <div class="modal-backdrop-custom" id="cctvModal">
+    <div class="modal-box-custom">
+      <div class="modal-header-custom">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(0, 240, 255, 0.12); border: 1px solid rgba(0, 240, 255, 0.25); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            📹
+          </div>
+          <div>
+            <h3 style="font-size: 16px; font-weight: 800; color: var(--text-white);">Tambah Kamera CCTV Baru</h3>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">Atur IP dan RTSP Stream untuk akun klien ini</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeAddCctvModal()" style="background: none; border: none; font-size: 22px; color: var(--text-dim); cursor: pointer;">✕</button>
+      </div>
+
+      <div class="modal-body-custom">
+        <input type="hidden" id="cctvTargetAccId">
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="newCctvName">Nama Kamera <span class="field-badge">Wajib</span></label>
+          <input type="text" id="newCctvName" class="app-input" placeholder="Contoh: Kamera Gerbang Utama / CCTV Depan">
+        </div>
+
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="newCctvLocation">Lokasi Penempatan</label>
+          <input type="text" id="newCctvLocation" class="app-input" placeholder="Contoh: Gerbang Depan / Halaman / Teras">
+        </div>
+
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="newCctvRtsp">RTSP Stream URL <span class="field-badge">Penting</span></label>
+          <input type="text" id="newCctvRtsp" class="app-input mono" placeholder="rtsp://admin:admin123@192.168.1.50:554/live/ch0">
+        </div>
+
+        <div class="form-row-grid" style="margin-bottom: 0;">
+          <div class="form-group-box">
+            <label for="newCctvHost">Alamat IP Kamera (ONVIF)</label>
+            <input type="text" id="newCctvHost" class="app-input mono" placeholder="192.168.1.50">
+          </div>
+          <div class="form-group-box">
+            <label for="newCctvPort">Port ONVIF</label>
+            <input type="number" id="newCctvPort" class="app-input mono" value="80">
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer-custom">
+        <button type="button" class="btn-top" onclick="closeAddCctvModal()">Batal</button>
+        <button type="button" class="btn-dock-save" onclick="saveNewCctvModal()" style="padding: 10px 22px; font-size: 13px;">
+          <span>✅ Simpan & Sinkron ke HP</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: UBAH IP & RTSP STREAM CCTV (SUPER ADMIN) -->
+  <div class="modal-backdrop-custom" id="cctvIpModal">
+    <div class="modal-box-custom">
+      <div class="modal-header-custom">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(0, 240, 255, 0.15); border: 1px solid rgba(0, 240, 255, 0.3); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            ⚙️
+          </div>
+          <div>
+            <h3 style="font-size: 16px; font-weight: 800; color: var(--text-white);">Ubah Konfigurasi IP / RTSP CCTV</h3>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" id="cctvIpModalTitle">Memperbarui IP Stream Kamera</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeEditCctvIpModal()" style="background: none; border: none; font-size: 22px; color: var(--text-dim); cursor: pointer;">✕</button>
+      </div>
+
+      <div class="modal-body-custom">
+        <input type="hidden" id="editCctvAccId">
+        <input type="hidden" id="editCctvId">
+
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label>Nama Kamera</label>
+          <input type="text" id="editCctvName" class="app-input" readonly style="opacity: 0.75; cursor: not-allowed;">
+        </div>
+
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="editCctvRtspInput">RTSP Stream URL Baru <span class="field-badge">Wajib</span></label>
+          <input type="text" id="editCctvRtspInput" class="app-input mono" placeholder="rtsp://admin:admin123@192.168.1.50:554/live/ch0">
+        </div>
+
+        <div class="form-row-grid" style="margin-bottom: 0;">
+          <div class="form-group-box">
+            <label for="editCctvHostInput">Alamat IP Kamera (ONVIF)</label>
+            <input type="text" id="editCctvHostInput" class="app-input mono" placeholder="192.168.1.50">
+          </div>
+          <div class="form-group-box">
+            <label for="editCctvPortInput">Port ONVIF</label>
+            <input type="number" id="editCctvPortInput" class="app-input mono" placeholder="80">
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer-custom">
+        <button type="button" class="btn-top" onclick="closeEditCctvIpModal()">Batal</button>
+        <button type="button" class="btn-dock-save" onclick="saveEditCctvIpModal()" style="padding: 10px 22px; font-size: 13px;">
+          <span>✅ Simpan Stream & Sinkron ke HP</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT CONTROLLER (PURE CLIENT-SIDE FOR NODE.JS HUB) -->
   <script>
-    // =========================================================
-    // THEME SWITCHER LOGIC (DARK / LIGHT MODE)
-    // =========================================================
+    // =========================================================================
+    // 🎨 THEME CONTROLLER
+    // =========================================================================
     function initTheme() {
       const savedTheme = localStorage.getItem('alrisa_theme') || 'dark';
       applyTheme(savedTheme);
@@ -1429,7 +1784,6 @@
 
       const icon = document.getElementById('themeIcon');
       const text = document.getElementById('themeText');
-
       if (theme === 'light') {
         if (icon) icon.innerText = '🌙';
         if (text) text.innerText = 'Mode Gelap';
@@ -1438,107 +1792,852 @@
         if (text) text.innerText = 'Mode Terang';
       }
     }
-
-    // Inisialisasi tema saat pertama kali dijalankan
     initTheme();
 
-    // =========================================================
-    // LOAD DATA DARI REST API NODE.JS
-    // =========================================================
-    window.addEventListener('DOMContentLoaded', () => {
-      fetch('/api/settings')
-        .then(res => res.json())
-        .then(res => {
-          if (res.success && res.data) {
-            populateForm(res.data);
-          }
-        })
-        .catch(err => console.log('Gagal memuat setting awal:', err));
-    });
-
-    function populateForm(data) {
-      for (const [key, value] of Object.entries(data)) {
-        const input = document.getElementById(key);
-        if (input) input.value = value;
-      }
-      if (data.mqtt_broker) {
-        document.getElementById('topoBrokerDisplay').innerText = `Broker: ${data.mqtt_broker}:${data.mqtt_port || 1883}`;
-        document.getElementById('topoBrokerSub').innerText = data.mqtt_broker;
-      }
-      if (data.plc_ip) {
-        document.getElementById('topoPlcSub').innerText = `${data.plc_ip}:${data.plc_port || 502}`;
-      }
-    }
-
-    // Tab Switcher
+    // =========================================================================
+    // 🗂️ TAB SWITCHER
+    // =========================================================================
     function switchSection(sectionId, btn) {
       document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-      document.getElementById(sectionId).style.display = 'block';
+      const target = document.getElementById(sectionId);
+      if (target) target.style.display = 'block';
 
       document.querySelectorAll('.tab-pill-btn').forEach(el => el.classList.remove('active'));
-      btn.classList.add('active');
+      if (btn) {
+        btn.classList.add('active');
+      } else {
+        const matchingBtn = document.querySelector(`[onclick*="${sectionId}"]`);
+        if (matchingBtn) matchingBtn.classList.add('active');
+      }
     }
 
-    // Preset Selection
-    function applyBrokerPreset(host, tcpPort, wsPort, prefix, el) {
-      document.getElementById('mqtt_broker').value = host;
-      document.getElementById('mqtt_port').value = tcpPort;
-      document.getElementById('mqtt_ws_port').value = wsPort;
-      document.getElementById('mqtt_prefix').value = prefix;
+    // =========================================================================
+    // 👥 MULTI-ACCOUNT MASTER DATA CONTROLLER
+    // =========================================================================
+    let systemAccounts = [];
+    let currentSelectedAccountId = 'acc_superadmin';
+    const passwordVisibilityMap = {};
 
-      document.querySelectorAll('.preset-card-item').forEach(c => c.classList.remove('selected'));
-      el.classList.add('selected');
-
-      document.getElementById('topoBrokerDisplay').innerText = 'Broker: ' + host + ':' + tcpPort;
-      document.getElementById('topoBrokerSub').innerText = host;
-
-      addTermLog('PRESET', 'Konfigurasi beralih ke: ' + host + ':' + tcpPort, 'warn');
+    function getAvatarGradient(name, idx) {
+      const gradients = [
+        'linear-gradient(135deg, #00F0FF, #3B82F6)',
+        'linear-gradient(135deg, #10B981, #059669)',
+        'linear-gradient(135deg, #8B5CF6, #6366F1)',
+        'linear-gradient(135deg, #F59E0B, #D97706)',
+        'linear-gradient(135deg, #EC4899, #8B5CF6)'
+      ];
+      return gradients[idx % gradients.length];
     }
 
-    // Set Sync URL
-    const fullApiUrl = window.location.origin + '/api/settings';
-    document.getElementById('syncUrlPreview').innerText = fullApiUrl;
+    function getInitials(name) {
+      if (!name) return 'RA';
+      const parts = name.trim().split(' ');
+      if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+      return name.substring(0, 2).toUpperCase();
+    }
 
-    function copySyncUrl() {
-      navigator.clipboard.writeText(fullApiUrl).then(() => {
-        showToast('Link API Disalin!', 'URL endpoint konfigurasi siap diberikan ke pengembang aplikasi HP.');
+    function populateBrokerAccountSwitcher() {
+      const sel = document.getElementById('brokerAccountSwitcher');
+      if (!sel) return;
+      sel.innerHTML = '';
+      systemAccounts.forEach(acc => {
+        const opt = document.createElement('option');
+        opt.value = acc.id;
+        opt.innerText = `${acc.name} (${acc.id})`;
+        if (acc.id === currentSelectedAccountId) opt.selected = true;
+        sel.appendChild(opt);
       });
     }
 
-    // Toast Notification
-    function showToast(title, message, isError = false) {
-      const toast = document.getElementById('toastAlert');
-      document.getElementById('toastTitle').innerText = title;
-      document.getElementById('toastMessage').innerText = message;
-      document.getElementById('toastIcon').innerText = isError ? '⚠️' : '✅';
-      toast.style.borderColor = isError ? 'var(--rose)' : 'var(--emerald)';
+    function renderAccountsTable() {
+      const tbody = document.getElementById('accountsTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
 
-      toast.classList.add('show');
-      setTimeout(() => {
-        toast.classList.remove('show');
-      }, 4000);
+      systemAccounts.forEach((acc, idx) => {
+        const isSelected = acc.id === currentSelectedAccountId;
+        const initials = getInitials(acc.name);
+        const bgGrad = getAvatarGradient(acc.name, idx);
+        const isVisible = passwordVisibilityMap[acc.id] || false;
+        const passwordValue = acc.password || '';
+        const displayPassword = isVisible ? passwordValue : '••••••••';
+
+        let hwIcon = '🍓';
+        let hwType = acc.hardware_type || 'Raspberry Pi 4';
+        if (hwType.includes('PLC')) hwIcon = '🏭';
+        else if (hwType.includes('ESP32')) hwIcon = '⚡';
+
+        const devCount = (acc.devices || []).length;
+
+        const tr = document.createElement('tr');
+        tr.className = isSelected ? 'active-row' : '';
+        tr.onclick = (e) => {
+          if (!e.target.closest('button') && !e.target.closest('a') && !e.target.closest('input')) {
+            selectActiveAccount(acc.id, true);
+          }
+        };
+
+        tr.innerHTML = `
+          <td>
+            <div class="user-avatar-cell">
+              <div class="user-avatar-badge" style="background: ${bgGrad};">${initials}</div>
+              <div>
+                <div class="user-name-title">${acc.name}</div>
+                <div class="user-id-subtitle">ID: ${acc.id} • <span class="role-badge ${acc.role === 'superadmin' ? 'superadmin' : 'user'}">${(acc.role || 'user').toUpperCase()}</span></div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="credential-cell">
+              <span style="color: var(--text-dim);">✉️</span>
+              <input type="text" value="${acc.email}" readonly onclick="copyToClipboard('${acc.email}', 'Email / Username')">
+              <button type="button" class="credential-btn" onclick="copyToClipboard('${acc.email}', 'Email / Username')" title="Salin Email">📋</button>
+            </div>
+          </td>
+          <td>
+            <div class="credential-cell">
+              <span style="color: var(--text-dim);">🔑</span>
+              <input type="text" id="pwd_field_${acc.id}" value="${displayPassword}" readonly onclick="togglePasswordVisibility('${acc.id}')">
+              <button type="button" class="credential-btn" onclick="togglePasswordVisibility('${acc.id}')" title="${isVisible ? 'Sembunyikan' : 'Lihat Kata Sandi'}">${isVisible ? '👁️‍🗨️' : '👁️'}</button>
+              <button type="button" class="credential-btn" onclick="copyToClipboard('${passwordValue}', 'Password')" title="Salin Password">📋</button>
+            </div>
+          </td>
+          <td>
+            <div class="hw-badge-tag">
+              <span>${hwIcon}</span>
+              <span>${hwType}</span>
+            </div>
+            <div style="font-size: 11px; color: var(--cyan); font-family: 'JetBrains Mono', monospace; margin-top: 4px;">
+              Prefix: ${acc.mqtt_prefix || 'alrisa/' + acc.id}
+            </div>
+          </td>
+          <td>
+            <div style="font-weight: 700; font-size: 13px; color: var(--text-white);">${devCount} Saklar Relai</div>
+            <div style="font-size: 11px; color: var(--text-secondary);">${(acc.cctv || []).length} Kamera CCTV</div>
+          </td>
+          <td>
+            <div class="action-btn-group">
+              <a href="dashboard.html?account_id=${acc.id}" class="btn-act-dashboard" title="Menuju ke Web Dashboard Akun Ini">
+                <span>🌐</span> Dashboard
+              </a>
+              <button type="button" class="btn-act-edit" onclick="goToAccountBroker('${acc.id}')" title="Pengaturan Broker Khusus Akun Ini" style="color: var(--cyan); border-color: rgba(0, 240, 255, 0.3);">
+                <span>📡</span> Broker
+              </button>
+              <button type="button" class="btn-act-edit" onclick="openEditAccountModal('${acc.id}')" title="Edit Data & Kredensial Akun">
+                <span>✏️</span> Edit
+              </button>
+              ${acc.role !== 'superadmin' ? `
+                <button type="button" class="btn-act-del" onclick="deleteAccount('${acc.id}')" title="Hapus Akun">
+                  <span>🗑️</span>
+                </button>
+              ` : ''}
+            </div>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
     }
 
-    // Terminal Logging Helper
-    function addTermLog(prefix, msg, type = 'normal') {
-      const term = document.getElementById('termOutput');
-      const d = new Date();
-      const timeStr = '[' + d.toTimeString().split(' ')[0] + ']';
+    function goToAccountBroker(accId) {
+      selectActiveAccount(accId, true);
+      switchSection('section-broker', document.getElementById('tabBtnBroker'));
+    }
 
-      const line = document.createElement('div');
-      line.className = 'term-line';
-      line.innerHTML = `
-        <span class="term-time">${timeStr}</span>
-        <span class="term-prefix">${prefix}:</span>
-        <span class="term-msg ${type}">${msg}</span>
+    function togglePasswordVisibility(accId) {
+      passwordVisibilityMap[accId] = !passwordVisibilityMap[accId];
+      renderAccountsTable();
+    }
+
+    function copyToClipboard(text, label) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('Tersalin!', `${label} berhasil disalin ke clipboard.`);
+      });
+    }
+
+    // SELECT ACTIVE ACCOUNT (MEMUAT PENGATURAN SPESIFIK AKUN)
+    function selectActiveAccount(accId, isUserClick = false) {
+      currentSelectedAccountId = accId;
+      const activeAcc = systemAccounts.find(a => a.id === accId);
+      if (!activeAcc) return;
+
+      // 1. Update Input Form Broker & Jaringan dari Data Akun Terpilih
+      if (document.getElementById('mqtt_broker')) document.getElementById('mqtt_broker').value = activeAcc.mqtt_broker || 'broker.emqx.io';
+      if (document.getElementById('mqtt_port')) document.getElementById('mqtt_port').value = activeAcc.mqtt_port || 1883;
+      if (document.getElementById('mqtt_ws_port')) document.getElementById('mqtt_ws_port').value = activeAcc.mqtt_ws_port || 8083;
+      if (document.getElementById('mqtt_prefix')) document.getElementById('mqtt_prefix').value = activeAcc.mqtt_prefix || ('alrisa/' + activeAcc.id);
+      if (document.getElementById('mqtt_user')) document.getElementById('mqtt_user').value = activeAcc.mqtt_user || '';
+      if (document.getElementById('mqtt_pass')) document.getElementById('mqtt_pass').value = activeAcc.mqtt_pass || '';
+
+      if (document.getElementById('wifi_ssid')) document.getElementById('wifi_ssid').value = activeAcc.wifi_ssid || '';
+      if (document.getElementById('wifi_password')) document.getElementById('wifi_password').value = activeAcc.wifi_password || '';
+      if (document.getElementById('plc_type')) document.getElementById('plc_type').value = activeAcc.plc_type || (activeAcc.hardware_type.includes('PLC') ? 'Mitsubishi FX5U (Modbus TCP)' : 'Modbus TCP Gateway');
+      if (document.getElementById('plc_ip')) document.getElementById('plc_ip').value = activeAcc.plc_ip || '192.168.1.100';
+      if (document.getElementById('plc_port')) document.getElementById('plc_port').value = activeAcc.plc_port || 502;
+
+      // 2. Update Banner Akun di Tab Broker
+      if (document.getElementById('brokerBannerAvatar')) document.getElementById('brokerBannerAvatar').innerText = getInitials(activeAcc.name);
+      if (document.getElementById('brokerBannerName')) document.getElementById('brokerBannerName').innerText = activeAcc.name;
+      if (document.getElementById('brokerBannerId')) document.getElementById('brokerBannerId').innerText = activeAcc.id;
+      if (document.getElementById('brokerBannerHw')) document.getElementById('brokerBannerHw').innerText = activeAcc.hardware_type || 'Raspberry Pi 4';
+      if (document.getElementById('brokerBannerPrefix')) document.getElementById('brokerBannerPrefix').innerText = activeAcc.mqtt_prefix || ('alrisa/' + activeAcc.id);
+      
+      const switcher = document.getElementById('brokerAccountSwitcher');
+      if (switcher) switcher.value = accId;
+
+      // 3. Update Topologi & Link Dashboard
+      if (document.getElementById('topoBrokerDisplay')) {
+        document.getElementById('topoBrokerDisplay').innerText = 'Broker: ' + (activeAcc.mqtt_broker || 'broker.emqx.io') + ':' + (activeAcc.mqtt_port || 1883);
+      }
+      if (document.getElementById('topoBrokerSub')) {
+        document.getElementById('topoBrokerSub').innerText = activeAcc.mqtt_broker || 'broker.emqx.io';
+      }
+      if (document.getElementById('topoPlcSub')) {
+        document.getElementById('topoPlcSub').innerText = (activeAcc.plc_ip || '192.168.1.100') + ':' + (activeAcc.plc_port || 502);
+      }
+      if (document.getElementById('btnHeaderDashboard')) {
+        document.getElementById('btnHeaderDashboard').href = `dashboard.html?account_id=${activeAcc.id}`;
+      }
+      if (document.getElementById('dockActiveAccountTitle')) {
+        document.getElementById('dockActiveAccountTitle').innerText = `Menyimpan Konfigurasi untuk: ${activeAcc.name}`;
+      }
+
+      updateSyncUrlPreview(accId);
+      renderAccountsTable();
+      renderActiveAccountDetail();
+
+      if (isUserClick) {
+        showToast('Akun Aktif: ' + activeAcc.name, 'Pengaturan broker & hardware dimuat untuk akun ini.');
+      }
+    }
+
+    // RENDER DETAIL PERANGKAT AKUN
+    function renderActiveAccountDetail() {
+      const card = document.getElementById('accountDetailCard');
+      if (!card) return;
+
+      const acc = systemAccounts.find(a => a.id === currentSelectedAccountId);
+      if (!acc) {
+        card.innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 30px;">Silakan pilih akun pada tabel di atas.</div>';
+        return;
+      }
+
+      const devices = acc.devices || [];
+      let devRowsHtml = '';
+      devices.forEach((d) => {
+        let typeBadge = '🚪 Gerbang';
+        if (d.type === 1) typeBadge = '💡 Lampu';
+        else if (d.type === 2) typeBadge = '🚪 Pintu Geser';
+        else if (d.type === 3) typeBadge = '🪟 Gorden';
+        else if (d.type === 4) typeBadge = '💧 Pompa Air';
+
+        const safeName = (d.name || '').replace(/'/g, "\\'");
+        const safePin = (d.hardwarePin || 'GPIO 2').replace(/'/g, "\\'");
+
+        devRowsHtml += `
+          <tr style="border-bottom: 1px solid var(--border-subtle);">
+            <td style="padding: 12px 14px; font-weight: 800; color: var(--text-white);">
+              ${d.name}
+              <div style="font-size: 11px; color: var(--text-dim); font-weight: 500;">ID: <code style="color: var(--cyan);">${d.id}</code> • Kategori: ${d.category || 'Umum'}</div>
+            </td>
+            <td style="padding: 12px 14px; color: var(--text-secondary); font-size: 12.5px;">
+              <span style="background: rgba(255,255,255,0.06); padding: 4px 10px; border-radius: 8px;">${typeBadge}</span>
+            </td>
+            <td style="padding: 12px 14px;">
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,240,255,0.12); color: var(--cyan); border: 1px solid rgba(0,240,255,0.25); padding: 4px 10px; border-radius: 6px; font-weight: 700;">
+                  ${d.hardwarePin || 'GPIO 2'}
+                </span>
+                <button type="button" class="btn-top" onclick="openEditPinModal('${acc.id}', '${d.id}', '${safeName}', '${safePin}')" title="Ubah PIN Hardware / GPIO ini" style="padding: 4px 10px; font-size: 11.5px; border-color: rgba(0,240,255,0.4); color: var(--cyan);">
+                  <span>⚙️ Ubah PIN</span>
+                </button>
+              </div>
+            </td>
+            <td style="padding: 12px 14px;">
+              <span style="font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: 700; background: ${d.isActive ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.06)'}; color: ${d.isActive ? 'var(--emerald)' : 'var(--text-dim)'};">
+                ${d.statusText || (d.isActive ? 'Aktif' : 'Terkunci')}
+              </span>
+            </td>
+            <td style="padding: 12px 14px; text-align: right;">
+              <div style="display: flex; justify-content: flex-end; gap: 6px;">
+                <button type="button" class="btn-act-del" onclick="deleteDevice('${acc.id}', '${d.id}', '${safeName}')" title="Hapus perangkat ini (otomatis terhapus di HP)" style="padding: 6px 12px; font-size: 11.5px;">
+                  <span>🗑️ Hapus</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+
+      card.innerHTML = `
+        <div style="background: var(--bg-surface); border: 1.5px solid var(--border-subtle); border-radius: 20px; padding: 22px; margin-top: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <div style="font-size: 11px; font-weight: 800; color: var(--cyan); text-transform: uppercase; letter-spacing: 0.8px;">RINCIAN PERANGKAT & HARDWARE AKUN TERPILIH</div>
+              <h3 style="font-size: 18px; font-weight: 800; color: var(--text-white); margin-top: 2px;">${acc.name}</h3>
+              <span style="font-size: 12px; color: var(--text-secondary);">Mesin: <b style="color: var(--cyan);">${acc.hardware_type}</b> • MQTT: <code>${acc.mqtt_broker || 'broker.emqx.io'}</code> • Prefix: <code>${acc.mqtt_prefix || 'alrisa/' + acc.id}</code></span>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" onclick="goToAccountBroker('${acc.id}')" class="btn-top" style="color: var(--cyan); border-color: rgba(0,240,255,0.4);">
+                <span>📡</span> Buka Pengaturan Broker
+              </button>
+              <a href="dashboard.html?account_id=${acc.id}" target="_blank" class="btn-act-dashboard" style="padding: 10px 18px; font-size: 13px;">
+                <span>🌐</span> Buka Web Dashboard Akun Ini
+              </a>
+            </div>
+          </div>
+
+          <div style="background: var(--bg-node); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+              <div style="font-weight: 800; font-size: 14px; color: var(--text-white); display: flex; align-items: center; gap: 8px;">
+                <span>🔌</span> Daftar Perangkat IoT Terpasang (${devices.length})
+                <span style="font-size: 11px; font-weight: 700; color: var(--emerald); background: var(--emerald-subtle); border: 1px solid var(--emerald); padding: 2px 8px; border-radius: 6px;">
+                  ● SINKRONISASI 2-ARAH HP ↔ WEBSITE
+                </span>
+              </div>
+              <button type="button" class="btn-top" onclick="openAddDeviceModal('${acc.id}')" style="background: linear-gradient(135deg, #0284C7, #00F0FF); color: #000; font-weight: 800; border: none; box-shadow: 0 2px 10px var(--cyan-glow); padding: 8px 16px; font-size: 12.5px;">
+                <span>➕</span> Tambah Perangkat Baru
+              </button>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+              <thead>
+                <tr style="border-bottom: 1.5px solid var(--border-subtle); color: var(--text-secondary); font-size: 11.5px; text-transform: uppercase;">
+                  <th style="padding: 10px 14px;">Nama Perangkat & ID</th>
+                  <th style="padding: 10px 14px;">Tipe</th>
+                  <th style="padding: 10px 14px;">PIN Hardware / GPIO</th>
+                  <th style="padding: 10px 14px;">Status</th>
+                  <th style="padding: 10px 14px; text-align: right;">Aksi Cepat</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${devRowsHtml || '<tr><td colspan="5" style="padding: 24px; text-align: center; color: var(--text-dim);">Belum ada perangkat terpasang pada akun ini. Klik tombol "Tambah Perangkat Baru" di atas atau tambahkan lewat aplikasi HP.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- CCTV SECTION -->
+          <div style="background: var(--bg-node); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 18px; margin-top: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+              <div style="font-weight: 800; font-size: 14px; color: var(--text-white); display: flex; align-items: center; gap: 8px;">
+                <span>📹</span> Daftar Kamera CCTV Terpasang (${(acc.cctv || []).length})
+                <span style="font-size: 11px; font-weight: 700; color: var(--cyan); background: rgba(0,240,255,0.12); border: 1px solid var(--cyan); padding: 2px 8px; border-radius: 6px;">
+                  ● IP & RTSP STREAM DIKONTROL SUPER ADMIN
+                </span>
+              </div>
+              <button type="button" class="btn-top" onclick="openAddCctvModal('${acc.id}')" style="background: linear-gradient(135deg, #0284C7, #00F0FF); color: #000; font-weight: 800; border: none; box-shadow: 0 2px 10px var(--cyan-glow); padding: 8px 16px; font-size: 12.5px;">
+                <span>➕</span> Tambah Kamera CCTV
+              </button>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+              <thead>
+                <tr style="border-bottom: 1.5px solid var(--border-subtle); color: var(--text-secondary); font-size: 11.5px; text-transform: uppercase;">
+                  <th style="padding: 10px 14px;">Nama Kamera & Lokasi</th>
+                  <th style="padding: 10px 14px;">Resolusi</th>
+                  <th style="padding: 10px 14px;">Alamat IP / RTSP Stream</th>
+                  <th style="padding: 10px 14px;">Status</th>
+                  <th style="padding: 10px 14px; text-align: right;">Aksi Cepat</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(() => {
+                  const cList = acc.cctv || [];
+                  if (cList.length === 0) {
+                    return '<tr><td colspan="5" style="padding: 24px; text-align: center; color: var(--text-dim);">Belum ada kamera CCTV terdaftar untuk akun ini. Klik tombol "Tambah Kamera CCTV" di atas untuk menambahkan.</td></tr>';
+                  }
+                  return cList.map(c => {
+                    const safeName = (c.name || '').replace(/'/g, "\\'");
+                    const safeRtsp = (c.rtspUrl || '').replace(/'/g, "\\'");
+                    const safeHost = (c.onvifHost || '').replace(/'/g, "\\'");
+                    const safePort = c.onvifPort || 80;
+                    return `
+                      <tr style="border-bottom: 1px solid var(--border-subtle);">
+                        <td style="padding: 12px 14px; font-weight: 800; color: var(--text-white);">
+                          ${c.name}
+                          <div style="font-size: 11px; color: var(--text-dim); font-weight: 500;">ID: <code style="color: var(--cyan);">${c.id}</code> • Lokasi: ${c.location || 'Area Rumah'}</div>
+                        </td>
+                        <td style="padding: 12px 14px; color: var(--text-secondary); font-size: 12px;">
+                          <span style="background: rgba(255,255,255,0.06); padding: 4px 10px; border-radius: 8px;">${c.resolution || '1080P FHD'}</span>
+                        </td>
+                        <td style="padding: 12px 14px;">
+                          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; background: rgba(0,240,255,0.12); color: var(--cyan); border: 1px solid rgba(0,240,255,0.25); padding: 4px 10px; border-radius: 6px; font-weight: 700; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                              ${c.rtspUrl || 'rtsp://...'}
+                            </span>
+                            <button type="button" class="btn-top" onclick="openEditCctvIpModal('${acc.id}', '${c.id}', '${safeName}', '${safeRtsp}', '${safeHost}', ${safePort})" title="Ubah IP CCTV & RTSP URL ini" style="padding: 4px 10px; font-size: 11.5px; border-color: rgba(0,240,255,0.4); color: var(--cyan);">
+                              <span>⚙️ Ubah IP/Stream</span>
+                            </button>
+                          </div>
+                        </td>
+                        <td style="padding: 12px 14px;">
+                          <span style="font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: 700; background: ${c.isOnline ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.06)'}; color: ${c.isOnline ? 'var(--emerald)' : 'var(--text-dim)'};">
+                            ${c.isOnline ? '● Live Stream' : '○ Standby'}
+                          </span>
+                        </td>
+                        <td style="padding: 12px 14px; text-align: right;">
+                          <div style="display: flex; justify-content: flex-end; gap: 6px;">
+                            <button type="button" class="btn-act-del" onclick="deleteCctv('${acc.id}', '${c.id}', '${safeName}')" title="Hapus CCTV ini (otomatis terhapus di HP)" style="padding: 6px 12px; font-size: 11.5px;">
+                              <span>🗑️ Hapus</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('');
+                })()}
+              </tbody>
+            </table>
+          </div>
+        </div>
       `;
-      term.appendChild(line);
-      term.scrollTop = term.scrollHeight;
     }
 
-    // Live Diagnostic MQTT Test
-    let mqttClient = null;
+    // =========================================================================
+    // 🔌 DEVICE MANAGEMENT (MODAL TAMBAH, EDIT PIN & HAPUS PERANGKAT)
+    // =========================================================================
+    function autoSuggestPinForType(typeVal) {
+      const pinInput = document.getElementById('newDevPin');
+      if (!pinInput) return;
+      const t = parseInt(typeVal);
+      if (t === 0) pinInput.value = 'GPIO 2 (%QX0.0)';
+      else if (t === 1) pinInput.value = 'GPIO 4 (%QX0.3)';
+      else if (t === 2) pinInput.value = 'GPIO 5 (%QX0.1)';
+      else if (t === 3) pinInput.value = 'GPIO 18 (%QX0.2)';
+      else if (t === 4) pinInput.value = 'GPIO 19 (%QX0.4)';
+    }
 
+    function openAddDeviceModal(accId) {
+      document.getElementById('devTargetAccId').value = accId || currentSelectedAccountId;
+      document.getElementById('newDevName').value = '';
+      document.getElementById('newDevType').value = '0';
+      autoSuggestPinForType('0');
+      document.getElementById('newDevId').value = '';
+      document.getElementById('deviceModal').style.display = 'flex';
+    }
+
+    function closeAddDeviceModal() {
+      document.getElementById('deviceModal').style.display = 'none';
+    }
+
+    async function saveNewDeviceModal() {
+      const accId = document.getElementById('devTargetAccId').value;
+      const name = document.getElementById('newDevName').value.trim();
+      const type = parseInt(document.getElementById('newDevType').value) || 0;
+      const hardwarePin = document.getElementById('newDevPin').value.trim() || 'GPIO 2';
+      let customId = document.getElementById('newDevId').value.trim();
+
+      if (!name) {
+        alert('Nama perangkat wajib diisi!');
+        return;
+      }
+
+      if (!customId) {
+        const prefix = type === 0 ? 'pagar' : type === 1 ? 'lampu' : type === 2 ? 'pintu' : type === 3 ? 'gorden' : 'pompa';
+        customId = prefix + '_' + Math.random().toString(36).substr(2, 5);
+      }
+
+      const deviceData = {
+        id: customId,
+        name: name,
+        type: type,
+        hardwarePin: hardwarePin,
+        isActive: false,
+        value: 0,
+        statusText: type === 0 || type === 2 ? 'Terkunci' : 'Mati',
+      };
+
+      try {
+        const res = await fetch('/api/device/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ account_id: accId, device: deviceData })
+        });
+        const result = await res.json();
+        if (result.success) {
+          closeAddDeviceModal();
+          showToast('Perangkat Berhasil Ditambahkan!', `"${name}" telah tersimpan dan otomatis muncul di aplikasi HP.`);
+          await initPage();
+        } else {
+          alert('Gagal: ' + (result.message || 'Error menyimpan perangkat'));
+        }
+      } catch (err) {
+        alert('Gagal menghubungkan ke server: ' + err.message);
+      }
+    }
+
+    function openEditPinModal(accId, devId, devName, currentPin) {
+      document.getElementById('pinAccId').value = accId;
+      document.getElementById('pinDevId').value = devId;
+      document.getElementById('pinDevName').value = decodeURIComponent(devName);
+      document.getElementById('editHardwarePinInput').value = decodeURIComponent(currentPin);
+      document.getElementById('pinModalDeviceTitle').innerText = `Perbarui PIN GPIO / PLC untuk ${decodeURIComponent(devName)}`;
+      document.getElementById('pinModal').style.display = 'flex';
+    }
+
+    function closeEditPinModal() {
+      document.getElementById('pinModal').style.display = 'none';
+    }
+
+    async function saveEditPinModal() {
+      const accId = document.getElementById('pinAccId').value;
+      const devId = document.getElementById('pinDevId').value;
+      const newPin = document.getElementById('editHardwarePinInput').value.trim();
+
+      if (!newPin) {
+        alert('PIN hardware tidak boleh kosong!');
+        return;
+      }
+
+      const acc = systemAccounts.find(a => a.id === accId);
+      const existingDev = acc?.devices?.find(d => d.id === devId);
+
+      const deviceData = {
+        id: devId,
+        name: existingDev ? existingDev.name : document.getElementById('pinDevName').value,
+        type: existingDev ? existingDev.type : 0,
+        hardwarePin: newPin,
+        isActive: existingDev ? existingDev.isActive : false,
+        value: existingDev ? existingDev.value : 0,
+        statusText: existingDev ? existingDev.statusText : 'Terkunci',
+      };
+
+      try {
+        const res = await fetch('/api/device/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ account_id: accId, device: deviceData })
+        });
+        const result = await res.json();
+        if (result.success) {
+          closeEditPinModal();
+          showToast('PIN Berhasil Diubah!', `PIN untuk "${deviceData.name}" diubah ke ${newPin} dan otomatis disinkronkan ke HP.`);
+          await initPage();
+        } else {
+          alert('Gagal: ' + (result.message || 'Error memperbarui PIN'));
+        }
+      } catch (err) {
+        alert('Gagal menghubungkan ke server: ' + err.message);
+      }
+    }
+
+    async function deleteDevice(accId, devId, devName) {
+      const name = decodeURIComponent(devName);
+      if (!confirm(`Apakah Anda yakin ingin menghapus perangkat "${name}"?\n\nPerangkat ini otomatis akan TERHAPUS dari aplikasi HP dan Web.`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/device/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ account_id: accId, device_id: devId })
+        });
+        const result = await res.json();
+        if (result.success) {
+          showToast('Perangkat Dihapus!', `"${name}" telah dihapus dari website dan otomatis terhapus di aplikasi HP.`);
+          await initPage();
+        } else {
+          alert('Gagal: ' + (result.message || 'Error menghapus perangkat'));
+        }
+      } catch (err) {
+        alert('Gagal menghubungkan ke server: ' + err.message);
+      }
+    }
+
+    // =========================================================================
+    // 📹 CCTV MANAGEMENT (MODAL TAMBAH, EDIT IP / RTSP & HAPUS CCTV)
+    // =========================================================================
+    function openAddCctvModal(accId) {
+      document.getElementById('cctvTargetAccId').value = accId || currentSelectedAccountId;
+      document.getElementById('newCctvName').value = '';
+      document.getElementById('newCctvLocation').value = 'Gerbang Depan';
+      document.getElementById('newCctvRtsp').value = 'rtsp://admin:admin123@192.168.1.50:554/live/ch0';
+      document.getElementById('newCctvHost').value = '192.168.1.50';
+      document.getElementById('newCctvPort').value = '80';
+      document.getElementById('cctvModal').style.display = 'flex';
+    }
+
+    function closeAddCctvModal() {
+      document.getElementById('cctvModal').style.display = 'none';
+    }
+
+    async function saveNewCctvModal() {
+      const accId = document.getElementById('cctvTargetAccId').value;
+      const name = document.getElementById('newCctvName').value.trim();
+      const location = document.getElementById('newCctvLocation').value.trim() || 'Area Rumah';
+      const rtspUrl = document.getElementById('newCctvRtsp').value.trim() || 'rtsp://192.168.1.50:554/live/ch0';
+      const onvifHost = document.getElementById('newCctvHost').value.trim() || '192.168.1.50';
+      const onvifPort = parseInt(document.getElementById('newCctvPort').value.trim()) || 80;
+
+      if (!name) {
+        alert('Nama kamera CCTV wajib diisi!');
+        return;
+      }
+
+      const cctvId = 'cctv_' + Math.random().toString(36).substr(2, 6);
+      const cctvData = {
+        id: cctvId,
+        name: name,
+        location: location,
+        rtspUrl: rtspUrl,
+        onvifHost: onvifHost,
+        onvifPort: onvifPort,
+        isOnline: true,
+        fps: 25,
+        resolution: '1080P FHD (H.264)',
+      };
+
+      try {
+        const res = await fetch('/api/cctv/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ account_id: accId, cctv: cctvData })
+        });
+        const result = await res.json();
+        if (result.success) {
+          closeAddCctvModal();
+          showToast('Kamera CCTV Ditambahkan!', `"${name}" berhasil disimpan dan otomatis muncul di aplikasi HP.`);
+          await initPage();
+        } else {
+          alert('Gagal: ' + (result.message || 'Error menyimpan CCTV'));
+        }
+      } catch (err) {
+        alert('Gagal menghubungkan ke server: ' + err.message);
+      }
+    }
+
+    function openEditCctvIpModal(accId, cctvId, cctvName, currentRtsp, currentHost, currentPort) {
+      document.getElementById('editCctvAccId').value = accId;
+      document.getElementById('editCctvId').value = cctvId;
+      document.getElementById('editCctvName').value = decodeURIComponent(cctvName);
+      document.getElementById('editCctvRtspInput').value = decodeURIComponent(currentRtsp);
+      document.getElementById('editCctvHostInput').value = decodeURIComponent(currentHost);
+      document.getElementById('editCctvPortInput').value = currentPort;
+      document.getElementById('cctvIpModalTitle').innerText = `Memperbarui IP & RTSP Stream untuk ${decodeURIComponent(cctvName)}`;
+      document.getElementById('cctvIpModal').style.display = 'flex';
+    }
+
+    function closeEditCctvIpModal() {
+      document.getElementById('cctvIpModal').style.display = 'none';
+    }
+
+    async function saveEditCctvIpModal() {
+      const accId = document.getElementById('editCctvAccId').value;
+      const cctvId = document.getElementById('editCctvId').value;
+      const newRtsp = document.getElementById('editCctvRtspInput').value.trim();
+      const newHost = document.getElementById('editCctvHostInput').value.trim() || '192.168.1.50';
+      const newPort = parseInt(document.getElementById('editCctvPortInput').value.trim()) || 80;
+
+      if (!newRtsp) {
+        alert('RTSP stream URL tidak boleh kosong!');
+        return;
+      }
+
+      const acc = systemAccounts.find(a => a.id === accId);
+      const existingCctv = acc?.cctv?.find(c => c.id === cctvId);
+
+      const cctvData = {
+        id: cctvId,
+        name: existingCctv ? existingCctv.name : document.getElementById('editCctvName').value,
+        location: existingCctv ? existingCctv.location : 'Area Rumah',
+        rtspUrl: newRtsp,
+        onvifHost: newHost,
+        onvifPort: newPort,
+        isOnline: existingCctv ? existingCctv.isOnline : true,
+        fps: existingCctv ? existingCctv.fps : 25,
+        resolution: existingCctv ? existingCctv.resolution : '1080P FHD (H.264)',
+      };
+
+      try {
+        const res = await fetch('/api/cctv/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ account_id: accId, cctv: cctvData })
+        });
+        const result = await res.json();
+        if (result.success) {
+          closeEditCctvIpModal();
+          showToast('IP CCTV Berhasil Diperbarui!', `Stream untuk "${cctvData.name}" berhasil diubah dan disinkronkan ke HP.`);
+          await initPage();
+        } else {
+          alert('Gagal: ' + (result.message || 'Error memperbarui IP CCTV'));
+        }
+      } catch (err) {
+        alert('Gagal menghubungkan ke server: ' + err.message);
+      }
+    }
+
+    async function deleteCctv(accId, cctvId, cctvName) {
+      const name = decodeURIComponent(cctvName);
+      if (!confirm(`Apakah Anda yakin ingin menghapus kamera CCTV "${name}"?\n\nKamera ini otomatis akan TERHAPUS dari aplikasi HP dan Web.`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/cctv/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ account_id: accId, cctv_id: cctvId })
+        });
+        const result = await res.json();
+        if (result.success) {
+          showToast('CCTV Dihapus!', `"${name}" telah dihapus dari website dan otomatis terhapus di aplikasi HP.`);
+          await initPage();
+        } else {
+          alert('Gagal: ' + (result.message || 'Error menghapus CCTV'));
+        }
+      } catch (err) {
+        alert('Gagal menghubungkan ke server: ' + err.message);
+      }
+    }
+
+    // =========================================================================
+    // ⚡ WEBSOCKET REAL-TIME SYNC (DARI HP KE WEBSITE)
+    // =========================================================================
+    function setupWebSocketSettings() {
+      try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+        ws.onopen = () => {
+          console.log('✅ [WS SETTINGS] Terhubung ke WebSocket Node.js');
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'full_sync' || msg.type === 'settings_updated' || msg.type === 'account_switched') {
+              console.log('🔄 [WS SETTINGS] Sinyal pembaruan diterima dari HP/Web, me-reload tampilan...');
+              initPage();
+            }
+          } catch (_) {}
+        };
+
+        ws.onclose = () => {
+          setTimeout(setupWebSocketSettings, 3500);
+        };
+      } catch (_) {}
+    }
+
+    function updateSyncUrlPreview(accId) {
+      const el = document.getElementById('syncUrlPreview');
+      if (el) {
+        el.innerText = `${window.location.origin}/api/sync?account_id=${accId}`;
+      }
+    }
+
+    function copySyncUrl() {
+      const el = document.getElementById('syncUrlPreview');
+      if (el) {
+        navigator.clipboard.writeText(el.innerText).then(() => {
+          showToast('Link API Disalin!', 'URL endpoint sinkronisasi berhasil disalin ke clipboard.');
+        });
+      }
+    }
+
+    // MODAL EDIT AKUN
+    function openEditAccountModal(accId) {
+      const acc = systemAccounts.find(a => a.id === accId);
+      if (!acc) return;
+      document.getElementById('editAccId').value = acc.id;
+      document.getElementById('editAccName').value = acc.name;
+      document.getElementById('editAccEmail').value = acc.email;
+      document.getElementById('editAccPassword').value = acc.password;
+      document.getElementById('editAccHw').value = acc.hardware_type || 'Raspberry Pi 4 (Master Controller)';
+      document.getElementById('editAccPrefix').value = acc.mqtt_prefix || 'alrisa/' + acc.id;
+      document.getElementById('editAccountModal').style.display = 'flex';
+    }
+
+    function closeEditAccountModal() {
+      document.getElementById('editAccountModal').style.display = 'none';
+    }
+
+    function saveEditAccountModal() {
+      const id = document.getElementById('editAccId').value;
+      const acc = systemAccounts.find(a => a.id === id);
+      if (!acc) return;
+
+      acc.name = document.getElementById('editAccName').value.trim();
+      acc.email = document.getElementById('editAccEmail').value.trim();
+      acc.password = document.getElementById('editAccPassword').value.trim();
+      acc.hardware_type = document.getElementById('editAccHw').value;
+      acc.mqtt_prefix = document.getElementById('editAccPrefix').value.trim();
+
+      handleFormSubmit();
+      closeEditAccountModal();
+      showToast('Data Akun Diperbarui!', `Perubahan pada akun ${acc.name} berhasil disimpan.`);
+    }
+
+    // MODAL TAMBAH AKUN BARU
+    function openAccountModal() {
+      document.getElementById('accountModal').style.display = 'flex';
+    }
+
+    function closeAccountModal() {
+      document.getElementById('accountModal').style.display = 'none';
+    }
+
+    function saveNewAccountModal() {
+      const name = document.getElementById('newAccName').value.trim();
+      const email = document.getElementById('newAccEmail').value.trim();
+      const password = document.getElementById('newAccPassword').value.trim();
+      const hw = document.getElementById('newAccHw').value;
+
+      if (!name || !email) {
+        alert('Nama dan Email wajib diisi!');
+        return;
+      }
+
+      const newId = 'acc_' + Math.random().toString(36).substr(2, 6);
+      const newAcc = {
+        id: newId,
+        name: name,
+        email: email,
+        password: password,
+        role: 'user',
+        hardware_type: hw,
+        mqtt_broker: 'broker.emqx.io',
+        mqtt_port: 1883,
+        mqtt_ws_port: 8083,
+        mqtt_prefix: 'alrisa/' + newId,
+        devices: [
+          { id: 'pagar_' + newId, name: 'Pintu Gerbang', type: 0, category: 'Keamanan', hardwarePin: 'GPIO 2', isActive: false }
+        ]
+      };
+
+      systemAccounts.push(newAcc);
+      currentSelectedAccountId = newId;
+      handleFormSubmit();
+      closeAccountModal();
+      populateBrokerAccountSwitcher();
+      showToast('Akun Baru Didaftarkan!', `Akun ${name} siap digunakan.`);
+    }
+
+    function deleteAccount(accId) {
+      if (confirm('Yakin ingin menghapus akun ini?')) {
+        systemAccounts = systemAccounts.filter(a => a.id !== accId);
+        if (currentSelectedAccountId === accId) {
+          currentSelectedAccountId = systemAccounts[0]?.id || 'acc_superadmin';
+        }
+        handleFormSubmit();
+        populateBrokerAccountSwitcher();
+        showToast('Akun Dihapus', 'Data akun telah dihapus dari sistem.');
+      }
+    }
+
+    // APPLY BROKER PRESET
+    function applyBrokerPreset(host, port, wsPort, element) {
+      document.getElementById('mqtt_broker').value = host;
+      document.getElementById('mqtt_port').value = port;
+      document.getElementById('mqtt_ws_port').value = wsPort;
+
+      document.querySelectorAll('.preset-card-item').forEach(el => el.classList.remove('selected'));
+      if (element) element.classList.add('selected');
+
+      showToast('Preset Diterapkan', `Broker disetel ke ${host}:${port}. Klik Simpan untuk menerapkan ke akun aktif.`);
+    }
+
+    // DIAGNOSTIC WEBSOCKET TEST
+    let mqttClient = null;
     function runLiveDiagnosticTest() {
       const broker = document.getElementById('mqtt_broker').value.trim();
       const wsPort = parseInt(document.getElementById('mqtt_ws_port').value.trim()) || 8083;
@@ -1546,15 +2645,13 @@
 
       statusBadge.innerText = '● TESTING...';
       statusBadge.style.color = 'var(--amber)';
-
       addTermLog('CLIENT', `Mengirim handshake WebSocket ke wss://${broker}:${wsPort}/mqtt...`);
 
-      const clientId = 'ALRISA_NodeClient_' + Math.random().toString(16).substr(2, 8);
+      const clientId = 'NEXORA_Diag_' + Math.random().toString(16).substr(2, 8);
       const startTime = performance.now();
 
       try {
         mqttClient = new Paho.MQTT.Client(broker, wsPort, "/mqtt", clientId);
-
         mqttClient.onConnectionLost = function (response) {
           if (response.errorCode !== 0) {
             statusBadge.innerText = '● DISCONNECTED';
@@ -1569,14 +2666,12 @@
             const latency = Math.round(performance.now() - startTime);
             statusBadge.innerText = '● CONNECTED (ONLINE)';
             statusBadge.style.color = 'var(--emerald)';
-
             document.getElementById('headerPingText').innerText = `LATENSI: ${latency}ms`;
-            addTermLog('SUCCESS', `Handshake berhasil! Latensi: ${latency} ms. Broker ${broker} aktif & normal!`, 'success');
+            addTermLog('SUCCESS', `Handshake berhasil! Latensi: ${latency} ms. Broker ${broker} aktif & responsif!`, 'success');
 
             const msg = new Paho.MQTT.Message(JSON.stringify({ type: 'HEARTBEAT', time: Date.now() }));
             msg.destinationName = 'alrisa/diagnostic/ping';
             mqttClient.send(msg);
-            addTermLog('PACKET', `Terkirim probe data ke topik 'alrisa/diagnostic/ping'`, 'normal');
 
             setTimeout(() => {
               try { mqttClient.disconnect(); } catch (e) {}
@@ -1586,7 +2681,7 @@
           onFailure: function (err) {
             statusBadge.innerText = '● FAILED';
             statusBadge.style.color = 'var(--rose)';
-            addTermLog('ERROR', `Gagal terhubung: ${err.errorMessage}. Periksa port WebSocket atau jaringan Anda.`, 'error');
+            addTermLog('ERROR', `Gagal terhubung: ${err.errorMessage}. Pastikan port WebSocket terbuka.`, 'error');
           }
         };
 
@@ -1603,22 +2698,63 @@
       }
     }
 
-    // Handle AJAX Form Submit to Node.js backend
-    function handleFormSubmit(e) {
-      e.preventDefault();
-      const saveBtn = document.getElementById('btnSubmitForm');
-      saveBtn.innerHTML = '<span>⏳</span> Menyimpan ke Node.js...';
-      saveBtn.style.opacity = '0.7';
+    function addTermLog(prefix, msg, type = 'normal') {
+      const term = document.getElementById('termOutput');
+      if (!term) return;
+      const d = new Date();
+      const timeStr = '[' + d.toTimeString().split(' ')[0] + ']';
 
-      const formData = new FormData(document.getElementById('mainConfigForm'));
-      const payload = {};
-      formData.forEach((value, key) => {
-        if (['mqtt_port', 'mqtt_ws_port', 'plc_port'].includes(key)) {
-          payload[key] = parseInt(value) || 0;
-        } else {
-          payload[key] = value;
-        }
-      });
+      const line = document.createElement('div');
+      line.className = 'term-line';
+      line.innerHTML = `
+        <span class="term-time">${timeStr}</span>
+        <span class="term-prefix">${prefix}:</span>
+        <span class="term-msg ${type}">${msg}</span>
+      `;
+      term.appendChild(line);
+      term.scrollTop = term.scrollHeight;
+    }
+
+    // FORM SUBMIT AJAX (MENYIMPAN KE NODE.JS SERVER)
+    function handleFormSubmit(e) {
+      if (e) e.preventDefault();
+      const saveBtn = document.getElementById('btnSubmitForm');
+      if (saveBtn) {
+        saveBtn.innerHTML = '<span>⏳</span> Menyimpan...';
+        saveBtn.style.opacity = '0.7';
+      }
+
+      const activeAcc = systemAccounts.find(a => a.id === currentSelectedAccountId);
+      if (activeAcc) {
+        activeAcc.mqtt_broker = document.getElementById('mqtt_broker').value.trim();
+        activeAcc.mqtt_port = parseInt(document.getElementById('mqtt_port').value.trim()) || 1883;
+        activeAcc.mqtt_ws_port = parseInt(document.getElementById('mqtt_ws_port').value.trim()) || 8083;
+        activeAcc.mqtt_prefix = document.getElementById('mqtt_prefix').value.trim();
+        activeAcc.mqtt_user = document.getElementById('mqtt_user').value.trim();
+        activeAcc.mqtt_pass = document.getElementById('mqtt_pass').value.trim();
+        activeAcc.wifi_ssid = document.getElementById('wifi_ssid').value.trim();
+        activeAcc.wifi_password = document.getElementById('wifi_password').value.trim();
+        activeAcc.plc_type = document.getElementById('plc_type').value.trim();
+        activeAcc.plc_ip = document.getElementById('plc_ip').value.trim();
+        activeAcc.plc_port = parseInt(document.getElementById('plc_port').value.trim()) || 502;
+      }
+
+      const payload = {
+        accounts: systemAccounts,
+        active_account_id: currentSelectedAccountId,
+        account_id: currentSelectedAccountId,
+        mqtt_broker: activeAcc ? activeAcc.mqtt_broker : document.getElementById('mqtt_broker').value.trim(),
+        mqtt_port: activeAcc ? activeAcc.mqtt_port : 1883,
+        mqtt_ws_port: activeAcc ? activeAcc.mqtt_ws_port : 8083,
+        mqtt_prefix: activeAcc ? activeAcc.mqtt_prefix : 'alrisa',
+        mqtt_user: activeAcc ? activeAcc.mqtt_user : '',
+        mqtt_pass: activeAcc ? activeAcc.mqtt_pass : '',
+        plc_ip: activeAcc ? activeAcc.plc_ip : '192.168.1.100',
+        plc_port: activeAcc ? activeAcc.plc_port : 502,
+        wifi_ssid: activeAcc ? activeAcc.wifi_ssid : '',
+        wifi_password: activeAcc ? activeAcc.wifi_password : '',
+        api_secret_key: document.getElementById('api_secret_key') ? document.getElementById('api_secret_key').value.trim() : 'alrisa_secret_token_2026'
+      };
 
       fetch('/api/settings', {
         method: 'POST',
@@ -1627,27 +2763,29 @@
       })
       .then(res => res.json())
       .then(data => {
-        saveBtn.innerHTML = '<span>💾</span> Simpan Konfigurasi Node.js';
-        saveBtn.style.opacity = '1';
-
+        if (saveBtn) {
+          saveBtn.innerHTML = '<span>💾</span> Simpan Konfigurasi';
+          saveBtn.style.opacity = '1';
+        }
         if (data.success) {
-          showToast('Tersimpan di Node.js!', 'Konfigurasi telah aktif secara real-time.');
-          addTermLog('CONFIG', 'Konfigurasi berhasil disimpan oleh server Node.js!', 'success');
+          showToast('Konfigurasi Disimpan!', `Pengaturan broker & hardware untuk akun "${activeAcc?.name || currentSelectedAccountId}" berhasil diperbarui.`);
+          renderAccountsTable();
+          renderActiveAccountDetail();
         } else {
-          showToast('Gagal Menyimpan', data.message || 'Terjadi kesalahan', true);
+          showToast('Gagal Menyimpan', data.message || 'Terjadi kesalahan sistem', true);
         }
       })
       .catch(err => {
-        saveBtn.innerHTML = '<span>💾</span> Simpan Konfigurasi Node.js';
-        saveBtn.style.opacity = '1';
-        showToast('Kesalahan Jaringan', err.message, true);
-        addTermLog('ERROR', 'Gagal menghubungi server Node.js: ' + err.message, 'error');
+        if (saveBtn) {
+          saveBtn.innerHTML = '<span>💾</span> Simpan Konfigurasi';
+          saveBtn.style.opacity = '1';
+        }
+        showToast('Koneksi Error', err.message, true);
       });
     }
 
-    // Reset Defaults
     function resetDefaults() {
-      if (confirm('Kembalikan semua pengaturan ke standar pabrik ALRISA?')) {
+      if (confirm('Kembalikan pengaturan broker & sistem ke standar bawaan pabrik?')) {
         document.getElementById('mqtt_broker').value = 'broker.emqx.io';
         document.getElementById('mqtt_port').value = '1883';
         document.getElementById('mqtt_ws_port').value = '8083';
@@ -1658,6 +2796,61 @@
         showToast('Pengaturan Direset', 'Klik Simpan Konfigurasi untuk menerapkan perubahan.');
       }
     }
+
+    function showToast(title, message, isError = false) {
+      const toast = document.getElementById('toastAlert');
+      document.getElementById('toastTitle').innerText = title;
+      document.getElementById('toastMessage').innerText = message;
+      document.getElementById('toastIcon').innerText = isError ? '⚠️' : '✅';
+      toast.style.borderColor = isError ? 'var(--rose)' : 'var(--emerald)';
+
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 4000);
+    }
+
+    // =========================================================================
+    // 🚀 INITIAL BOOTSTRAP DARI API NODE.JS
+    // =========================================================================
+    async function initPage() {
+      try {
+        const res = await fetch('/api/settings');
+        const data = await res.json();
+        if (data.success && data.data) {
+          systemAccounts = data.data.accounts || [];
+          
+          // Periksa parameter URL (misalnya ?account_id=acc_xxx&tab=section-broker)
+          const urlParams = new URLSearchParams(window.location.search);
+          const qAccId = urlParams.get('account_id');
+          const qTab = urlParams.get('tab');
+
+          if (qAccId && systemAccounts.find(a => a.id === qAccId)) {
+            currentSelectedAccountId = qAccId;
+          } else if (data.data.active_account_id && systemAccounts.find(a => a.id === data.data.active_account_id)) {
+            currentSelectedAccountId = data.data.active_account_id;
+          } else if (systemAccounts.length > 0) {
+            currentSelectedAccountId = systemAccounts[0].id;
+          }
+
+          populateBrokerAccountSwitcher();
+          renderAccountsTable();
+          selectActiveAccount(currentSelectedAccountId);
+
+          if (qTab) {
+            const btn = document.querySelector(`[onclick*="${qTab}"]`);
+            switchSection(qTab, btn);
+          }
+        }
+      } catch (err) {
+        console.error('Gagal mengambil data dari Node.js:', err);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initPage();
+      setupWebSocketSettings();
+    });
   </script>
 </body>
 </html>

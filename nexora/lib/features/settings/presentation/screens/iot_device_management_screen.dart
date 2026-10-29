@@ -397,19 +397,19 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
-                      child: Text(
-                        dev.hardwarePin,
-                        style: const TextStyle(
-                          fontFamily: 'JetBrains Mono',
+                      child: const Text(
+                        'Cloud Managed',
+                        style: TextStyle(
+                          fontFamily: NexoraTokens.fontFamilySans,
                           fontSize: 9,
                           fontWeight: FontWeight.w700,
-                          color: NexoraTokens.ink,
+                          color: NexoraTokens.inkSecondary,
                         ),
                       ),
                     ),
@@ -582,8 +582,6 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
   // ==========================================
   void _showAddDeviceSheet(BuildContext context) {
     final nameCtrl = TextEditingController();
-    final pinCtrl = TextEditingController(text: 'GPIO 2 (%QX0.0)');
-    final idCtrl = TextEditingController();
     DeviceType selectedType = DeviceType.gate;
 
     showModalBottomSheet(
@@ -638,6 +636,7 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
                   const Text('Tipe Perangkat', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<DeviceType>(
+                    isExpanded: true,
                     value: selectedType,
                     decoration: InputDecoration(
                       filled: true,
@@ -680,12 +679,12 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
                       border: Border.all(color: NexoraTokens.cardBorder),
                     ),
                     child: Row(
-                      children: [
-                        const Icon(Icons.developer_board_rounded, size: 18, color: NexoraTokens.brandCyan),
-                        const SizedBox(width: 10),
+                      children: const [
+                        Icon(Icons.shield_outlined, size: 18, color: NexoraTokens.brandCyan),
+                        SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Alamat PIN hardware (Relay / GPIO / PLC) dikonfigurasi terpusat via Website Portal cPanel.',
+                            'Alamat PIN hardware (Relay / GPIO / PLC) dikonfigurasi terpusat oleh Super Admin via Website.',
                             style: TextStyle(
                               fontSize: 11.5,
                               color: NexoraTokens.inkSecondary,
@@ -693,23 +692,6 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  const Text('Topic MQTT ID (Unik)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: idCtrl,
-                    style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: 'Misal: lampu_teras_belakang',
-                      prefixText: 'nexora/',
-                      suffixText: '/set',
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -724,20 +706,17 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
                           );
                           return;
                         }
-                        final cleanId = idCtrl.text.trim().isNotEmpty
-                            ? idCtrl.text.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_')
-                            : 'dev_${DateTime.now().millisecondsSinceEpoch}';
+                        final autoPin = DeviceManagerService().getNextAvailablePin(selectedType);
 
                         DeviceManagerService().addDevice(
-                          customId: cleanId,
                           name: nameCtrl.text.trim(),
                           type: selectedType,
-                          hardwarePin: pinCtrl.text.trim().isNotEmpty ? pinCtrl.text.trim() : 'GPIO 2',
+                          hardwarePin: autoPin,
                         );
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Perangkat "${nameCtrl.text.trim()}" berhasil ditambahkan!'),
+                            content: Text('Perangkat "${nameCtrl.text.trim()}" berhasil ditambahkan & tersinkron ke Cloud!'),
                             backgroundColor: NexoraTokens.statusGreen,
                           ),
                         );
@@ -822,8 +801,6 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
               ),
               const SizedBox(height: 14),
 
-              const Text('Alamat PIN Hardware (Terkunci oleh Website)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-              const SizedBox(height: 6),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -833,25 +810,17 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
                   border: Border.all(color: NexoraTokens.cardBorder),
                 ),
                 child: Row(
-                  children: [
-                    const Icon(Icons.lock_outline_rounded, size: 16, color: NexoraTokens.inkMuted),
-                    const SizedBox(width: 8),
-                    Text(
-                      dev.hardwarePin,
-                      style: const TextStyle(
-                        fontFamily: 'JetBrains Mono',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: NexoraTokens.ink,
-                      ),
-                    ),
-                    const Spacer(),
-                    const Text(
-                      'Terkunci Cloud',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: NexoraTokens.inkSecondary,
+                  children: const [
+                    Icon(Icons.shield_outlined, size: 16, color: NexoraTokens.brandCyan),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'PIN Hardware & GPIO dikonfigurasi terpusat oleh Super Admin di Website.',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                          color: NexoraTokens.inkSecondary,
+                        ),
                       ),
                     ),
                   ],

@@ -10,6 +10,7 @@ import 'package:nexora/services/device_manager_service.dart';
 import 'package:nexora/services/language_service.dart';
 import 'package:nexora/services/cctv_manager_service.dart';
 import 'package:nexora/services/auth_service.dart';
+import 'package:nexora/services/cloud_sync_service.dart';
 import 'package:nexora/features/auth/presentation/screens/auth_view.dart';
 import 'package:nexora/features/settings/presentation/screens/cctv_management_screen.dart';
 import 'package:nexora/features/settings/presentation/screens/iot_device_management_screen.dart';
@@ -59,6 +60,7 @@ class _SettingsViewState extends State<SettingsView> {
       _isReconnecting = true;
     });
 
+    await CloudSyncService().fetchFromCloud();
     await MqttService().reconnect();
 
     if (mounted) {
@@ -413,21 +415,28 @@ class _SettingsViewState extends State<SettingsView> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: const [
-                      Icon(Icons.router_outlined, size: 20, color: NexoraTokens.ink),
-                      SizedBox(width: 8),
-                      Text(
-                        'Koneksi Broker MQTT',
-                        style: TextStyle(
-                          fontFamily: NexoraTokens.fontFamilySans,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: NexoraTokens.ink,
+                  Expanded(
+                    child: Row(
+                      children: const [
+                        Icon(Icons.router_outlined, size: 20, color: NexoraTokens.ink),
+                        SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Koneksi Broker MQTT',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: NexoraTokens.fontFamilySans,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: NexoraTokens.ink,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                     decoration: BoxDecoration(
@@ -909,14 +918,18 @@ class _SettingsViewState extends State<SettingsView> {
               children: const [
                 Icon(Icons.dns_rounded, size: 18, color: NexoraTokens.brandCyan),
                 SizedBox(width: 8),
-                Text(
-                  'Manajemen Perangkat & Pengawasan',
-                  style: TextStyle(
-                    fontFamily: NexoraTokens.fontFamilySans,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: NexoraTokens.inkSecondary,
-                    letterSpacing: 0.2,
+                Expanded(
+                  child: Text(
+                    'Manajemen Perangkat & Pengawasan',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: NexoraTokens.fontFamilySans,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: NexoraTokens.inkSecondary,
+                      letterSpacing: 0.2,
+                    ),
                   ),
                 ),
               ],

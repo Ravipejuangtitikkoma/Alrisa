@@ -16,6 +16,7 @@ import 'package:nexora/features/settings/presentation/screens/settings_view.dart
 import 'package:nexora/services/device_manager_service.dart';
 import 'package:nexora/services/language_service.dart';
 import 'package:nexora/services/cctv_manager_service.dart';
+import 'package:nexora/services/cloud_sync_service.dart';
 import 'package:nexora/features/home/widgets/cctv_carousel.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -337,7 +338,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                     ),
                     const SizedBox(height: 14),
 
-                  // Status BMKG Live
+                  // Status Cuaca Lokasi Live (Global / Google Weather Standard)
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -354,7 +355,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
-                            Icons.sync_rounded,
+                            Icons.my_location_rounded,
                             size: 18,
                             color: NexoraTokens.statusGreen,
                           ),
@@ -365,7 +366,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'BMKG Live: ${WeatherService().bmkgWeatherDesc} (${WeatherService().temperature.toStringAsFixed(0)}°C)',
+                                'Cuaca Live: ${WeatherService().bmkgWeatherDesc} (${WeatherService().temperature.toStringAsFixed(0)}°C • ${WeatherService().humidity}%)',
                                 style: const TextStyle(
                                   fontFamily: NexoraTokens.fontFamilySans,
                                   fontSize: 12,
@@ -373,22 +374,24 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                   color: Color(0xFF166534),
                                 ),
                               ),
-                              const SizedBox(height: 1),
+                              const SizedBox(height: 2),
                               Text(
-                                WeatherService().locationName,
+                                '📍 ${WeatherService().locationName} (Auto-Location)',
                                 style: const TextStyle(
                                   fontFamily: NexoraTokens.fontFamilySans,
-                                  fontSize: 10,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
                                   color: Color(0xFF15803D),
                                 ),
                               ),
                             ],
                           ),
                         ),
+                        const SizedBox(width: 8),
                         GestureDetector(
                           onTap: () async {
                             HapticFeedback.mediumImpact();
-                            await WeatherService().fetchBMKGWeather();
+                            await WeatherService().initLocationAndWeather();
                             setModalState(() {});
                             setState(() {});
                           },
@@ -399,7 +402,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Text(
-                              'Sinkron',
+                              'Deteksi Lokasi',
                               style: TextStyle(
                                 fontFamily: NexoraTokens.fontFamilySans,
                                 fontSize: 11,
@@ -415,7 +418,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
                   const SizedBox(height: 14),
                   Text(
-                    'PILIH WILAYAH BMKG INDONESIA',
+                    'PILIH LOKASI KOTA / DETEKSI OTOMATIS',
                     style: NexoraTokens.sectionLabel,
                   ),
                   const SizedBox(height: 8),
@@ -602,11 +605,13 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
   Future<void> _handleRefresh() async {
     HapticFeedback.mediumImpact();
-    // 1. Refresh CCTV Streams
+    // 1. Sinkronisasi Perangkat, PIN & URL RTSP dari Website Cloud
+    await CloudSyncService().fetchFromCloud();
+    // 2. Refresh CCTV Streams
     CctvManagerService().triggerRefresh();
-    // 2. Refresh Weather data
+    // 3. Refresh Weather data
     await WeatherService().fetchBMKGWeather();
-    // 3. Refresh MQTT sync
+    // 4. Refresh MQTT sync
     if (!MqttService().isConnected) {
       MqttService().connect();
     }
@@ -644,6 +649,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     final tabBottomPadding = bottomInset + 115.0;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: NexoraTokens.background,
       body: Stack(
         children: [
@@ -693,7 +699,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                           ),
                         ),
 
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 14),
 
                         // Scene Chips Horizontal
                         FadeTransition(
@@ -706,11 +712,11 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                 Text(
                                   LanguageService().tr('section_scenes'),
                                   style: NexoraTokens.sectionLabel.copyWith(
-                                    color: Colors.white.withOpacity(0.92),
+                                    color: Colors.white,
                                     shadows: const [
                                       Shadow(
-                                        color: Colors.black26,
-                                        blurRadius: 6,
+                                        color: Colors.black54,
+                                        blurRadius: 8,
                                         offset: Offset(0, 1),
                                       ),
                                     ],
@@ -723,7 +729,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                           ),
                         ),
 
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 18),
 
                         // Card CCTV Terdedikasi: Dynamic Swipeable CCTV Carousel (Multi-Kamera Slider)
                         FadeTransition(
@@ -839,14 +845,16 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             right: 0,
             bottom: bottomInset > 0 ? bottomInset + 8 : 20,
             child: Center(
-              child: PillNav(
-                currentIndex: _navIndex,
-                onIndexChanged: (index) {
-                  HapticFeedback.selectionClick();
-                  setState(() {
-                    _navIndex = index;
-                  });
-                },
+              child: RepaintBoundary(
+                child: PillNav(
+                  currentIndex: _navIndex,
+                  onIndexChanged: (index) {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _navIndex = index;
+                    });
+                  },
+                ),
               ),
             ),
           ),

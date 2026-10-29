@@ -52,14 +52,17 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
   late AnimationController _pulseController;
   Timer? _timer;
   Timer? _connectTimeoutTimer;
-  String _timestamp = '';
+  final ValueNotifier<String> _timestampNotifier = ValueNotifier<String>('');
   VlcPlayerController? _vlcViewController;
   StreamSubscription<DeviceStateEvent>? _mqttSub;
   StreamSubscription<List<CustomDeviceItem>>? _deviceSub;
+  StreamSubscription<List<CctvCameraItem>>? _cctvSub;
+  String _currentRtspUrl = '';
 
   @override
   void initState() {
     super.initState();
+    _currentRtspUrl = widget.camera.rtspUrl.trim();
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -84,6 +87,19 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
         final d = devs.firstWhere((item) => item.id == targetId);
         if (_isGateOpen != d.isActive) {
           setState(() => _isGateOpen = d.isActive);
+        }
+      } catch (_) {}
+    });
+
+    _cctvSub = CctvManagerService().camerasStream.listen((cams) {
+      if (!mounted) return;
+      try {
+        final updatedCam = cams.firstWhere((c) => c.id == widget.camera.id);
+        final nextUrl = updatedCam.rtspUrl.trim();
+        if (nextUrl != _currentRtspUrl) {
+          _currentRtspUrl = nextUrl;
+          widget.camera.rtspUrl = nextUrl;
+          _refreshStream();
         }
       } catch (_) {}
     });
@@ -211,18 +227,18 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
     final m = now.minute.toString().padLeft(2, '0');
     final s = now.second.toString().padLeft(2, '0');
     if (mounted) {
-      setState(() {
-        _timestamp = '$h:$m:$s';
-      });
+      _timestampNotifier.value = '$h:$m:$s';
     }
   }
 
   @override
   void dispose() {
+    _cctvSub?.cancel();
     _mqttSub?.cancel();
     _deviceSub?.cancel();
     _connectTimeoutTimer?.cancel();
     _timer?.cancel();
+    _timestampNotifier.dispose();
     _pulseController.dispose();
     try {
       _vlcViewController?.removeListener(_vlcListener);
@@ -593,13 +609,16 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
                     color: Colors.black.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(
-                    _timestamp,
-                    style: const TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                  child: ValueListenableBuilder<String>(
+                    valueListenable: _timestampNotifier,
+                    builder: (_, ts, __) => Text(
+                      ts,
+                      style: const TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -801,13 +820,16 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
                     color: Colors.black.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(5),
                   ),
-                  child: Text(
-                    _timestamp,
-                    style: const TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFE2E8F0),
+                  child: ValueListenableBuilder<String>(
+                    valueListenable: _timestampNotifier,
+                    builder: (_, ts, __) => Text(
+                      ts,
+                      style: const TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFE2E8F0),
+                      ),
                     ),
                   ),
                 ),

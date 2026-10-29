@@ -1,56 +1,158 @@
+<?php
+/**
+ * ============================================================================
+ * NEXORA IOT — PORTAL MANAJEMEN AKUN & KLIEN (HALAMAN UTAMA)
+ * ============================================================================
+ * Halaman Utama Web Portal:
+ * - Menampilkan Tabel Akun Klien (Nama Pemilik, Username, Password, Hardware)
+ * - Fitur Intip Password (👁️), Edit Akun, Hapus Akun, Tambah Akun Baru
+ * - Akses Langsung ke Web Dashboard Nexora Home OS tiap akun (dashboard.php?account_id=...)
+ * ============================================================================
+ */
+
+$settingsFile = __DIR__ . '/settings.json';
+
+$defaultSettings = [
+    'mqtt_broker'      => 'broker.emqx.io',
+    'mqtt_port'        => 1883,
+    'mqtt_ws_port'     => 8083,
+    'mqtt_prefix'      => 'alrisa',
+    'api_secret_key'   => 'alrisa_secret_token_2026',
+    'app_name'         => 'ALRISA & NEXORA Multi-Tenant Cloud Studio',
+    'updated_at'       => date('Y-m-d H:i:s')
+];
+
+function loadSettings($filePath, $defaults) {
+    if (file_exists($filePath)) {
+        $content = file_get_contents($filePath);
+        $decoded = json_decode($content, true);
+        if (is_array($decoded)) {
+            return array_merge($defaults, $decoded);
+        }
+    }
+    return $defaults;
+}
+
+function saveSettings($filePath, $data) {
+    $data['updated_at'] = date('Y-m-d H:i:s');
+    return file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+}
+
+$current = loadSettings($settingsFile, $defaultSettings);
+
+// API Handler
+$isApiRequest = isset($_GET['api']) || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false);
+if ($isApiRequest) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-KEY');
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $raw = file_get_contents('php://input');
+        $input = json_decode($raw, true) ?: $_POST;
+
+        if (isset($input['accounts']) && is_array($input['accounts'])) {
+            $current['accounts'] = $input['accounts'];
+        }
+        if (isset($input['active_account_id'])) {
+            $current['active_account_id'] = trim($input['active_account_id']);
+        }
+
+        saveSettings($settingsFile, $current);
+        echo json_encode(['success' => true, 'message' => 'Data akun berhasil diperbarui!', 'data' => $current]);
+        exit();
+    }
+
+    echo json_encode(['success' => true, 'data' => $current]);
+    exit();
+}
+?>
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ALRISA Home OS — Smart Systems & Visual PLC Studio</title>
-  <!-- Google Fonts: Plus Jakarta Sans, Outfit & JetBrains Mono -->
+  <title>NEXORA — Portal Manajemen Akun & Klien</title>
+  
+  <!-- Modern Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
-  <style>
-    :root {
-      /* Apple Home / Smart Life 2026 Color Palette */
-      --bg-ambient: #F3F5F7;
-      --bg-mesh: radial-gradient(at 0% 0%, rgba(0, 163, 224, 0.08) 0px, transparent 50%),
-                 radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.06) 0px, transparent 50%),
-                 radial-gradient(at 50% 100%, rgba(99, 102, 241, 0.04) 0px, transparent 50%);
-      --card-white: #FFFFFF;
-      --card-glass: rgba(255, 255, 255, 0.82);
-      --ink: #0B1116;
-      --ink-secondary: #4A5568;
-      --ink-dim: #94A3B8;
-      
-      --cyan-primary: #00A3E0;
-      --cyan-soft: #E0F4FB;
-      --cyan-glow: rgba(0, 163, 224, 0.28);
-      
-      --green-active: #10B981;
-      --green-soft: #D1FAE5;
-      --green-glow: rgba(16, 185, 129, 0.25);
-      
-      --amber-accent: #F59E0B;
-      --amber-soft: #FEF3C7;
-      
-      --border-subtle: rgba(226, 232, 240, 0.85);
-      --border-active: rgba(0, 163, 224, 0.35);
-      
-      --radius-bento: 26px;
-      --radius-sm: 14px;
-      --radius-btn: 12px;
-      
-      --shadow-ambient: 0 4px 20px -2px rgba(15, 23, 42, 0.04), 0 10px 30px -4px rgba(15, 23, 42, 0.03);
-      --shadow-hover: 0 16px 40px -4px rgba(15, 23, 42, 0.08), 0 4px 16px -2px rgba(0, 163, 224, 0.06);
-      --shadow-active: 0 18px 45px -4px rgba(0, 163, 224, 0.12), 0 6px 20px -2px rgba(0, 163, 224, 0.08);
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-      /* Visual PLC Studio Dark Theme */
-      --plc-bg: #11131B;
-      --plc-card: #181C28;
-      --plc-wire: #475569;
-      --plc-wire-active: #34D399;
-      --plc-text: #E2E8F0;
-      --plc-text-dim: #94A3B8;
+  <style>
+    :root, [data-theme="dark"] {
+      --bg-base: #07090E;
+      --bg-surface: #0E131F;
+      --bg-card: rgba(16, 22, 36, 0.78);
+      --bg-card-hover: rgba(22, 30, 50, 0.92);
+      --bg-input: #090D15;
+      --bg-node: #0B0F1A;
+      --bg-dock: rgba(14, 20, 32, 0.94);
+      
+      --cyan: #00F0FF;
+      --cyan-glow: rgba(0, 240, 255, 0.35);
+      --cyan-subtle: rgba(0, 240, 255, 0.08);
+      
+      --emerald: #10B981;
+      --emerald-glow: rgba(16, 185, 129, 0.35);
+      --emerald-subtle: rgba(16, 185, 129, 0.1);
+      
+      --amber: #F59E0B;
+      --rose: #F43F5E;
+      --purple: #8B5CF6;
+      --indigo: #6366F1;
+      
+      --border-subtle: rgba(255, 255, 255, 0.09);
+      --border-active: rgba(0, 240, 255, 0.4);
+      
+      --text-white: #FFFFFF;
+      --text-secondary: #94A3B8;
+      --text-dim: #64748B;
+      
+      --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.4);
+      --shadow-dock: 0 16px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 240, 255, 0.15);
+      --mesh-bg: 
+        radial-gradient(at 10% 10%, rgba(0, 240, 255, 0.08) 0px, transparent 45%),
+        radial-gradient(at 90% 15%, rgba(139, 92, 246, 0.07) 0px, transparent 40%),
+        radial-gradient(at 50% 90%, rgba(16, 185, 129, 0.06) 0px, transparent 50%);
+    }
+
+    [data-theme="light"] {
+      --bg-base: #F1F5F9;
+      --bg-surface: #FFFFFF;
+      --bg-card: rgba(255, 255, 255, 0.92);
+      --bg-card-hover: #FFFFFF;
+      --bg-input: #F8FAFC;
+      --bg-node: #F8FAFC;
+      --bg-dock: rgba(255, 255, 255, 0.96);
+      
+      --cyan: #0284C7;
+      --cyan-glow: rgba(2, 132, 199, 0.25);
+      --cyan-subtle: rgba(2, 132, 199, 0.1);
+      
+      --emerald: #059669;
+      --emerald-glow: rgba(5, 150, 105, 0.25);
+      --emerald-subtle: rgba(5, 150, 105, 0.12);
+      
+      --amber: #D97706;
+      --rose: #E11D48;
+      --purple: #7C3AED;
+      --indigo: #4F46E5;
+      
+      --border-subtle: rgba(203, 213, 225, 0.85);
+      --border-active: rgba(2, 132, 199, 0.45);
+      
+      --text-white: #0F172A;
+      --text-secondary: #475569;
+      --text-dim: #64748B;
+      
+      --shadow-card: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 10px 30px -4px rgba(15, 23, 42, 0.03);
+      --shadow-dock: 0 16px 40px rgba(15, 23, 42, 0.12), 0 0 20px rgba(2, 132, 199, 0.12);
+      --mesh-bg: 
+        radial-gradient(at 10% 10%, rgba(2, 132, 199, 0.08) 0px, transparent 50%),
+        radial-gradient(at 90% 15%, rgba(124, 58, 237, 0.06) 0px, transparent 45%),
+        radial-gradient(at 50% 90%, rgba(5, 150, 105, 0.05) 0px, transparent 50%);
     }
 
     * {
@@ -60,24 +162,24 @@
     }
 
     body {
-      background-color: var(--bg-ambient);
-      background-image: var(--bg-mesh);
+      background-color: var(--bg-base);
+      background-image: var(--mesh-bg);
       background-attachment: fixed;
-      color: var(--ink);
+      color: var(--text-white);
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       min-height: 100vh;
-      padding: 24px 20px;
+      padding: 24px 20px 80px;
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
     }
 
     .container {
-      max-width: 1260px;
+      max-width: 1280px;
       margin: 0 auto;
     }
 
-    /* TOP STATUS BAR & HEADER */
-    .app-header {
+    /* TOP HEADER */
+    .top-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -88,169 +190,139 @@
       border-bottom: 1px solid var(--border-subtle);
     }
 
-    .header-left {
+    .brand-group {
       display: flex;
       align-items: center;
       gap: 16px;
     }
 
-    .lang-toggle-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 16px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border-subtle);
-      background: var(--card-white);
-      color: var(--ink);
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      box-shadow: var(--shadow-ambient);
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      font-family: inherit;
-      user-select: none;
-    }
-
-    .lang-toggle-btn:hover {
-      border-color: var(--cyan-primary);
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-hover);
-    }
-
-    .lang-toggle-btn .flag {
-      font-size: 18px;
-    }
-
-    .lang-toggle-btn .lang-badge {
-      font-size: 11px;
-      background: var(--cyan-soft);
-      color: #0284C7;
-      padding: 2px 7px;
-      border-radius: 6px;
-      font-weight: 800;
-      letter-spacing: 0.5px;
-    }
-
-    .brand-title {
-      font-family: 'Outfit', sans-serif;
-      font-size: 28px;
-      font-weight: 800;
-      letter-spacing: -0.8px;
-      line-height: 1.1;
+    .brand-logo-badge {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--cyan), #3B82F6);
       display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .brand-title .logo-badge {
-      width: 32px;
-      height: 32px;
-      background: linear-gradient(135deg, var(--cyan-primary), #0284C7);
-      border-radius: 9px;
-      display: inline-flex;
       align-items: center;
       justify-content: center;
-      color: white;
-      font-size: 17px;
-      box-shadow: 0 4px 12px var(--cyan-glow);
+      font-size: 26px;
+      box-shadow: 0 0 20px var(--cyan-glow);
     }
 
-    .brand-title span.accent {
-      font-weight: 400;
-      color: var(--cyan-primary);
-    }
-
-    .brand-sub {
-      font-size: 13px;
-      color: var(--ink-secondary);
-      margin-top: 4px;
-      font-weight: 500;
-    }
-
-    .header-right {
+    .brand-title-wrap h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.6px;
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 8px;
     }
 
-    .status-pill {
+    .brand-title-wrap p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 3px;
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, var(--text-white), #94A3B8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .cyan-text { color: var(--cyan); }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-top {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      background: var(--green-soft);
-      color: #065F46;
-      padding: 8px 16px;
-      border-radius: 999px;
-      font-size: 12px;
+      padding: 10px 18px;
+      border-radius: 12px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      color: var(--text-white);
+      font-size: 13px;
       font-weight: 700;
-      letter-spacing: 0.3px;
-      border: 1px solid rgba(16, 185, 129, 0.2);
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      font-family: inherit;
+    }
+
+    .btn-top:hover {
+      border-color: var(--cyan);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px var(--cyan-subtle);
+    }
+
+    .btn-top.primary {
+      background: linear-gradient(135deg, var(--cyan), #0284C7);
+      color: #000;
+      border: none;
+      box-shadow: 0 0 20px var(--cyan-glow);
+    }
+
+    .live-telemetry-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
     }
 
     .pulse-dot {
       width: 8px;
       height: 8px;
-      background-color: var(--green-active);
       border-radius: 50%;
-      animation: pulseGlow 1.8s infinite;
+      background: var(--emerald);
+      box-shadow: 0 0 10px var(--emerald);
+      animation: pulseAnim 2s infinite;
+    }
+    @keyframes pulseAnim {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+      100% { opacity: 1; transform: scale(1); }
     }
 
-    @keyframes pulseGlow {
-      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-      70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
-      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-    }
-
-    .clock-display {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--ink-secondary);
-      background: var(--card-white);
-      padding: 8px 14px;
-      border-radius: 999px;
-      border: 1px solid var(--border-subtle);
-    }
-
-    /* HERO BENTO SUMMARY & STATUS (Apple Home Style) */
-    .hero-summary-grid {
+    /* SUMMARY STATS BAR */
+    .summary-stats-grid {
       display: grid;
-      grid-template-columns: repeat(12, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       gap: 18px;
-      margin-bottom: 26px;
+      margin-bottom: 24px;
     }
 
-    .summary-card {
-      background: var(--card-white);
-      border-radius: var(--radius-bento);
-      padding: 20px 24px;
+    .stat-card {
+      background: var(--bg-card);
       border: 1px solid var(--border-subtle);
-      box-shadow: var(--shadow-ambient);
+      border-radius: 20px;
+      padding: 20px 24px;
       display: flex;
       align-items: center;
-      gap: 18px;
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      position: relative;
-      overflow: hidden;
+      gap: 16px;
+      box-shadow: var(--shadow-card);
+      transition: all 0.25s;
     }
-
-    .summary-card:hover {
+    .stat-card:hover {
       transform: translateY(-2px);
-      box-shadow: var(--shadow-hover);
+      border-color: var(--cyan);
     }
 
-    .summary-card.col-4 { grid-column: span 4; }
-    .summary-card.col-8 { grid-column: span 8; }
-
-    @media (max-width: 900px) {
-      .summary-card.col-4, .summary-card.col-8 { grid-column: span 12; }
-    }
-
-    .summary-icon-wrapper {
-      width: 52px;
-      height: 52px;
-      border-radius: 16px;
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -258,1294 +330,1018 @@
       flex-shrink: 0;
     }
 
-    .summary-icon-wrapper.cyan {
-      background: linear-gradient(135deg, var(--cyan-soft), #BAE6FD);
-      color: #0284C7;
-    }
-
-    .summary-icon-wrapper.green {
-      background: linear-gradient(135deg, var(--green-soft), #A7F3D0);
-      color: #047857;
-    }
-
-    .summary-data .val {
+    .stat-val {
       font-family: 'Outfit', sans-serif;
       font-size: 24px;
       font-weight: 800;
-      color: var(--ink);
+      color: var(--text-white);
       line-height: 1.1;
-      letter-spacing: -0.5px;
     }
-
-    .summary-data .lbl {
-      font-size: 13px;
-      color: var(--ink-secondary);
-      margin-top: 4px;
+    .stat-lbl {
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      margin-top: 3px;
       font-weight: 600;
     }
 
-    /* QUICK SCENES BAR (Apple Home Shortcuts) */
-    .scenes-wrapper {
-      margin-bottom: 26px;
-    }
-
-    .scenes-header {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--ink-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .scenes-scroll {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      overflow-x: auto;
-      padding-bottom: 6px;
-      scrollbar-width: none;
-    }
-
-    .scenes-scroll::-webkit-scrollbar { display: none; }
-
-    .scene-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 20px;
-      border-radius: 999px;
-      background: var(--card-white);
-      border: 1px solid var(--border-subtle);
-      color: var(--ink);
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      white-space: nowrap;
-      box-shadow: var(--shadow-ambient);
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      user-select: none;
-      font-family: inherit;
-    }
-
-    .scene-pill:hover {
-      background: #FFFFFF;
-      border-color: var(--cyan-primary);
-      color: var(--cyan-primary);
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-hover);
-    }
-
-    .scene-pill:active {
-      transform: scale(0.96);
-    }
-
-    .scene-pill .icon {
-      font-size: 16px;
-    }
-
-    /* NAVIGATION TABS (Bento Switcher) */
-    .tab-bar {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 26px;
-      background: #E5E9EC;
-      padding: 6px;
-      border-radius: 18px;
-      width: fit-content;
-    }
-
-    .tab-btn {
-      padding: 10px 24px;
-      border-radius: 13px;
-      border: none;
-      font-family: inherit;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      background: transparent;
-      color: var(--ink-secondary);
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      user-select: none;
-    }
-
-    .tab-btn.active {
-      background: var(--card-white);
-      color: var(--ink);
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-      animation: tabFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    @keyframes tabFadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* ========================================================= */
-    /* BENTO DEVICE CARDS (APPLE HOME 2026 INSPIRATION)          */
-    /* ========================================================= */
-    .bento-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-      gap: 22px;
-      margin-bottom: 40px;
-    }
-
+    /* BENTO CARD */
     .bento-card {
-      background: var(--card-white);
-      border-radius: var(--radius-bento);
-      padding: 24px;
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
       border: 1px solid var(--border-subtle);
-      box-shadow: var(--shadow-ambient);
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      position: relative;
-      overflow: hidden;
+      border-radius: 24px;
+      padding: 26px;
+      box-shadow: var(--shadow-card);
+      margin-bottom: 24px;
     }
 
-    .bento-card:hover {
-      transform: translateY(-4px);
-      box-shadow: var(--shadow-hover);
-    }
-
-    .bento-card.is-active {
-      border-color: var(--border-active);
-      box-shadow: var(--shadow-active);
-      background: linear-gradient(180deg, #FFFFFF 0%, #F8FBFE 100%);
-    }
-
-    /* Ambient Glow on Card Activation */
-    .bento-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: transparent;
-      transition: background 0.3s ease;
-    }
-
-    .bento-card.is-active::before {
-      background: linear-gradient(90deg, var(--cyan-primary), var(--green-active));
-    }
-
-    /* Device Card Top Header */
-    .bento-card-top {
+    .card-title-group {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 20px;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 22px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-subtle);
     }
 
-    .device-info-header {
+    .card-title-left {
       display: flex;
       align-items: center;
       gap: 14px;
     }
 
-    .device-avatar {
-      width: 52px;
-      height: 52px;
-      border-radius: 18px;
-      background: #F1F5F9;
-      color: var(--ink-secondary);
+    .card-icon-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(0, 240, 255, 0.12);
+      border: 1px solid rgba(0, 240, 255, 0.25);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 26px;
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      flex-shrink: 0;
-      border: 1px solid rgba(0, 0, 0, 0.03);
+      font-size: 22px;
     }
 
-    .bento-card.is-active .device-avatar {
-      background: linear-gradient(135deg, var(--cyan-soft), #BAE6FD);
-      color: #0284C7;
-      transform: scale(1.05);
-      box-shadow: 0 6px 18px var(--cyan-glow);
-    }
-
-    .device-title {
+    .card-title-left h2 {
       font-family: 'Outfit', sans-serif;
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--ink);
-      letter-spacing: -0.3px;
-      line-height: 1.2;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text-white);
+    }
+    .card-title-left p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 3px;
     }
 
-    .device-category {
-      font-size: 11px;
-      color: var(--ink-dim);
-      font-weight: 600;
+    /* ULTRA-PREMIUM ACCOUNTS TABLE */
+    .accounts-table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      border-radius: 18px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      margin-bottom: 24px;
+    }
+
+    .accounts-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13.5px;
+    }
+
+    .accounts-table th {
+      background: rgba(255, 255, 255, 0.03);
+      padding: 16px 18px;
+      color: var(--text-secondary);
+      font-size: 11.5px;
+      font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.8px;
+      border-bottom: 1.5px solid var(--border-subtle);
+    }
+
+    .accounts-table td {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: middle;
+    }
+    .accounts-table tr:last-child td { border-bottom: none; }
+    .accounts-table tr:hover { background: rgba(255, 255, 255, 0.02); }
+    .accounts-table tr.active-row {
+      background: rgba(0, 240, 255, 0.04);
+      border-left: 3px solid var(--cyan);
+    }
+
+    .user-avatar-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-avatar-badge {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 14px;
+      color: #FFFFFF;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+
+    .user-name-title {
+      font-weight: 800;
+      font-size: 14.5px;
+      color: var(--text-white);
+    }
+    .user-id-subtitle {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
       margin-top: 2px;
     }
 
-    .device-plc-pill {
+    .role-badge {
       display: inline-flex;
       align-items: center;
       gap: 4px;
       font-size: 10px;
-      font-family: 'JetBrains Mono', monospace;
-      font-weight: 700;
-      background: #F1F5F9;
-      color: var(--ink-secondary);
-      padding: 3px 8px;
+      font-weight: 800;
+      padding: 2px 7px;
       border-radius: 6px;
-      margin-top: 4px;
-    }
-
-    /* Status Badge */
-    .status-badge {
-      font-size: 11px;
-      font-weight: 800;
-      padding: 6px 14px;
-      border-radius: 999px;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      transition: all 0.25s ease;
-      white-space: nowrap;
-    }
-
-    .status-badge.on {
-      background: var(--green-soft);
-      color: #047857;
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      box-shadow: 0 2px 10px var(--green-glow);
-    }
-
-    .status-badge.off {
-      background: #F1F5F9;
-      color: var(--ink-secondary);
-      border: 1px solid transparent;
-    }
-
-    /* SMOOTH TACTILE TOGGLE SWITCH (Zero-Delay) */
-    .tactile-switch-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 16px;
-      background: #F8FAFC;
-      border-radius: 16px;
-      border: 1px solid var(--border-subtle);
-      margin-bottom: 16px;
-    }
-
-    .tactile-switch-label {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--ink-secondary);
-    }
-
-    .ios-switch {
-      position: relative;
-      display: inline-block;
-      width: 52px;
-      height: 30px;
-      cursor: pointer;
-    }
-
-    .ios-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .ios-slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #CBD5E1;
-      transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      border-radius: 34px;
-    }
-
-    .ios-slider:before {
-      position: absolute;
-      content: "";
-      height: 24px;
-      width: 24px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      border-radius: 50%;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.18);
-    }
-
-    input:checked + .ios-slider {
-      background-color: var(--cyan-primary);
-      box-shadow: 0 0 14px var(--cyan-glow);
-    }
-
-    input:checked + .ios-slider:before {
-      transform: translateX(22px);
-    }
-
-    /* DIMMER / SLIDER SECTION */
-    .dimmer-card {
-      background: #F8FAFC;
-      padding: 14px 16px;
-      border-radius: 16px;
-      border: 1px solid var(--border-subtle);
-      margin-bottom: 16px;
-    }
-
-    .dimmer-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 12px;
-      color: var(--ink-secondary);
-      font-weight: 700;
-      margin-bottom: 12px;
-    }
-
-    .dimmer-value {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
-      font-weight: 800;
-      color: var(--cyan-primary);
-      background: var(--card-white);
-      padding: 2px 8px;
-      border-radius: 6px;
-      border: 1px solid var(--border-subtle);
-    }
-
-    .modern-slider {
-      width: 100%;
-      height: 8px;
-      -webkit-appearance: none;
-      background: #E2E8F0;
-      border-radius: 6px;
-      outline: none;
-    }
-
-    .modern-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      background: var(--cyan-primary);
-      cursor: pointer;
-      box-shadow: 0 2px 10px var(--cyan-glow);
-      transition: transform 0.15s ease;
-    }
-
-    .modern-slider::-webkit-slider-thumb:hover {
-      transform: scale(1.15);
-    }
-
-    /* CARD ACTION BUTTONS */
-    .card-actions-row {
-      display: flex;
-      gap: 10px;
-      margin-top: 6px;
-    }
-
-    .btn-action {
-      flex: 1;
-      padding: 12px 16px;
-      border-radius: var(--radius-btn);
-      border: none;
-      font-weight: 700;
-      font-size: 13px;
-      cursor: pointer;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-      font-family: inherit;
-      user-select: none;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-
-    .btn-action:active {
-      transform: scale(0.97);
-    }
-
-    .btn-action.primary {
-      background: var(--ink);
-      color: #FFF;
-      box-shadow: 0 4px 14px rgba(11, 17, 22, 0.15);
-    }
-
-    .btn-action.primary:hover {
-      background: #1E293B;
-      transform: translateY(-1px);
-    }
-
-    .btn-action.outline {
-      background: transparent;
-      border: 1px solid var(--border-subtle);
-      color: var(--ink);
-    }
-
-    .btn-action.outline:hover {
-      background: #F8FAFC;
-      border-color: #CBD5E1;
-    }
-
-    /* ========================================================= */
-    /* VISUAL PLC LADDER LOGIC STUDIO                            */
-    /* ========================================================= */
-    .plc-studio-card {
-      background: var(--plc-bg);
-      color: var(--plc-text);
-      border-radius: var(--radius-bento);
-      padding: 24px;
-      box-shadow: 0 16px 50px rgba(0,0,0,0.35);
-      border: 1px solid #282E40;
-      font-family: 'JetBrains Mono', monospace;
-      margin-bottom: 30px;
-    }
-
-    .plc-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 16px;
-      border-bottom: 1px solid #282E40;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-
-    .plc-title {
-      font-size: 18px;
-      font-weight: 800;
-      color: #F4B8E4;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .plc-badge {
-      font-size: 11px;
-      background: #202434;
-      color: #93C5FD;
-      padding: 6px 14px;
-      border-radius: 8px;
-      border: 1px solid rgba(147, 197, 253, 0.2);
-    }
-
-    .rungs-container {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .rung-row {
-      background: var(--plc-card);
-      border-radius: 16px;
-      padding: 16px 20px;
-      display: flex;
-      align-items: center;
-      position: relative;
-      border: 1px solid #2C3348;
-      transition: all 0.2s ease;
-    }
-
-    .rung-row:hover {
-      border-color: #475569;
-    }
-
-    .rung-num {
-      width: 50px;
-      font-size: 12px;
-      color: #94A3B8;
-      font-weight: 700;
-    }
-
-    .ladder-circuit {
-      display: flex;
-      align-items: center;
-      flex: 1;
-      overflow-x: auto;
-    }
-
-    .power-rail-left {
-      width: 4px;
-      height: 52px;
-      background: #F43F5E;
-      border-radius: 2px;
-      margin-right: 12px;
-    }
-
-    .power-rail-right {
-      width: 4px;
-      height: 52px;
-      background: #3B82F6;
-      border-radius: 2px;
-      margin-left: 12px;
-    }
-
-    .wire {
-      height: 4px;
-      width: 36px;
-      background: var(--plc-wire);
-      transition: background 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .wire.active {
-      background: var(--plc-wire-active);
-      box-shadow: 0 0 10px rgba(52, 211, 153, 0.85);
-    }
-
-    .ladder-element {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      cursor: pointer;
-      user-select: none;
-      padding: 6px 12px;
-      border-radius: 8px;
-      border: 1px dashed rgba(255,255,255,0.15);
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .ladder-element:hover {
-      background: rgba(52, 211, 153, 0.15);
-      border-color: var(--plc-wire-active);
-      transform: translateY(-2px);
-    }
-
-    .ladder-element:active {
-      transform: scale(0.96);
-    }
-
-    .elem-symbol {
-      font-size: 17px;
-      font-weight: 800;
-      color: var(--plc-text-dim);
-      padding: 4px 6px;
-      letter-spacing: -1px;
-      transition: all 0.2s ease;
-    }
-
-    .elem-symbol.active {
-      color: var(--plc-wire-active);
-      text-shadow: 0 0 14px rgba(52, 211, 153, 0.9);
-      transform: scale(1.08);
-    }
-
-    .elem-label {
-      font-size: 10px;
-      color: #E2E8F0;
-      margin-top: 4px;
-      text-align: center;
-      font-weight: 600;
-    }
-
-    .elem-addr {
-      font-size: 9px;
-      color: #FCD34D;
-      margin-top: 2px;
-    }
-
-    .rung-desc {
-      margin-left: auto;
-      font-size: 11px;
-      color: #94A3B8;
-      text-align: right;
-      padding-left: 16px;
-      min-width: 150px;
-    }
-
-    /* RECENT ACTIVITY LOGS TABLE */
-    .section-title {
-      font-family: 'Outfit', sans-serif;
-      font-size: 18px;
-      font-weight: 800;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      letter-spacing: -0.3px;
-    }
-
-    .logs-card {
-      background: var(--card-white);
-      border-radius: var(--radius-bento);
-      box-shadow: var(--shadow-ambient);
-      border: 1px solid var(--border-subtle);
-      overflow: hidden;
-    }
-
-    .logs-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-
-    .logs-table th {
-      background: #F8FAFC;
-      padding: 14px 20px;
-      text-align: left;
-      font-weight: 700;
-      color: var(--ink-secondary);
-      border-bottom: 1px solid var(--border-subtle);
-      font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
-
-    .logs-table td {
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--border-subtle);
+    .role-badge.superadmin {
+      background: rgba(0, 240, 255, 0.15);
+      color: var(--cyan);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+    }
+    .role-badge.user {
+      background: rgba(139, 92, 246, 0.15);
+      color: var(--purple);
+      border: 1px solid rgba(139, 92, 246, 0.3);
     }
 
-    .logs-table tr:last-child td {
-      border-bottom: none;
+    .credential-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      max-width: 240px;
     }
 
-    .badge-source {
-      background: #F1F5F9;
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-size: 11px;
+    .credential-cell input {
+      background: transparent;
+      border: none;
+      color: var(--text-white);
+      font-family: inherit;
+      font-size: inherit;
+      width: 100%;
+      outline: none;
+    }
+
+    .credential-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px;
+      transition: color 0.2s;
+    }
+    .credential-btn:hover { color: var(--cyan); }
+
+    .hw-badge-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
       font-weight: 700;
-      color: var(--ink-secondary);
+      padding: 6px 12px;
+      border-radius: 8px;
+      background: var(--bg-node);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-white);
+    }
+
+    .action-btn-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .btn-act-dashboard {
+      background: linear-gradient(135deg, var(--cyan), #0284C7);
+      color: #000;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 0 14px var(--cyan-glow);
+      transition: all 0.2s;
+    }
+    .btn-act-dashboard:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.1);
+      color: #000;
+    }
+
+    .btn-act-edit {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-white);
+      padding: 7px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+    .btn-act-edit:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    .btn-act-del {
+      background: rgba(244, 63, 94, 0.1);
+      border: 1px solid rgba(244, 63, 94, 0.25);
+      color: var(--rose);
+      padding: 7px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-act-del:hover {
+      background: var(--rose);
+      color: #FFF;
+    }
+
+    /* FORM INPUTS */
+    .form-group-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .form-group-box label {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .field-badge {
+      font-size: 10px;
+      font-weight: 800;
+      background: var(--cyan-subtle);
+      color: var(--cyan);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .app-input {
+      background: var(--bg-input);
+      border: 1.5px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: var(--text-white);
+      font-size: 13.5px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s;
+      width: 100%;
+    }
+    .app-input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 14px var(--cyan-subtle);
+    }
+    .app-input.mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+    }
+
+    /* MODAL */
+    .modal-backdrop-custom {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(4, 7, 13, 0.82);
+      backdrop-filter: blur(10px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      padding: 16px;
+    }
+    .modal-backdrop-custom.active { display: flex !important; }
+
+    .modal-box-custom {
+      background: var(--bg-surface);
+      border: 1.5px solid var(--border-subtle);
+      border-radius: 22px;
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 240, 255, 0.1);
+      overflow: hidden;
+      animation: modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes modalSlideIn {
+      from { transform: translateY(20px) scale(0.96); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    .modal-header-custom {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-card);
+    }
+    .modal-body-custom {
+      padding: 22px 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .modal-footer-custom {
+      padding: 14px 24px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-card);
+      gap: 12px;
+    }
+
+    /* TOAST */
+    .toast-popup {
+      position: fixed;
+      top: 24px; right: 24px;
+      background: var(--bg-dock);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--emerald);
+      color: var(--text-white);
+      padding: 14px 20px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), 0 0 20px var(--emerald-glow);
+      transform: translateY(-100px);
+      opacity: 0;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 9999;
+    }
+    .toast-popup.show {
+      transform: translateY(0);
+      opacity: 1;
     }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <!-- TOP APP HEADER -->
-  <header class="app-header">
-    <div class="header-left">
-      <!-- Language Switcher Button -->
-      <button class="lang-toggle-btn" id="langToggleBtn" onclick="toggleLanguage()" title="Klik untuk berganti bahasa / Click to switch language">
-        <span class="flag" id="langFlag">🇮🇩</span>
-        <span id="langLabel">ID</span>
-        <span class="lang-badge" id="langNext">→ EN</span>
-      </button>
-
-      <div>
-        <h1 class="brand-title">
-          <span class="logo-badge">⚡</span>
-          NEXORA <span class="accent">Home OS</span>
-        </h1>
-        <p class="brand-sub" id="txtBrandSub">Platform Web IoT & Visual PLC Studio Alfa</p>
-      </div>
-    </div>
-
-    <div class="header-right">
-      <a href="settings.php" class="lang-toggle-btn" style="text-decoration: none; color: inherit;" title="Buka Pengaturan Broker MQTT & Jaringan Hardware">
-        <span>⚙️</span>
-        <span style="font-size: 12px; font-weight: 700;">Pengaturan Broker</span>
-      </a>
-      <div class="status-pill">
-        <div class="pulse-dot"></div>
-        <span id="connStatus">SINKRON LIVE</span>
-      </div>
-      <div class="clock-display" id="liveClock"></div>
-    </div>
-  </header>
-
-  <!-- BENTO SUMMARY METRICS -->
-  <div class="hero-summary-grid">
-    <div class="summary-card col-4">
-      <div class="summary-icon-wrapper cyan">⚡</div>
-      <div class="summary-data">
-        <div class="val" id="statActiveDevices">0 / 6</div>
-        <div class="lbl" id="lblStatActive">Perangkat Menyala</div>
-      </div>
-    </div>
-
-    <div class="summary-card col-4">
-      <div class="summary-icon-wrapper green">🚀</div>
-      <div class="summary-data">
-        <div class="val">0 ms</div>
-        <div class="lbl" id="lblStatLatency">Latensi Optimistik</div>
-      </div>
-    </div>
-
-    <div class="summary-card col-4">
-      <div class="summary-icon-wrapper cyan">🏭</div>
-      <div class="summary-data">
-        <div class="val">FX5U / OpenPLC</div>
-        <div class="lbl" id="lblStatPlcStatus">Engine Otomasi</div>
-      </div>
+  <!-- TOAST NOTIFICATION -->
+  <div class="toast-popup" id="toastAlert">
+    <div style="font-size: 22px;" id="toastIcon">✅</div>
+    <div>
+      <div style="font-weight: 800; font-size: 13.5px;" id="toastTitle">Tersimpan</div>
+      <div style="font-size: 12px; color: var(--text-secondary);" id="toastMessage">Konfigurasi berhasil diperbarui.</div>
     </div>
   </div>
 
-  <!-- QUICK SCENES BAR (Apple Home Shortcuts) -->
-  <div class="scenes-wrapper">
-    <div class="scenes-header">
-      <span>✨</span> <span id="lblScenesTag">Skenario Otomatis Cepat:</span>
-    </div>
-    <div class="scenes-scroll">
-      <button class="scene-pill" onclick="applyScene('ALL_ON')">
-        <span class="icon">💡</span> <span id="btnSceneAllOn">Nyalakan Semua</span>
-      </button>
-      <button class="scene-pill" onclick="applyScene('ALL_OFF')">
-        <span class="icon">🌙</span> <span id="btnSceneAllOff">Matikan Semua</span>
-      </button>
-      <button class="scene-pill" onclick="applyScene('LEAVING_HOME')">
-        <span class="icon">🚪</span> <span id="btnSceneLeaving">Keluar Rumah (Kunci & Matikan)</span>
-      </button>
-      <button class="scene-pill" onclick="applyScene('ARRIVING_HOME')">
-        <span class="icon">🏡</span> <span id="btnSceneArriving">Pulang ke Rumah (Buka & Nyalakan)</span>
-      </button>
-    </div>
-  </div>
+  <div class="container">
 
-  <!-- TAB SWITCHER -->
-  <div class="tab-bar">
-    <button class="tab-btn active" id="tabSmartHomeBtn" onclick="switchTab('smartHomeTab', this)">
-      <span>🏡</span> <span id="tabSmartHomeText">Smart Home Cards</span>
-    </button>
-    <button class="tab-btn" id="tabPlcStudioBtn" onclick="switchTab('plcStudioTab', this)">
-      <span>⚡</span> <span id="tabPlcStudioText">Visual PLC Studio (Ladder View)</span>
-    </button>
-  </div>
-
-  <!-- TAB 1: BENTO SMART HOME CARDS -->
-  <div id="smartHomeTab" class="tab-content active">
-    <div class="bento-grid" id="devicesContainer">
-      <div id="loadingDevicesTxt" style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--ink-dim);">
-        Memuat status perangkat dari server...
-      </div>
-    </div>
-  </div>
-
-  <!-- TAB 2: VISUAL PLC LADDER STUDIO -->
-  <div id="plcStudioTab" class="tab-content">
-    <div class="plc-studio-card">
-      <div class="plc-header">
-        <div class="plc-title">
-          <span>⚡</span> <span id="plcTitleText">OpenPLC / Mitsubishi FX5U Ladder Engine</span>
+    <!-- 1. TOP HEADER -->
+    <header class="top-header">
+      <div class="brand-group">
+        <div class="brand-logo-badge">⚡</div>
+        <div class="brand-title-wrap">
+          <h1>
+            <span class="gradient-text">NEXORA</span>
+            <span class="cyan-text">Portal Studio</span>
+            <span style="font-size: 11px; background: var(--cyan-subtle); color: var(--cyan); border: 1px solid var(--border-active); padding: 2px 8px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-weight: 700;">v3.0</span>
+          </h1>
+          <p>Portal Manajemen Akun Pengguna, Kredensial Login & Gateway Multi-Tenant</p>
         </div>
-        <div class="plc-badge" id="plcBadgeText">CYCLE TIME: 50ms • REAL-TIME SOLVER</div>
       </div>
 
-      <div class="rungs-container" id="rungsContainer">
-        <!-- Rendered dynamically by JS -->
+      <div class="header-actions">
+        <button type="button" class="btn-top" onclick="toggleTheme()" id="themeToggleBtn" title="Ganti Mode Gelap / Terang">
+          <span id="themeIcon">☀️</span> <span id="themeText">Mode Terang</span>
+        </button>
+
+        <div class="live-telemetry-pill">
+          <div class="pulse-dot"></div>
+          <span style="color: var(--emerald); font-weight: 800;">BROKER ONLINE</span>
+          <span style="color: var(--text-dim);">•</span>
+          <span style="color: var(--cyan);" id="headerPingText">LATENSI: 18ms</span>
+        </div>
+
+        <a href="settings.php" class="btn-top" title="Buka Halaman Pengaturan Broker MQTT & Jaringan Hardware">
+          <span>⚙️</span> Pengaturan Broker
+        </a>
       </div>
-    </div>
-  </div>
+    </header>
 
-  <!-- RECENT ACTIVITY LOGS -->
-  <div class="section-title">
-    <span>📜</span> <span id="logsTitleText">Riwayat Perintah & Aktivitas PLC Terakhir</span>
-  </div>
-  <div class="logs-card">
-    <table class="logs-table">
-      <thead>
-        <tr>
-          <th id="thTime">Waktu</th>
-          <th id="thDevice">Perangkat</th>
-          <th id="thAction">Aksi / Nilai</th>
-          <th id="thSource">Sumber</th>
-        </tr>
-      </thead>
-      <tbody id="logsContainer">
-        <tr>
-          <td colspan="4" id="loadingLogsTxt" style="text-align: center; color: var(--ink-dim); padding: 20px;">
-            Memuat riwayat aktivitas...
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+    <!-- 2. SUMMARY COUNTERS -->
+    <section class="summary-stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(0, 240, 255, 0.12); color: var(--cyan);">👥</div>
+        <div>
+          <div class="stat-val" id="statTotalAccounts">0</div>
+          <div class="stat-lbl">Akun Pemilik Terdaftar</div>
+        </div>
+      </div>
 
-<script>
-  const API_KEY = 'nexora_secret_token_2026';
-  let currentDevices = {};
-  let currentLang = localStorage.getItem('nexora_lang') || 'id'; // 'id' atau 'en'
+      <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(16, 185, 129, 0.12); color: var(--emerald);">⚡</div>
+        <div>
+          <div class="stat-val" id="statTotalDevices">0</div>
+          <div class="stat-lbl">Total Perangkat IoT Terpasang</div>
+        </div>
+      </div>
 
-  // KAMUS BAHASA (DICTIONARY I18N)
-  const i18n = {
-    id: {
-      flag: '🇮🇩',
-      code: 'ID',
-      next: '→ EN',
-      brandSub: 'Platform Web IoT & Visual PLC Studio Alfa',
-      tabSmartHome: 'Smart Home Cards',
-      tabPlcStudio: 'Visual PLC Studio (Ladder View)',
-      plcTitle: 'OpenPLC / Mitsubishi FX5U Ladder Engine',
-      plcBadge: 'CYCLE TIME: 50ms • REAL-TIME SOLVER',
-      logsTitle: 'Riwayat Perintah & Aktivitas PLC Terakhir',
-      thTime: 'Waktu',
-      thDevice: 'Perangkat',
-      thAction: 'Aksi / Nilai',
-      thSource: 'Sumber',
-      syncLive: 'SINKRON LIVE',
-      syncOffline: 'TERPUTUS (OFFLINE)',
-      loadingDevices: 'Memuat status perangkat dari server...',
-      loadingLogs: 'Memuat riwayat aktivitas...',
-      noLogs: 'Belum ada riwayat aktivitas.',
-      lblStatActive: 'Perangkat Menyala',
-      lblStatLatency: 'Latensi Optimistik',
-      lblStatPlcStatus: 'Engine Otomasi',
-      lblScenesTag: 'Skenario Otomatis Cepat:',
-      btnSceneAllOn: 'Nyalakan Semua',
-      btnSceneAllOff: 'Matikan Semua',
-      btnSceneLeaving: 'Keluar Rumah (Kunci & Matikan)',
-      btnSceneArriving: 'Pulang ke Rumah (Buka & Nyalakan)',
-      btnOpen: 'Buka',
-      btnClose: 'Tutup',
-      btnTurnOn: 'Nyalakan',
-      btnTurnOff: 'Matikan',
-      btnTurnOnPump: 'Nyalakan Pompa',
-      btnTurnOffPump: 'Matikan Pompa',
-      brightness: 'Tingkat Kecerahan',
-      energized: '● ENERGIZED',
-      deEnergized: '○ DE-ENERGIZED',
-      clickToToggle: 'Klik untuk mengaktifkan / mematikan kontak',
-      coilOutput: 'Koil Beban Output',
-      devices: {
-        pagar: { name: 'Pagar Utama Rumah', category: 'Akses Gerbang', desc: 'Kontrol Pagar Gerbang Utama', icon: '🚧' },
-        pintu_geser: { name: 'Pintu Geser Ruang Tamu', category: 'Akses Ruangan', desc: 'Solenoid Pintu Geser Tamu', icon: '🚪' },
-        gorden: { name: 'Gorden Otomatis', category: 'Interior Cerdas', desc: 'Motor Penggerak Gorden', icon: '🪟' },
-        lampu_teras: { name: 'Lampu Teras Depan', category: 'Pencahayaan', desc: 'Relay Dimmer Lampu Depan', icon: '💡' },
-        pompa_toren: { name: 'Pompa Pengisi Toren Air', category: 'Sanitasi & Air', desc: 'Pengisi Toren Air Otomatis', icon: '💧' },
-        pompa_kolam: { name: 'Pompa Sirkulasi Kolam', category: 'Eksterior & Filter', desc: 'Sirkulasi & Filter Kolam', icon: '🏊' }
-      },
-      states: {
-        'TERBUKA': 'TERBUKA',
-        'TERTUTUP': 'TERTUTUP',
-        'BUKA': 'BUKA',
-        'TUTUP': 'TUTUP',
-        'ON': 'ON',
-        'OFF': 'OFF'
-      }
-    },
-    en: {
-      flag: '🇬🇧',
-      code: 'EN',
-      next: '→ ID',
-      brandSub: 'Alfa IoT Cloud Platform & Visual PLC Studio',
-      tabSmartHome: 'Smart Home Cards',
-      tabPlcStudio: 'Visual PLC Studio (Ladder Logic)',
-      plcTitle: 'OpenPLC / Mitsubishi FX5U Ladder Engine',
-      plcBadge: 'CYCLE TIME: 50ms • REAL-TIME SOLVER',
-      logsTitle: 'Recent PLC Commands & Activity History',
-      thTime: 'Timestamp',
-      thDevice: 'Device',
-      thAction: 'Action / Value',
-      thSource: 'Source',
-      syncLive: 'LIVE SYNC',
-      syncOffline: 'DISCONNECTED (OFFLINE)',
-      loadingDevices: 'Loading devices from cloud server...',
-      loadingLogs: 'Loading activity history...',
-      noLogs: 'No activity history recorded yet.',
-      lblStatActive: 'Active Devices',
-      lblStatLatency: 'Optimistic Latency',
-      lblStatPlcStatus: 'Automation Engine',
-      lblScenesTag: 'Quick Automation Scenes:',
-      btnSceneAllOn: 'Turn All On',
-      btnSceneAllOff: 'Turn All Off',
-      btnSceneLeaving: 'Leaving Home (Lock & Off)',
-      btnSceneArriving: 'Arriving Home (Open & On)',
-      btnOpen: 'Open',
-      btnClose: 'Close',
-      btnTurnOn: 'Turn On',
-      btnTurnOff: 'Turn Off',
-      btnTurnOnPump: 'Start Pump',
-      btnTurnOffPump: 'Stop Pump',
-      brightness: 'Brightness Level',
-      energized: '● ENERGIZED',
-      deEnergized: '○ DE-ENERGIZED',
-      clickToToggle: 'Click to toggle contact ON/OFF',
-      coilOutput: 'Output Coil Load',
-      devices: {
-        pagar: { name: 'Main Gate Access', category: 'Perimeter Access', desc: 'Main Gate Motor Drive Control', icon: '🚧' },
-        pintu_geser: { name: 'Living Room Sliding Door', category: 'Room Entry', desc: 'Guest Sliding Door Solenoid', icon: '🚪' },
-        gorden: { name: 'Motorized Smart Curtains', category: 'Smart Interior', desc: 'Automatic Curtain Motor Drive', icon: '🪟' },
-        lampu_teras: { name: 'Front Porch Lighting', category: 'Lighting & Ambience', desc: 'Front Porch Dimmer Relay', icon: '💡' },
-        pompa_toren: { name: 'Water Tank Pump', category: 'Plumbing & Storage', desc: 'Automatic Overhead Tank Filler', icon: '💧' },
-        pompa_kolam: { name: 'Pool Circulation Pump', category: 'Exterior & Filtration', desc: 'Pool Filtration & Circulation', icon: '🏊' }
-      },
-      states: {
-        'TERBUKA': 'OPEN',
-        'TERTUTUP': 'CLOSED',
-        'BUKA': 'OPEN',
-        'TUTUP': 'CLOSED',
-        'ON': 'ON',
-        'OFF': 'OFF'
-      }
-    }
-  };
+      <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(139, 92, 246, 0.12); color: var(--purple);">📹</div>
+        <div>
+          <div class="stat-val" id="statTotalCctv">0</div>
+          <div class="stat-lbl">Kamera CCTV RTSP Aktif</div>
+        </div>
+      </div>
+    </section>
 
-  // FUNGSI GANTI BAHASA
-  function toggleLanguage() {
-    currentLang = currentLang === 'id' ? 'en' : 'id';
-    localStorage.setItem('nexora_lang', currentLang);
-    applyLanguage();
-  }
-
-  function applyLanguage() {
-    const t = i18n[currentLang];
-    
-    // Header & Button Flag
-    document.getElementById('langFlag').innerText = t.flag;
-    document.getElementById('langLabel').innerText = t.code;
-    document.getElementById('langNext').innerText = t.next;
-    document.getElementById('txtBrandSub').innerText = t.brandSub;
-
-    // Stats Bar
-    document.getElementById('lblStatActive').innerText = t.lblStatActive;
-    document.getElementById('lblStatLatency').innerText = t.lblStatLatency;
-    document.getElementById('lblStatPlcStatus').innerText = t.lblStatPlcStatus;
-
-    // Scenes
-    document.getElementById('lblScenesTag').innerText = t.lblScenesTag;
-    document.getElementById('btnSceneAllOn').innerText = t.btnSceneAllOn;
-    document.getElementById('btnSceneAllOff').innerText = t.btnSceneAllOff;
-    document.getElementById('btnSceneLeaving').innerText = t.btnSceneLeaving;
-    document.getElementById('btnSceneArriving').innerText = t.btnSceneArriving;
-
-    // Tabs
-    document.getElementById('tabSmartHomeText').innerText = t.tabSmartHome;
-    document.getElementById('tabPlcStudioText').innerText = t.tabPlcStudio;
-
-    // PLC Card Header
-    document.getElementById('plcTitleText').innerText = t.plcTitle;
-    document.getElementById('plcBadgeText').innerText = t.plcBadge;
-
-    // Table Headers & Section
-    document.getElementById('logsTitleText').innerText = t.logsTitle;
-    document.getElementById('thTime').innerText = t.thTime;
-    document.getElementById('thDevice').innerText = t.thDevice;
-    document.getElementById('thAction').innerText = t.thAction;
-    document.getElementById('thSource').innerText = t.thSource;
-
-    // Re-render konten jika devices sudah dimuat
-    if (Object.keys(currentDevices).length > 0) {
-      renderDevices(currentDevices);
-      renderVisualLadder(currentDevices);
-      updateSummaryStats(currentDevices);
-    }
-  }
-
-  // TAB SWITCHER
-  function switchTab(tabId, btn) {
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-    document.getElementById(tabId).classList.add('active');
-    btn.classList.add('active');
-  }
-
-  function updateClock() {
-    const now = new Date();
-    const localeStr = currentLang === 'id' ? 'id-ID' : 'en-US';
-    const tzStr = currentLang === 'id' ? ' WIB' : ' (UTC+7)';
-    document.getElementById('liveClock').innerText = now.toLocaleTimeString(localeStr, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + tzStr;
-  }
-  setInterval(updateClock, 1000);
-  updateClock();
-
-  function updateSummaryStats(devices) {
-    let activeCount = 0;
-    const total = Object.keys(devices).length || 6;
-    for (const key in devices) {
-      const d = devices[key];
-      if (d.state === 'ON' || d.state === 'BUKA' || d.state === 'TERBUKA' || (d.value && d.value > 0)) {
-        activeCount++;
-      }
-    }
-    const statElem = document.getElementById('statActiveDevices');
-    if (statElem) {
-      statElem.innerText = `${activeCount} / ${total}`;
-    }
-  }
-
-  // Fetch status dari Backend
-  async function fetchDevices() {
-    const t = i18n[currentLang];
-    try {
-      const res = await fetch('api/devices.php');
-      const data = await res.json();
-      if (data.success) {
-        currentDevices = data.devices;
-        renderDevices(data.devices);
-        renderVisualLadder(data.devices);
-        renderLogs(data.recent_logs);
-        updateSummaryStats(data.devices);
-        document.getElementById('connStatus').innerText = t.syncLive;
-      }
-    } catch (e) {
-      document.getElementById('connStatus').innerText = t.syncOffline;
-    }
-  }
-
-  // Render Bento Smart Home Cards (Modern Apple Home Layout)
-  function renderDevices(devices) {
-    const t = i18n[currentLang];
-    const container = document.getElementById('devicesContainer');
-    let html = '';
-
-    for (const key in devices) {
-      const d = devices[key];
-      const isAktif = d.state === 'ON' || d.state === 'BUKA' || d.state === 'TERBUKA' || (d.value && d.value > 0);
-      const stateBadgeClass = isAktif ? 'on' : 'off';
-      const devMeta = (t.devices && t.devices[d.id]) ? t.devices[d.id] : { name: d.name, category: 'Smart Device', icon: '⚡' };
-      const devName = devMeta.name || d.name;
-      const devCategory = devMeta.category || 'Smart Device';
-      const devIcon = devMeta.icon || '⚡';
-      
-      const stateKey = (d.state || '').toUpperCase();
-      const displayState = t.states[stateKey] || d.state;
-
-      let actionButtons = '';
-      if (d.id === 'pagar' || d.id === 'pintu_geser' || d.id === 'gorden') {
-        actionButtons = `
-          <button class="btn-action primary" onclick="sendCommand('${d.id}', 'BUKA')">${t.btnOpen}</button>
-          <button class="btn-action outline" onclick="sendCommand('${d.id}', 'TUTUP')">${t.btnClose}</button>
-        `;
-      } else if (d.id === 'lampu_teras') {
-        actionButtons = `
-          <button class="btn-action ${isAktif ? 'outline' : 'primary'}" onclick="sendCommand('${d.id}', '${isAktif ? 'OFF' : 'ON'}')">
-            ${isAktif ? t.btnTurnOff : t.btnTurnOn}
-          </button>
-        `;
-      } else {
-        actionButtons = `
-          <button class="btn-action ${isAktif ? 'outline' : 'primary'}" onclick="sendCommand('${d.id}', '${isAktif ? 'OFF' : 'ON'}')">
-            ${isAktif ? t.btnTurnOffPump : t.btnTurnOnPump}
-          </button>
-        `;
-      }
-
-      let sliderHtml = '';
-      if (d.id === 'lampu_teras') {
-        sliderHtml = `
-          <div class="dimmer-card">
-            <div class="dimmer-header">
-              <span>${t.brightness}</span>
-              <span class="dimmer-value" id="sliderVal_${d.id}">${d.value || 0}%</span>
-            </div>
-            <input type="range" class="modern-slider" min="0" max="100" value="${d.value || 0}" 
-              oninput="document.getElementById('sliderVal_${d.id}').innerText = this.value + '%'"
-              onchange="sendCommand('${d.id}', 'SET_BRIGHTNESS', this.value)">
-          </div>
-        `;
-      }
-
-      // Smooth switch toggle
-      const switchChecked = isAktif ? 'checked' : '';
-      const toggleTargetAction = (d.id === 'pagar' || d.id === 'pintu_geser' || d.id === 'gorden') 
-        ? (isAktif ? 'TUTUP' : 'BUKA') 
-        : (isAktif ? 'OFF' : 'ON');
-
-      html += `
-        <div class="bento-card ${isAktif ? 'is-active' : ''}">
+    <!-- 3. TABEL UTAMA MANAJEMEN AKUN (YANG DIINGINKAN USER) -->
+    <div class="bento-card">
+      <div class="card-title-group">
+        <div class="card-title-left">
+          <div class="card-icon-badge">👥</div>
           <div>
-            <div class="bento-card-top">
-              <div class="device-info-header">
-                <div class="device-avatar">${devIcon}</div>
-                <div>
-                  <div class="device-title">${devName}</div>
-                  <div class="device-category">${devCategory}</div>
-                  <div class="device-plc-pill">PLC: ${d.plc_address || 'Virtual'}</div>
-                </div>
-              </div>
-              <div class="status-badge ${stateBadgeClass}">
-                ${d.pending_command ? '⏳ ' + d.pending_command : displayState}
-              </div>
-            </div>
-
-            <!-- TACTILE TOGGLE SWITCH -->
-            <div class="tactile-switch-row">
-              <span class="tactile-switch-label">${displayState}</span>
-              <label class="ios-switch">
-                <input type="checkbox" ${switchChecked} onchange="sendCommand('${d.id}', '${toggleTargetAction}')">
-                <span class="ios-slider"></span>
-              </label>
-            </div>
-
-            ${sliderHtml}
-          </div>
-
-          <div class="card-actions-row">
-            ${actionButtons}
+            <h2>Tabel Manajemen Akun & Kredensial Pengguna</h2>
+            <p>Pilih akun pemilik untuk menuju ke Web Dashboard profil Nexora Home OS masing-masing, atau kelola kredensial login aplikasi HP.</p>
           </div>
         </div>
-      `;
-    }
+        <button type="button" class="btn-top primary" onclick="showAddNewAccountModal()">
+          <span>➕</span> Tambah Akun Klien Baru
+        </button>
+      </div>
 
-    container.innerHTML = html;
-  }
+      <!-- TABEL DATA AKUN -->
+      <div class="accounts-table-wrapper">
+        <table class="accounts-table">
+          <thead>
+            <tr>
+              <th style="width: 260px;">Nama Pemilik / Klien</th>
+              <th style="width: 230px;">Username / Email Login</th>
+              <th style="width: 200px;">Kata Sandi (Password)</th>
+              <th style="width: 220px;">Mesin Hardware Gateway</th>
+              <th style="width: 140px;">Perangkat Terpasang</th>
+              <th style="text-align: right; width: 230px;">Aksi Cepat</th>
+            </tr>
+          </thead>
+          <tbody id="accountsTableBody">
+            <!-- Dirender secara dinamis oleh JavaScript -->
+          </tbody>
+        </table>
+      </div>
 
-  // Render Visual Ladder Diagram (OpenPLC / Mitsubishi FX5U Engine)
-  function renderVisualLadder(devices) {
-    const t = i18n[currentLang];
-    const container = document.getElementById('rungsContainer');
-    
-    const ladderDefs = [
-      { rung: 0, devId: 'pagar', inAddr: '%IX0.0', outAddr: '%QX0.0', inName: 'CMD_PAGAR', outName: 'PAGAR_OUT' },
-      { rung: 1, devId: 'pintu_geser', inAddr: '%IX0.1', outAddr: '%QX0.1', inName: 'CMD_PINTU', outName: 'PINTU_GESER' },
-      { rung: 2, devId: 'gorden', inAddr: '%IX0.2', outAddr: '%QX0.2', inName: 'CMD_GORDEN', outName: 'MOTOR_GORDEN' },
-      { rung: 3, devId: 'lampu_teras', inAddr: '%IX0.3', outAddr: '%QX0.3', inName: 'CMD_LAMPU', outName: 'LAMPU_TERAS' },
-      { rung: 4, devId: 'pompa_toren', inAddr: '%IX0.4', outAddr: '%QX0.4', inName: 'FLOAT_LOW', outName: 'POMPA_TOREN' },
-      { rung: 5, devId: 'pompa_kolam', inAddr: '%IX0.5', outAddr: '%QX0.5', inName: 'CMD_KOLAM', outName: 'POMPA_KOLAM' }
-    ];
+      <!-- PANEL RINCIAN PERANGKAT AKUN TERPILIH -->
+      <div id="accountDetailCard">
+        <!-- Dirender secara dinamis oleh JavaScript -->
+      </div>
+    </div>
 
-    let html = '';
+  </div>
 
-    ladderDefs.forEach(l => {
-      const dev = devices[l.devId] || {};
-      const isAktif = dev.state === 'ON' || dev.state === 'BUKA' || dev.state === 'TERBUKA' || (dev.value && dev.value > 0) || dev.pending_command === 'ON' || dev.pending_command === 'BUKA';
-      const wireClass = isAktif ? 'active' : '';
-      const symClass = isAktif ? 'active' : '';
-      const devMeta = (t.devices && t.devices[l.devId]) ? t.devices[l.devId] : {};
-      const rungDesc = devMeta.desc || '';
-
-      html += `
-        <div class="rung-row">
-          <div class="rung-num">RUNG ${l.rung}</div>
-          
-          <div class="ladder-circuit">
-            <div class="power-rail-left"></div>
-            <div class="wire ${wireClass}"></div>
-            
-            <!-- Kontak NO Input -->
-            <div class="ladder-element" onclick="toggleLadderContact('${l.devId}', ${isAktif})" title="${t.clickToToggle}">
-              <div class="elem-symbol ${symClass}">${isAktif ? '—[ ● ]—' : '—[   ]—'}</div>
-              <div class="elem-label">${l.inName}</div>
-              <div class="elem-addr">${l.inAddr}</div>
-            </div>
-
-            <div class="wire ${wireClass}" style="flex: 1;"></div>
-
-            <!-- Koil Output -->
-            <div class="ladder-element" onclick="toggleLadderContact('${l.devId}', ${isAktif})" title="${t.coilOutput}">
-              <div class="elem-symbol ${symClass}">${isAktif ? '—( ● )—' : '—(   )—'}</div>
-              <div class="elem-label">${l.outName}</div>
-              <div class="elem-addr">${l.outAddr}</div>
-            </div>
-
-            <div class="wire ${wireClass}"></div>
-            <div class="power-rail-right"></div>
+  <!-- ========================================================================= -->
+  <!-- ✏️ MODAL: EDIT AKUN KLIEN                                                -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop-custom" id="editAccountModal">
+    <div class="modal-box-custom">
+      <div class="modal-header-custom">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(0, 240, 255, 0.12); border: 1px solid rgba(0, 240, 255, 0.25); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            ✏️
           </div>
-
-          <div class="rung-desc">
-            <div style="font-weight: 700; color: ${isAktif ? '#34D399' : '#94A3B8'}; font-size: 13px;">${isAktif ? t.energized : t.deEnergized}</div>
-            <div style="font-size: 11px; margin-top: 2px;">${rungDesc}</div>
+          <div>
+            <h3 style="font-size: 16px; font-weight: 800; color: var(--text-white);">Edit Data & Kredensial Akun</h3>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">Ubah nama pemilik, email login, password, dan controller</p>
           </div>
         </div>
-      `;
-    });
+        <button type="button" onclick="closeEditAccountModal()" style="background: none; border: none; font-size: 22px; color: var(--text-dim); cursor: pointer;">✕</button>
+      </div>
 
-    container.innerHTML = html;
-  }
+      <div class="modal-body-custom">
+        <input type="hidden" id="editAccId">
+        
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="editAccName">Nama Pemilik / Klien <span class="field-badge">Wajib</span></label>
+          <input type="text" id="editAccName" class="app-input" placeholder="Contoh: Ravi Armanza (Super Admin)">
+        </div>
 
-  function toggleLadderContact(devId, currentlyActive) {
-    let action = '';
-    if (devId === 'pagar' || devId === 'pintu_geser' || devId === 'gorden') {
-      action = currentlyActive ? 'TUTUP' : 'BUKA';
-    } else {
-      action = currentlyActive ? 'OFF' : 'ON';
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="editAccEmail">Username / Email Login HP <span class="field-badge">Wajib</span></label>
+          <input type="email" id="editAccEmail" class="app-input mono" placeholder="nama@nexora.id">
+        </div>
+
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="editAccPassword">Password Login HP <span class="field-badge">Wajib</span></label>
+          <input type="text" id="editAccPassword" class="app-input mono" placeholder="Kata sandi akun">
+        </div>
+
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="editAccHw">Mesin Controller Hardware</label>
+          <select id="editAccHw" class="app-input">
+            <option value="Raspberry Pi 4 (Master Controller)">🍓 Raspberry Pi 4 (Master Controller)</option>
+            <option value="Raspberry Pi 4 Gateway">🍓 Raspberry Pi 4 Gateway</option>
+            <option value="Mitsubishi FX5U PLC (Industrial Hub)">🏭 Mitsubishi FX5U PLC (Industrial Hub)</option>
+            <option value="ESP32 Smart Automation Hub">⚡ ESP32 Smart Automation Hub</option>
+          </select>
+        </div>
+
+        <div class="form-group-box">
+          <label for="editAccPrefix">Topic MQTT Prefix Khusus Akun Ini</label>
+          <input type="text" id="editAccPrefix" class="app-input mono" placeholder="alrisa/admin">
+        </div>
+      </div>
+
+      <div class="modal-footer-custom">
+        <button type="button" class="btn-top" onclick="closeEditAccountModal()">Batal</button>
+        <button type="button" class="btn-top primary" onclick="saveEditAccountModal()" style="padding: 10px 22px; font-size: 13px;">
+          <span>✅ Simpan Perubahan Akun</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 👥 MODAL: TAMBAH AKUN KLIEN BARU                                         -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop-custom" id="accountModal">
+    <div class="modal-box-custom">
+      <div class="modal-header-custom">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(139, 92, 246, 0.15); border: 1px solid rgba(139, 92, 246, 0.3); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            👤
+          </div>
+          <div>
+            <h3 style="font-size: 16px; font-weight: 800; color: var(--text-white);">Daftarkan Akun Klien Baru</h3>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">1 Akun = 1 HP / Lokasi Klien dengan Mesin Terpisah</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeAccountModal()" style="background: none; border: none; font-size: 22px; color: var(--text-dim); cursor: pointer;">✕</button>
+      </div>
+
+      <div class="modal-body-custom">
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="newAccName">Nama Pemilik / Klien <span class="field-badge">Wajib</span></label>
+          <input type="text" id="newAccName" class="app-input" placeholder="Contoh: Bpk. Hendra - Villa Puncak">
+        </div>
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="newAccEmail">Email / Username Login HP <span class="field-badge">Wajib</span></label>
+          <input type="email" id="newAccEmail" class="app-input mono" placeholder="hendra@nexora.id">
+        </div>
+        <div class="form-group-box" style="margin-bottom: 16px;">
+          <label for="newAccPassword">Password Login HP <span class="field-badge">Wajib</span></label>
+          <input type="text" id="newAccPassword" class="app-input mono" value="123456">
+        </div>
+        <div class="form-group-box">
+          <label for="newAccHw">Mesin Controller Hardware</label>
+          <select id="newAccHw" class="app-input">
+            <option value="Raspberry Pi 4 (Master Controller)">🍓 Raspberry Pi 4 (Master Controller)</option>
+            <option value="Mitsubishi FX5U PLC (Industrial Hub)">🏭 Mitsubishi FX5U PLC (Industrial Hub)</option>
+            <option value="ESP32 Smart Automation Hub">⚡ ESP32 Smart Automation Hub</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-footer-custom">
+        <button type="button" class="btn-top" onclick="closeAccountModal()">Batal</button>
+        <button type="button" class="btn-top primary" onclick="saveNewAccountModal()" style="padding: 10px 22px; font-size: 13px;">
+          <span>✅ Daftarkan Akun Klien</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT CONTROLLER -->
+  <script>
+    // Theme
+    function initTheme() {
+      const savedTheme = localStorage.getItem('alrisa_theme') || 'dark';
+      applyTheme(savedTheme);
     }
-    sendCommand(devId, action);
-  }
-
-  function renderLogs(logs) {
-    const t = i18n[currentLang];
-    const container = document.getElementById('logsContainer');
-    if (!logs || logs.length === 0) {
-      container.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--ink-dim); padding: 18px;">${t.noLogs}</td></tr>`;
-      return;
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      applyTheme(current);
     }
-
-    container.innerHTML = logs.map(l => `
-      <tr>
-        <td style="color: var(--ink-secondary); font-family: 'JetBrains Mono', monospace; font-size: 12px;">${l.timestamp}</td>
-        <td><strong>${l.device_id.toUpperCase()}</strong></td>
-        <td>${l.action}</td>
-        <td><span class="badge-source">${l.source}</span></td>
-      </tr>
-    `).join('');
-  }
-
-  // KIRIM PERINTAH DENGAN 0-DELAY OPTIMISTIC UI
-  async function sendCommand(deviceId, action, value = null) {
-    // 1. INSTANT ZERO-LATENCY UI UPDATE
-    if (currentDevices[deviceId]) {
-      if (action === 'BUKA' || action === 'ON') {
-        currentDevices[deviceId].state = action === 'BUKA' ? 'TERBUKA' : 'ON';
-      } else if (action === 'TUTUP' || action === 'OFF') {
-        currentDevices[deviceId].state = action === 'TUTUP' ? 'TERTUTUP' : 'OFF';
-      } else if (action === 'SET_BRIGHTNESS' && value !== null) {
-        currentDevices[deviceId].value = parseInt(value);
-        currentDevices[deviceId].state = parseInt(value) > 0 ? 'ON' : 'OFF';
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('alrisa_theme', theme);
+      const icon = document.getElementById('themeIcon');
+      const text = document.getElementById('themeText');
+      if (theme === 'light') {
+        if (icon) icon.innerText = '🌙';
+        if (text) text.innerText = 'Mode Gelap';
+      } else {
+        if (icon) icon.innerText = '☀️';
+        if (text) text.innerText = 'Mode Terang';
       }
-      renderVisualLadder(currentDevices);
-      renderDevices(currentDevices);
-      updateSummaryStats(currentDevices);
+    }
+    initTheme();
+
+    let systemAccounts = <?php echo json_encode($current['accounts'] ?? []); ?>;
+    let currentSelectedAccountId = <?php echo json_encode($current['active_account_id'] ?? 'acc_superadmin'); ?>;
+    const passwordVisibilityMap = {};
+
+    function getAvatarGradient(name, idx) {
+      const gradients = [
+        'linear-gradient(135deg, #00F0FF, #3B82F6)',
+        'linear-gradient(135deg, #10B981, #059669)',
+        'linear-gradient(135deg, #8B5CF6, #6366F1)',
+        'linear-gradient(135deg, #F59E0B, #D97706)',
+        'linear-gradient(135deg, #EC4899, #BE185D)'
+      ];
+      return gradients[idx % gradients.length];
     }
 
-    // 2. DISPATCH ASYNC HTTP
-    try {
-      const payload = {
-        device_id: deviceId,
-        action: action,
-        value: value !== null ? parseInt(value) : null,
-        source: 'Web Portal & Ladder'
+    function getInitials(name) {
+      if (!name) return '??';
+      const parts = name.trim().split(/\s+/);
+      if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+      return name.substring(0, 2).toUpperCase();
+    }
+
+    function updateSummaryMetrics() {
+      document.getElementById('statTotalAccounts').innerText = systemAccounts.length;
+      let totalDevs = 0;
+      let totalCctvs = 0;
+      systemAccounts.forEach(a => {
+        totalDevs += (a.devices || []).length;
+        totalCctvs += (a.cctv || []).length;
+      });
+      document.getElementById('statTotalDevices').innerText = totalDevs;
+      document.getElementById('statTotalCctv').innerText = totalCctvs;
+    }
+
+    // RENDER TABEL AKUN MASTER
+    function renderAccountsTable() {
+      const tbody = document.getElementById('accountsTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      updateSummaryMetrics();
+
+      if (!systemAccounts || systemAccounts.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding: 30px; text-align: center; color: var(--text-dim);">Belum ada akun klien terdaftar. Klik tombol di atas untuk menambah akun baru.</td></tr>';
+        return;
+      }
+
+      systemAccounts.forEach((acc, idx) => {
+        const isSelected = acc.id === currentSelectedAccountId;
+        const initials = getInitials(acc.name);
+        const bgGrad = getAvatarGradient(acc.name, idx);
+        const isVisible = passwordVisibilityMap[acc.id] === true;
+        const passwordValue = acc.password || '123456';
+        const displayPassword = isVisible ? passwordValue : '••••••••';
+        
+        let hwIcon = '🍓';
+        if (acc.hardware_type.includes('PLC') || acc.hardware_type.includes('Mitsubishi')) hwIcon = '🏭';
+        else if (acc.hardware_type.includes('ESP32')) hwIcon = '⚡';
+
+        const devCount = (acc.devices || []).length;
+        const cctvCount = (acc.cctv || []).length;
+
+        const tr = document.createElement('tr');
+        tr.className = isSelected ? 'active-row' : '';
+        tr.onclick = (e) => {
+          if (!e.target.closest('button') && !e.target.closest('a') && !e.target.closest('input')) {
+            selectActiveAccount(acc.id, true);
+          }
+        };
+
+        tr.innerHTML = `
+          <td>
+            <div class="user-avatar-cell">
+              <div class="user-avatar-badge" style="background: ${bgGrad};">${initials}</div>
+              <div>
+                <div class="user-name-title">${acc.name}</div>
+                <div class="user-id-subtitle">ID: ${acc.id} • <span class="role-badge ${acc.role === 'superadmin' ? 'superadmin' : 'user'}">${acc.role.toUpperCase()}</span></div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="credential-cell">
+              <span style="color: var(--text-dim);">✉️</span>
+              <input type="text" value="${acc.email}" readonly onclick="copyToClipboard('${acc.email}', 'Email / Username')">
+              <button type="button" class="credential-btn" onclick="copyToClipboard('${acc.email}', 'Email / Username')" title="Salin Email">📋</button>
+            </div>
+          </td>
+          <td>
+            <div class="credential-cell">
+              <span style="color: var(--text-dim);">🔑</span>
+              <input type="text" id="pwd_field_${acc.id}" value="${displayPassword}" readonly onclick="togglePasswordVisibility('${acc.id}')">
+              <button type="button" class="credential-btn" onclick="togglePasswordVisibility('${acc.id}')" title="${isVisible ? 'Sembunyikan' : 'Lihat Kata Sandi'}">${isVisible ? '👁️‍🗨️' : '👁️'}</button>
+              <button type="button" class="credential-btn" onclick="copyToClipboard('${passwordValue}', 'Password')" title="Salin Password">📋</button>
+            </div>
+          </td>
+          <td>
+            <div class="hw-badge-tag">
+              <span>${hwIcon}</span>
+              <span>${acc.hardware_type}</span>
+            </div>
+            <div style="font-size: 11px; color: var(--cyan); font-family: 'JetBrains Mono', monospace; margin-top: 4px;">
+              Prefix: ${acc.mqtt_prefix || 'alrisa/' + acc.id}
+            </div>
+          </td>
+          <td>
+            <div style="font-weight: 700; font-size: 13px; color: var(--text-white);">${devCount} Saklar</div>
+            <div style="font-size: 11px; color: var(--text-secondary);">${cctvCount} Kamera CCTV</div>
+          </td>
+          <td>
+            <div class="action-btn-group">
+              <a href="dashboard.php?account_id=${acc.id}" class="btn-act-dashboard" title="Menuju ke Halaman Web Dashboard Profil Nexora Home OS untuk Akun Ini">
+                <span>🌐</span> Buka Dashboard
+              </a>
+              <button type="button" class="btn-act-edit" onclick="openEditAccountModal('${acc.id}')" title="Edit Data & Kredensial Akun">
+                <span>✏️</span> Edit
+              </button>
+              ${acc.role !== 'superadmin' ? `
+                <button type="button" class="btn-act-del" onclick="deleteAccount('${acc.id}')" title="Hapus Akun">
+                  <span>🗑️</span>
+                </button>
+              ` : ''}
+            </div>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function togglePasswordVisibility(accId) {
+      passwordVisibilityMap[accId] = !passwordVisibilityMap[accId];
+      renderAccountsTable();
+    }
+
+    function copyToClipboard(text, label) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('Tersalin!', `${label} berhasil disalin ke clipboard.`);
+      });
+    }
+
+    function selectActiveAccount(accId, isUserClick = false) {
+      currentSelectedAccountId = accId;
+      renderAccountsTable();
+      renderActiveAccountDetail();
+      if (isUserClick) {
+        const acc = systemAccounts.find(a => a.id === accId);
+        if (acc) showToast('Akun Dipilih: ' + acc.name, 'Klik "Buka Dashboard" untuk melihat kontrol perangkat.');
+      }
+    }
+
+    function renderActiveAccountDetail() {
+      const card = document.getElementById('accountDetailCard');
+      if (!card) return;
+
+      const acc = systemAccounts.find(a => a.id === currentSelectedAccountId);
+      if (!acc) {
+        card.innerHTML = '';
+        return;
+      }
+
+      const devices = acc.devices || [];
+      const cctvs = acc.cctv || [];
+
+      let devRowsHtml = '';
+      devices.forEach((d, idx) => {
+        let typeBadge = '🚪 Gerbang';
+        if (d.type === 1) typeBadge = '💡 Lampu';
+        else if (d.type === 2) typeBadge = '🚪 Pintu Geser';
+        else if (d.type === 3) typeBadge = '🪟 Gorden';
+        else if (d.type === 4) typeBadge = '💧 Pompa Air';
+
+        devRowsHtml += `
+          <tr style="border-bottom: 1px solid var(--border-subtle);">
+            <td style="padding: 12px 14px; font-weight: 800; color: var(--text-white);">
+              ${d.name}
+              <div style="font-size: 11px; color: var(--text-dim); font-weight: 500;">ID: ${d.id} • Kategori: ${d.category || 'Umum'}</div>
+            </td>
+            <td style="padding: 12px 14px; color: var(--text-secondary); font-size: 12.5px;">
+              <span style="background: rgba(255,255,255,0.06); padding: 4px 10px; border-radius: 8px;">${typeBadge}</span>
+            </td>
+            <td style="padding: 12px 14px;">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,240,255,0.12); color: var(--cyan); border: 1px solid rgba(0,240,255,0.25); padding: 4px 10px; border-radius: 6px; font-weight: 700;">
+                ${d.hardwarePin || 'GPIO 2'}
+              </span>
+            </td>
+            <td style="padding: 12px 14px; text-align: right; color: var(--text-dim); font-size: 12px;">
+              ${d.isActive ? '<span style="color: var(--emerald); font-weight: 700;">● AKTIF</span>' : '● OFF'}
+            </td>
+          </tr>
+        `;
+      });
+
+      card.innerHTML = `
+        <div style="background: var(--bg-surface); border: 1.5px solid var(--border-subtle); border-radius: 20px; padding: 22px; margin-top: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <div style="font-size: 11px; font-weight: 800; color: var(--cyan); text-transform: uppercase; letter-spacing: 0.8px;">RINCIAN PERANGKAT AKUN TERPILIH</div>
+              <h3 style="font-size: 18px; font-weight: 800; color: var(--text-white); margin-top: 2px;">${acc.name}</h3>
+              <span style="font-size: 12px; color: var(--text-secondary);">Mesin: <b style="color: var(--cyan);">${acc.hardware_type}</b> • Prefix: <code>${acc.mqtt_prefix || 'alrisa/' + acc.id}</code></span>
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <a href="dashboard.php?account_id=${acc.id}" class="btn-act-dashboard" style="padding: 10px 20px; font-size: 13px;">
+                <span>🌐</span> Masuk ke Halaman Dashboard Profil Ini ➔
+              </a>
+            </div>
+          </div>
+
+          <div style="background: var(--bg-node); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 18px;">
+            <div style="font-weight: 800; font-size: 14.5px; color: var(--text-white); margin-bottom: 12px;">
+              Daftar Perangkat IoT Terpasang (${devices.length})
+            </div>
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+              <thead>
+                <tr style="border-bottom: 1.5px solid var(--border-subtle); color: var(--text-secondary); font-size: 11.5px; text-transform: uppercase;">
+                  <th style="padding: 10px 14px;">Nama Perangkat</th>
+                  <th style="padding: 10px 14px;">Tipe</th>
+                  <th style="padding: 10px 14px;">PIN Hardware</th>
+                  <th style="padding: 10px 14px; text-align: right;">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${devRowsHtml || '<tr><td colspan="4" style="padding: 20px; text-align: center; color: var(--text-dim);">Belum ada perangkat terpasang pada akun ini.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // EDIT ACCOUNT
+    function openEditAccountModal(accId) {
+      const acc = systemAccounts.find(a => a.id === accId);
+      if (!acc) return;
+
+      document.getElementById('editAccId').value = acc.id;
+      document.getElementById('editAccName').value = acc.name;
+      document.getElementById('editAccEmail').value = acc.email;
+      document.getElementById('editAccPassword').value = acc.password || '123456';
+      document.getElementById('editAccHw').value = acc.hardware_type;
+      document.getElementById('editAccPrefix').value = acc.mqtt_prefix || 'alrisa/' + acc.id;
+
+      document.getElementById('editAccountModal').classList.add('active');
+    }
+    function closeEditAccountModal() {
+      document.getElementById('editAccountModal').classList.remove('active');
+    }
+    function saveEditAccountModal() {
+      const accId = document.getElementById('editAccId').value;
+      const acc = systemAccounts.find(a => a.id === accId);
+      if (!acc) return;
+
+      const name = document.getElementById('editAccName').value.trim();
+      const email = document.getElementById('editAccEmail').value.trim();
+      const pass = document.getElementById('editAccPassword').value.trim();
+      const hw = document.getElementById('editAccHw').value;
+      const prefix = document.getElementById('editAccPrefix').value.trim();
+
+      if (!name || !email) {
+        alert('Nama dan Email wajib diisi.');
+        return;
+      }
+
+      acc.name = name;
+      acc.email = email;
+      acc.password = pass;
+      acc.hardware_type = hw;
+      acc.mqtt_prefix = prefix;
+
+      closeEditAccountModal();
+      saveAccountsToServer();
+      showToast('Perubahan Disimpan!', `Data akun "${name}" berhasil diperbarui.`);
+    }
+
+    // NEW ACCOUNT
+    function showAddNewAccountModal() {
+      document.getElementById('newAccName').value = '';
+      document.getElementById('newAccEmail').value = '';
+      document.getElementById('newAccPassword').value = '123456';
+      document.getElementById('accountModal').classList.add('active');
+    }
+    function closeAccountModal() {
+      document.getElementById('accountModal').classList.remove('active');
+    }
+    function saveNewAccountModal() {
+      const name = document.getElementById('newAccName').value.trim();
+      let email = document.getElementById('newAccEmail').value.trim().toLowerCase();
+      const password = document.getElementById('newAccPassword').value.trim();
+      const hwType = document.getElementById('newAccHw').value;
+
+      if (!name) {
+        alert('Harap masukkan Nama Klien / Pemilik.');
+        return;
+      }
+      if (!email) {
+        email = name.toLowerCase().replace(/[^a-z0-9]/g, '') + '@nexora.id';
+      }
+
+      const newId = 'acc_' + Date.now();
+      const defaultPin = hwType.includes('PLC') ? '%QX0.0 (Relay Y0 - Pagar)' : (hwType.includes('ESP') ? 'ESP32 GPIO 2 (D2)' : 'Pi4 GPIO 17 (Pin 11)');
+
+      const newAcc = {
+        id: newId,
+        name: name,
+        email: email,
+        password: password || '123456',
+        role: 'user',
+        hardware_type: hwType,
+        hardware_desc: hwType + ' IoT Hub',
+        mqtt_prefix: 'alrisa/' + newId,
+        devices: [
+          {
+            id: 'pagar_' + newId,
+            name: 'Pagar Utama',
+            type: 0,
+            category: 'Keamanan',
+            hardwarePin: defaultPin,
+            isActive: false,
+            value: 0.0,
+            statusText: 'Terkunci'
+          }
+        ],
+        cctv: []
       };
 
-      fetch('api/control.php', {
+      systemAccounts.push(newAcc);
+      currentSelectedAccountId = newId;
+
+      closeAccountModal();
+      saveAccountsToServer();
+      showToast('Akun Klien Dibuat!', `Akun ${name} siap digunakan.`);
+    }
+
+    function deleteAccount(accId) {
+      if (confirm('Yakin ingin menghapus akun klien ini secara permanen?')) {
+        systemAccounts = systemAccounts.filter(a => a.id !== accId);
+        currentSelectedAccountId = systemAccounts.length > 0 ? systemAccounts[0].id : '';
+        saveAccountsToServer();
+        showToast('Akun Dihapus', 'Akun telah dihapus dari sistem.');
+      }
+    }
+
+    function saveAccountsToServer() {
+      renderAccountsTable();
+      renderActiveAccountDetail();
+
+      fetch('index.php?api=1', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-KEY': API_KEY
-        },
-        body: JSON.stringify(payload)
-      }).catch(err => console.error(err));
-    } catch (e) {
-      console.error("Gagal kirim kontrol:", e);
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accounts: systemAccounts,
+          active_account_id: currentSelectedAccountId
+        })
+      }).catch(e => console.error(e));
     }
-  }
 
-  // PRESET SCENES
-  function applyScene(sceneName) {
-    if (sceneName === 'ALL_ON') {
-      ['pagar', 'pintu_geser', 'gorden'].forEach(id => sendCommand(id, 'BUKA'));
-      ['lampu_teras', 'pompa_toren', 'pompa_kolam'].forEach(id => sendCommand(id, 'ON'));
-    } else if (sceneName === 'ALL_OFF') {
-      ['pagar', 'pintu_geser', 'gorden'].forEach(id => sendCommand(id, 'TUTUP'));
-      ['lampu_teras', 'pompa_toren', 'pompa_kolam'].forEach(id => sendCommand(id, 'OFF'));
-    } else if (sceneName === 'LEAVING_HOME') {
-      ['pagar', 'pintu_geser', 'gorden'].forEach(id => sendCommand(id, 'TUTUP'));
-      sendCommand('lampu_teras', 'OFF');
-      sendCommand('pompa_kolam', 'OFF');
-    } else if (sceneName === 'ARRIVING_HOME') {
-      sendCommand('pagar', 'BUKA');
-      sendCommand('pintu_geser', 'BUKA');
-      sendCommand('lampu_teras', 'ON');
-      sendCommand('lampu_teras', 'SET_BRIGHTNESS', 100);
+    function showToast(title, message) {
+      const toast = document.getElementById('toastAlert');
+      document.getElementById('toastTitle').innerText = title;
+      document.getElementById('toastMessage').innerText = message;
+      toast.classList.add('show');
+      setTimeout(() => { toast.classList.remove('show'); }, 3500);
     }
-  }
 
-  // Terapkan bahasa saat pertama kali dibuka
-  applyLanguage();
-  setInterval(fetchDevices, 1500);
-  fetchDevices();
-</script>
-
+    // Bootstrap
+    renderAccountsTable();
+    renderActiveAccountDetail();
+  </script>
 </body>
 </html>

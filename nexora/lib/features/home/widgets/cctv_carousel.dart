@@ -19,19 +19,15 @@ class CctvCarousel extends StatefulWidget {
 }
 
 class _CctvCarouselState extends State<CctvCarousel> {
-  late PageController _pageController;
   int _currentIndex = 0;
+  Offset? _pointerDownPos;
 
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(viewportFraction: 1.0);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
+  void _goToCamera(int index) {
+    if (index < 0 || index >= widget.cameras.length || index == _currentIndex) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _currentIndex = index;
+    });
   }
 
   @override
@@ -85,6 +81,8 @@ class _CctvCarouselState extends State<CctvCarousel> {
       _currentIndex = widget.cameras.length - 1;
     }
 
+    final activeCam = widget.cameras[_currentIndex];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -108,17 +106,7 @@ class _CctvCarouselState extends State<CctvCarousel> {
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: GestureDetector(
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              setState(() {
-                                _currentIndex = index;
-                              });
-                              _pageController.animateToPage(
-                                index,
-                                duration: const Duration(milliseconds: 320),
-                                curve: Curves.easeInOutCubic,
-                              );
-                            },
+                            onTap: () => _goToCamera(index),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -145,7 +133,7 @@ class _CctvCarouselState extends State<CctvCarousel> {
                                   Icon(
                                     Icons.videocam_rounded,
                                     size: 14,
-                                    color: isSelected ? NexoraTokens.brandCyan : NexoraTokens.inkSecondary,
+                                    color: isSelected ? Colors.white : NexoraTokens.inkSecondary,
                                   ),
                                   const SizedBox(width: 5),
                                   Text(
@@ -191,47 +179,35 @@ class _CctvCarouselState extends State<CctvCarousel> {
           ),
         ],
 
-        // PageView / Slider Card CCTV
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final cardWidth = constraints.maxWidth;
-            final contentWidth = (cardWidth - 24).clamp(200.0, 600.0);
-            final videoHeight = contentWidth / (16 / 9);
-            final textScale = MediaQuery.of(context).textScaleFactor.clamp(1.0, 1.4);
-            final dynamicHeight = videoHeight + (144.0 * textScale);
-
-            return hasMultiple
-                ? SizedBox(
-                    height: dynamicHeight,
-                    child: PageView(
-                      controller: _pageController,
-                      physics: const BouncingScrollPhysics(),
-                      onPageChanged: (idx) {
-                        HapticFeedback.selectionClick();
-                        setState(() {
-                          _currentIndex = idx;
-                        });
-                      },
-                      children: List.generate(widget.cameras.length, (index) {
-                        final cam = widget.cameras[index];
-                        return RepaintBoundary(
-                          child: CctvCard(
-                            key: ValueKey('cctv_${cam.id}'),
-                            camera: cam,
-                            isActive: index == _currentIndex,
-                          ),
-                        );
-                      }),
-                    ),
-                  )
-                : RepaintBoundary(
-                    child: CctvCard(
-                      key: ValueKey('cctv_${widget.cameras.first.id}'),
-                      camera: widget.cameras.first,
-                      isActive: true,
-                    ),
-                  );
-          },
+        // Kartu CCTV Aktif dengan Ukuran Alami + Listener Swipe (Tidak pernah mencuri tap pada Dropdown / Tombol)
+        Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: hasMultiple
+              ? (event) {
+                  _pointerDownPos = event.position;
+                }
+              : null,
+          onPointerUp: hasMultiple
+              ? (event) {
+                  if (_pointerDownPos == null) return;
+                  final delta = event.position - _pointerDownPos!;
+                  _pointerDownPos = null;
+                  if (delta.dx.abs() > 64 && delta.dx.abs() > delta.dy.abs() * 1.6) {
+                    if (delta.dx < 0 && _currentIndex < widget.cameras.length - 1) {
+                      _goToCamera(_currentIndex + 1);
+                    } else if (delta.dx > 0 && _currentIndex > 0) {
+                      _goToCamera(_currentIndex - 1);
+                    }
+                  }
+                }
+              : null,
+          child: RepaintBoundary(
+            child: CctvCard(
+              key: ValueKey('cctv_${activeCam.id}'),
+              camera: activeCam,
+              isActive: true,
+            ),
+          ),
         ),
 
         // Dot Indicator di Bawah Slider jika kamera > 1

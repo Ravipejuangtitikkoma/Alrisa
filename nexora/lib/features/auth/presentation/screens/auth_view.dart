@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nexora/core/design_tokens.dart';
 import 'package:nexora/services/auth_service.dart';
+import 'package:nexora/services/cloud_sync_service.dart';
 import 'package:nexora/features/dashboard/presentation/screens/dashboard_screen.dart';
 
 class AuthView extends StatefulWidget {
@@ -20,6 +21,15 @@ class _AuthViewState extends State<AuthView> {
   // Controllers Login
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Otomatis tarik semua akun dari server Node.js saat halaman login dibuka
+    AuthService().syncAccountsFromCloud().then((_) {
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
   void dispose() {
@@ -344,6 +354,163 @@ class _AuthViewState extends State<AuthView> {
     );
   }
 
+  void _showServerConfigDialog() {
+    final ipController = TextEditingController(
+      text: CloudSyncService().baseUrl.replaceAll('http://', ''),
+    );
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0F2FE),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.dns_rounded, color: Color(0xFF0284C7), size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Alamat Server Node.js',
+                style: TextStyle(
+                  fontFamily: NexoraTokens.fontFamilySans,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Masukkan IP Laptop dan port backend Node.js (Pastikan HP dan Laptop terhubung ke WiFi yang sama):',
+              style: TextStyle(fontSize: 12.5, color: Color(0xFF475569), height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ipController,
+              decoration: InputDecoration(
+                prefixText: 'http://',
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                ActionChip(
+                  label: const Text('192.168.1.8:3000', style: TextStyle(fontSize: 11)),
+                  onPressed: () => ipController.text = '192.168.1.8:3000',
+                ),
+                ActionChip(
+                  label: const Text('10.0.2.2:3000', style: TextStyle(fontSize: 11)),
+                  onPressed: () => ipController.text = '10.0.2.2:3000',
+                ),
+                ActionChip(
+                  label: const Text('localhost:3000', style: TextStyle(fontSize: 11)),
+                  onPressed: () => ipController.text = 'localhost:3000',
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              String newUrl = ipController.text.trim();
+              if (!newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
+                newUrl = 'http://$newUrl';
+              }
+              await CloudSyncService().setBaseUrl(newUrl);
+              Navigator.pop(ctx);
+              _showToast('Menghubungi server $newUrl...', isError: false);
+              final ok = await AuthService().syncAccountsFromCloud();
+              if (ok) {
+                _showToast('✅ Berhasil terhubung & tersinkron dengan website!', isError: false);
+              } else {
+                _showToast('⚠️ Gagal terhubung ke $newUrl. Periksa WiFi & IP laptop.', isError: true);
+              }
+              setState(() {});
+            },
+            style: ElevatedButton.styleFrom(
+              primary: const Color(0xFF0284C7),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+            child: const Text('Simpan & Sinkron', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServerPill() {
+    return GestureDetector(
+      onTap: _showServerConfigDialog,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.95),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: Color(0xFF10B981),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Server Cloud: ${CloudSyncService().baseUrl.replaceAll('http://', '')}',
+              style: const TextStyle(
+                fontFamily: NexoraTokens.fontFamilySans,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF334155),
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.settings_outlined, size: 14, color: Color(0xFF64748B)),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showToast(String message, {required bool isError}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -401,7 +568,8 @@ class _AuthViewState extends State<AuthView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 10),
+                    // TOMBOL SERVER IP STATUS PILL
+                    _buildServerPill(),
 
                     // LOGO ALRISA FLOATING BADGE (3D Elevated)
                     Container(

@@ -397,12 +397,12 @@ class _SingleDimmerLightCardState extends State<_SingleDimmerLightCard> {
                   ),
                 ),
                 Text(
-                  widget.device.hardwarePin,
+                  isLightOn ? 'Intensitas Cahaya $brightnessPercentage%' : 'Siaga • Ketuk untuk nyalakan',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontFamily: NexoraTokens.fontFamilySans,
-                    fontSize: 10,
+                    fontSize: 10.5,
                     fontWeight: FontWeight.w500,
                     color: NexoraTokens.inkMuted,
                   ),
@@ -487,7 +487,7 @@ class _DynamicSlidingDoorSlotState extends State<DynamicSlidingDoorSlot> {
     }
 
     return SizedBox(
-      height: 78,
+      height: 86,
       child: PageView.builder(
         controller: _pageController,
         physics: const BouncingScrollPhysics(),
@@ -651,13 +651,17 @@ class _SingleSlidingDoorCardState extends State<_SingleSlidingDoorCard> {
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      Text(
-                        _isOpen ? 'Terbuka' : 'Terkunci',
-                        style: TextStyle(
-                          fontFamily: NexoraTokens.fontFamilySans,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: _isOpen ? NexoraTokens.brandCyan : NexoraTokens.statusGray,
+                      Flexible(
+                        child: Text(
+                          _isOpen ? 'Terbuka' : 'Terkunci',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: NexoraTokens.fontFamilySans,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: _isOpen ? NexoraTokens.brandCyan : NexoraTokens.statusGray,
+                          ),
                         ),
                       ),
                       if (widget.showDots) ...[
@@ -761,7 +765,7 @@ class _DynamicCurtainSlotState extends State<DynamicCurtainSlot> {
     }
 
     return SizedBox(
-      height: 78,
+      height: 86,
       child: PageView.builder(
         controller: _pageController,
         physics: const BouncingScrollPhysics(),
@@ -925,13 +929,17 @@ class _SingleCurtainCardState extends State<_SingleCurtainCard> {
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      Text(
-                        _isOpen ? 'Terbuka' : 'Tertutup',
-                        style: TextStyle(
-                          fontFamily: NexoraTokens.fontFamilySans,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: _isOpen ? NexoraTokens.brandCyan : NexoraTokens.statusGray,
+                      Flexible(
+                        child: Text(
+                          _isOpen ? 'Terbuka' : 'Tertutup',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: NexoraTokens.fontFamilySans,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: _isOpen ? NexoraTokens.brandCyan : NexoraTokens.statusGray,
+                          ),
                         ),
                       ),
                       if (widget.showDots) ...[

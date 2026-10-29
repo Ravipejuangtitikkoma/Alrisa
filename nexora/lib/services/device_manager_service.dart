@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:nexora/services/auth_service.dart';
+import 'package:nexora/services/cloud_sync_service.dart';
 
 enum DeviceType {
   gate,        // Pagar / Gerbang
@@ -347,9 +349,114 @@ class DeviceManagerService {
     _userDevicesDb[_activeUserKey] = List.from(_devices);
     _devicesController.add(List.unmodifiable(_devices));
     _scheduleSave(_activeUserKey, immediate: saveImmediate);
+    if (saveImmediate) {
+      CloudSyncService().scheduleSyncToCloud();
+    }
   }
 
-  /// Tambah Perangkat Baru (Langsung simpan persisten ke disk)
+  /// Sinkronisasi daftar perangkat dinamis dari Cloud/Website ke memori HP dan disk lokal
+  /// (Dua arah: jika di website gerbang ditambah/dihapus/ubah pin, otomatis ter-update di HP)
+  void setDevicesFromRemote(List<CustomDeviceItem> newDevices, {String? targetUserKey}) {
+    final key = targetUserKey?.toLowerCase().trim() ?? _activeUserKey;
+
+    // Cek apakah benar-benar ada perubahan data sebelum memicu rebuild UI / menutup dropdown aktif
+    bool hasChanged = false;
+    final currentList = _activeUserKey == key ? _devices : (_userDevicesDb[key] ?? []);
+    if (currentList.length != newDevices.length) {
+      hasChanged = true;
+    } else {
+      for (int i = 0; i < newDevices.length; i++) {
+        final a = currentList[i];
+        final b = newDevices[i];
+        if (a.id != b.id ||
+            a.name != b.name ||
+            a.type != b.type ||
+            a.hardwarePin != b.hardwarePin ||
+            a.isActive != b.isActive ||
+            a.value != b.value) {
+          hasChanged = true;
+          break;
+        }
+      }
+    }
+
+    if (!hasChanged) return;
+
+    _userDevicesDb[key] = List.from(newDevices);
+    if (_activeUserKey == key) {
+      _devices.clear();
+      _devices.addAll(newDevices);
+      _devicesController.add(List.unmodifiable(_devices));
+    }
+    _saveToDisk(key);
+    debugPrint('📱 [DEVICE SYNC] Berhasil sinkronisasi ${newDevices.length} alat dari Cloud ke HP untuk $key');
+  }
+
+  /// Cari PIN GPIO & Alamat PLC yang belum digunakan oleh perangkat lain pada akun aktif
+  String getNextAvailablePin([DeviceType? type, String? excludeDeviceId]) {
+    const List<Map<String, dynamic>> safePool = [
+      {'gpio': 2, 'plc': '%QX0.0'},
+      {'gpio': 4, 'plc': '%QX0.1'},
+      {'gpio': 5, 'plc': '%QX0.2'},
+      {'gpio': 12, 'plc': '%QX0.3'},
+      {'gpio': 13, 'plc': '%QX0.4'},
+      {'gpio': 14, 'plc': '%QX0.5'},
+      {'gpio': 15, 'plc': '%QX0.6'},
+      {'gpio': 16, 'plc': '%QX0.7'},
+      {'gpio': 17, 'plc': '%QX1.0'},
+      {'gpio': 18, 'plc': '%QX1.1'},
+      {'gpio': 19, 'plc': '%QX1.2'},
+      {'gpio': 21, 'plc': '%QX1.3'},
+      {'gpio': 22, 'plc': '%QX1.4'},
+      {'gpio': 23, 'plc': '%QX1.5'},
+      {'gpio': 25, 'plc': '%QX1.6'},
+      {'gpio': 26, 'plc': '%QX1.7'},
+      {'gpio': 27, 'plc': '%QX2.0'},
+      {'gpio': 32, 'plc': '%QX2.1'},
+      {'gpio': 33, 'plc': '%QX2.2'},
+    ];
+
+    final usedGpios = <int>{};
+    final usedPlcs = <String>{};
+    final gpioRegex = RegExp(r'GPIO\s*(\d+)', caseSensitive: false);
+    final plcRegex = RegExp(r'%QX\d+\.\d+', caseSensitive: false);
+
+    for (final dev in _devices) {
+      if (excludeDeviceId != null && dev.id == excludeDeviceId) continue;
+      final pinStr = dev.hardwarePin;
+      final gm = gpioRegex.firstMatch(pinStr);
+      if (gm != null) {
+        final g = int.tryParse(gm.group(1) ?? '');
+        if (g != null) usedGpios.add(g);
+      }
+      final pm = plcRegex.firstMatch(pinStr);
+      if (pm != null) {
+        usedPlcs.add(pm.group(0)!.toUpperCase());
+      }
+    }
+
+    for (final candidate in safePool) {
+      final int gpio = candidate['gpio'] as int;
+      final String plc = candidate['plc'] as String;
+      if (!usedGpios.contains(gpio) && !usedPlcs.contains(plc)) {
+        return 'GPIO $gpio ($plc)';
+      }
+    }
+
+    for (final candidate in safePool) {
+      final int gpio = candidate['gpio'] as int;
+      final String plc = candidate['plc'] as String;
+      if (!usedGpios.contains(gpio)) {
+        return 'GPIO $gpio ($plc)';
+      }
+    }
+
+    final nextIdx = _devices.length;
+    final fallbackGpio = safePool[nextIdx % safePool.length]['gpio'];
+    return 'GPIO $fallbackGpio (%QX${nextIdx ~/ 8}.${nextIdx % 8})';
+  }
+
+  /// Tambah Perangkat Baru (Otomatis isi PIN yang belum terpakai & simpan ke disk + Cloud)
   void addDevice({
     required String name,
     required DeviceType type,
@@ -363,13 +470,17 @@ class DeviceManagerService {
         ? customId!.trim().toLowerCase().replaceAll(' ', '_')
         : '${prefix}_$count';
 
+    final cleanPin = (hardwarePin != null &&
+            hardwarePin.trim().isNotEmpty &&
+            hardwarePin.trim().toUpperCase() != 'AUTO')
+        ? hardwarePin.trim()
+        : getNextAvailablePin(type);
+
     final newDev = CustomDeviceItem(
       id: finalId,
       name: name.trim().isNotEmpty ? name.trim() : 'Perangkat Baru $count',
       type: type,
-      hardwarePin: hardwarePin?.trim().isNotEmpty == true
-          ? hardwarePin!.trim()
-          : 'GPIO 23',
+      hardwarePin: cleanPin,
       statusText: type == DeviceType.gate || type == DeviceType.slidingDoor
           ? 'Terkunci'
           : 'Mati',
@@ -377,6 +488,7 @@ class DeviceManagerService {
 
     _devices.add(newDev);
     _notify(saveImmediate: true);
+    CloudSyncService().pushDeviceToCloud(newDev);
   }
 
   /// Edit Nama / Pin / Tipe / ID Perangkat (Langsung simpan persisten ke disk)
@@ -400,13 +512,15 @@ class DeviceManagerService {
         statusText: old.statusText,
       );
       _notify(saveImmediate: true);
+      CloudSyncService().pushDeviceToCloud(_devices[idx]);
     }
   }
 
-  /// Hapus Perangkat (Langsung simpan persisten ke disk)
+  /// Hapus Perangkat (Langsung simpan persisten ke disk & Cloud)
   void removeDevice(String id) {
     _devices.removeWhere((d) => d.id == id);
     _notify(saveImmediate: true);
+    CloudSyncService().deleteDeviceFromCloud(id);
   }
 
   /// Update Status / Nilai Perangkat dari MQTT (Penyimpanan debounced)

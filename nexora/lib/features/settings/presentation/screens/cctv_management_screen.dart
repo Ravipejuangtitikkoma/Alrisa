@@ -150,21 +150,26 @@ class _CctvManagementScreenState extends State<CctvManagementScreen> {
                       return Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            _searchQuery.isEmpty
-                                ? (lang.isIndonesian
-                                    ? 'Total: ${allCams.length} Kamera Terdaftar'
-                                    : 'Total: ${allCams.length} Registered Cameras')
-                                : (lang.isIndonesian
-                                    ? 'Ditemukan: ${filtered.length} dari ${allCams.length} kamera'
-                                    : 'Found: ${filtered.length} of ${allCams.length} cameras'),
-                            style: const TextStyle(
-                              fontFamily: NexoraTokens.fontFamilySans,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: NexoraTokens.inkSecondary,
+                          Expanded(
+                            child: Text(
+                              _searchQuery.isEmpty
+                                  ? (lang.isIndonesian
+                                      ? 'Total: ${allCams.length} Kamera Terdaftar'
+                                      : 'Total: ${allCams.length} Registered Cameras')
+                                  : (lang.isIndonesian
+                                      ? 'Ditemukan: ${filtered.length} dari ${allCams.length} kamera'
+                                      : 'Found: ${filtered.length} of ${allCams.length} cameras'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: NexoraTokens.fontFamilySans,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: NexoraTokens.inkSecondary,
+                              ),
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
@@ -630,91 +635,14 @@ class _CctvManagementScreenState extends State<CctvManagementScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  const Text('RTSP Stream URL (H.264 / H.265)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: rtspCtrl,
-                    style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
-                    onChanged: (val) {
-                      try {
-                        final uri = Uri.parse(val.trim());
-                        if (uri.host.isNotEmpty) {
-                          onvifHostCtrl.text = uri.host;
-                          if (uri.hasPort && uri.port != 0) {
-                            onvifPortCtrl.text = uri.port.toString();
-                          } else {
-                            onvifPortCtrl.text = '554';
-                          }
-                        }
-                      } catch (_) {}
-                    },
-                    decoration: InputDecoration(
-                      hintText: 'rtsp://user:pass@ip:554/live/ch0',
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('IP Host ONVIF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: onvifHostCtrl,
-                              style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
-                              decoration: InputDecoration(
-                                hintText: '192.168.1.105',
-                                filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 1,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Port ONVIF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: onvifPortCtrl,
-                              keyboardType: TextInputType.number,
-                              style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
-                              decoration: InputDecoration(
-                                hintText: '80',
-                                filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
                   const Text('Tautkan ke Gerbang (Opsional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String?>(
+                    isExpanded: true,
                     value: gateDevices.any((d) => d.id == selectedGateId) ? selectedGateId : (gateDevices.isNotEmpty ? gateDevices.first.id : null),
                     items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('Tidak ditautkan')),
-                      ...gateDevices.map((d) => DropdownMenuItem<String?>(value: d.id, child: Text('${d.name} (${d.id})'))).toList(),
+                      const DropdownMenuItem<String?>(value: null, child: Text('Tidak ditautkan', overflow: TextOverflow.ellipsis)),
+                      ...gateDevices.map((d) => DropdownMenuItem<String?>(value: d.id, child: Text('${d.name} (${d.id})', overflow: TextOverflow.ellipsis))).toList(),
                     ],
                     onChanged: (val) {
                       setModalState(() {
@@ -729,15 +657,28 @@ class _CctvManagementScreenState extends State<CctvManagementScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 14),
-                  // Uji RTSP Sederhana
-                  OutlinedButton.icon(
-                    onPressed: () => _testRtspConnection(rtspCtrl.text),
-                    icon: const Icon(Icons.network_check_rounded, size: 16),
-                    label: const Text('Uji Format URL RTSP'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: NexoraTokens.cardBorder),
+                    ),
+                    child: Row(
+                      children: const [
+                        Icon(Icons.shield_outlined, size: 18, color: NexoraTokens.brandCyan),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Alamat IP CCTV & RTSP Stream dikonfigurasi terpusat oleh Super Admin via Website.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: NexoraTokens.inkSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
@@ -870,76 +811,40 @@ class _CctvManagementScreenState extends State<CctvManagementScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  const Text('RTSP Stream URL', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: rtspCtrl,
-                    style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: NexoraTokens.cardBorder),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('IP Host ONVIF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: onvifHostCtrl,
-                              style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
-                              decoration: InputDecoration(
-                                filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              ),
+                    child: Row(
+                      children: const [
+                        Icon(Icons.shield_outlined, size: 18, color: NexoraTokens.brandCyan),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Alamat IP CCTV & RTSP Stream dikonfigurasi terpusat oleh Super Admin via Website.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: NexoraTokens.inkSecondary,
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 1,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Port ONVIF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: onvifPortCtrl,
-                              keyboardType: TextInputType.number,
-                              style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
-                              decoration: InputDecoration(
-                                hintText: '80',
-                                filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: NexoraTokens.cardBorder)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 14),
 
                   const Text('Tautkan ke Gerbang', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary)),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String?>(
+                    isExpanded: true,
                     value: gateDevices.any((d) => d.id == selectedGateId) ? selectedGateId : null,
                     items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('Tidak ditautkan')),
-                      ...gateDevices.map((d) => DropdownMenuItem<String?>(value: d.id, child: Text('${d.name} (${d.id})'))).toList(),
+                      const DropdownMenuItem<String?>(value: null, child: Text('Tidak ditautkan', overflow: TextOverflow.ellipsis)),
+                      ...gateDevices.map((d) => DropdownMenuItem<String?>(value: d.id, child: Text('${d.name} (${d.id})', overflow: TextOverflow.ellipsis))).toList(),
                     ],
                     onChanged: (val) {
                       setModalState(() {
@@ -1031,25 +936,6 @@ class _CctvManagementScreenState extends State<CctvManagementScreen> {
             child: const Text('Hapus', style: TextStyle(color: Colors.white)),
           ),
         ],
-      ),
-    );
-  }
-
-  void _testRtspConnection(String rtspUrl) {
-    final clean = rtspUrl.trim();
-    if (!clean.startsWith('rtsp://')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('⚠️ URL RTSP harus diawali dengan format rtsp://'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Format URL RTSP valid: $clean'),
-        backgroundColor: NexoraTokens.statusGreen,
       ),
     );
   }

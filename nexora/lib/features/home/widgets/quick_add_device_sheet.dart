@@ -121,12 +121,11 @@ class _QuickAddDeviceSheetState extends State<QuickAddDeviceSheet> {
     }
 
     if (_selectedCategory == QuickAddCategory.cctv) {
-      final rtsp = _cctvUrlController.text.trim();
       final loc = _locationController.text.trim();
       CctvManagerService().addCamera(
         name: name,
         location: loc.isNotEmpty ? loc : 'Area Rumah',
-        rtspUrl: rtsp,
+        rtspUrl: '',
       );
     } else {
       DeviceType devType;
@@ -151,11 +150,12 @@ class _QuickAddDeviceSheetState extends State<QuickAddDeviceSheet> {
           break;
       }
 
-      final pin = _pinController.text.trim();
+      final autoPin = DeviceManagerService().getNextAvailablePin(devType);
+
       DeviceManagerService().addDevice(
         name: name,
         type: devType,
-        hardwarePin: pin.isNotEmpty ? pin : 'GPIO 23',
+        hardwarePin: autoPin,
       );
     }
 
@@ -341,7 +341,7 @@ class _QuickAddDeviceSheetState extends State<QuickAddDeviceSheet> {
 
             if (_selectedCategory == QuickAddCategory.cctv) ...[
               Text(
-                lang.isEnglish ? 'Camera Location' : 'Lokasi Kamera',
+                lang.isEnglish ? 'Camera Location' : 'Lokasi / Area Kamera',
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.ink),
               ),
               const SizedBox(height: 6),
@@ -366,62 +366,37 @@ class _QuickAddDeviceSheetState extends State<QuickAddDeviceSheet> {
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
-
-              Text(
-                'Stream URL (RTSP / HLS)',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.ink),
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _cctvUrlController,
-                decoration: InputDecoration(
-                  hintText: 'rtsp://... atau http://...',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: NexoraTokens.cardBorder),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: NexoraTokens.cardBorder),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: NexoraTokens.brandCyan, width: 1.5),
-                  ),
-                ),
-              ),
-            ] else ...[
-              Text(
-                lang.isEnglish ? 'Hardware Pin (ESP32 / PLC)' : 'Pin Hardware (GPIO ESP32 / Alamat PLC)',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.ink),
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _pinController,
-                decoration: InputDecoration(
-                  hintText: 'misal: GPIO 23 (%QX0.3)',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: NexoraTokens.cardBorder),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: NexoraTokens.cardBorder),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: NexoraTokens.brandCyan, width: 1.5),
-                  ),
-                ),
-              ),
             ],
+
+            // Info Card: PIN & IP Hardware diatur oleh Super Admin via Web
+            Container(
+              margin: const EdgeInsets.only(top: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.shield_outlined, size: 18, color: NexoraTokens.brandCyan),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      lang.isEnglish
+                          ? 'Hardware PINs & Network streams are centrally managed by Cloud Super Admin.'
+                          : 'PIN Hardware & Alamat IP dikontrol terpusat oleh Super Admin melalui Website.',
+                      style: const TextStyle(
+                        fontFamily: NexoraTokens.fontFamilySans,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: NexoraTokens.inkSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
             const SizedBox(height: 22),
 

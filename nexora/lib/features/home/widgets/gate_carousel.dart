@@ -19,19 +19,15 @@ class GateCarousel extends StatefulWidget {
 }
 
 class _GateCarouselState extends State<GateCarousel> {
-  late PageController _pageController;
   int _currentIndex = 0;
+  Offset? _pointerDownPos;
 
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(viewportFraction: 1.0);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
+  void _goToGate(int index) {
+    if (index < 0 || index >= widget.gates.length || index == _currentIndex) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _currentIndex = index;
+    });
   }
 
   @override
@@ -76,6 +72,10 @@ class _GateCarouselState extends State<GateCarousel> {
     }
 
     final hasMultiple = widget.gates.length > 1;
+    if (_currentIndex >= widget.gates.length) {
+      _currentIndex = widget.gates.length - 1;
+    }
+    final activeGate = widget.gates[_currentIndex];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,25 +100,18 @@ class _GateCarouselState extends State<GateCarousel> {
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: GestureDetector(
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              _pageController.animateToPage(
-                                index,
-                                duration: const Duration(milliseconds: 320),
-                                curve: Curves.easeOutCubic,
-                              );
-                            },
+                            onTap: () => _goToGate(index),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 220),
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: isSelected ? NexoraTokens.brandCyan : Colors.white.withOpacity(0.35),
+                                color: isSelected ? NexoraTokens.brandCyan : Colors.white.withOpacity(0.85),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
                                   color: isSelected
                                       ? NexoraTokens.brandCyan
-                                      : Colors.white.withOpacity(0.55),
-                                  width: 1.0,
+                                      : const Color(0xFFCBD5E1),
+                                  width: isSelected ? 1.5 : 1.0,
                                 ),
                                 boxShadow: isSelected
                                     ? [
@@ -136,7 +129,7 @@ class _GateCarouselState extends State<GateCarousel> {
                                   Icon(
                                     Icons.sensor_door_outlined,
                                     size: 13,
-                                    color: isSelected ? Colors.white : Colors.white.withOpacity(0.9),
+                                    color: isSelected ? Colors.white : NexoraTokens.inkSecondary,
                                   ),
                                   const SizedBox(width: 5),
                                   Text(
@@ -145,7 +138,7 @@ class _GateCarouselState extends State<GateCarousel> {
                                       fontFamily: NexoraTokens.fontFamilySans,
                                       fontSize: 11.5,
                                       fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                                      color: isSelected ? Colors.white : Colors.white.withOpacity(0.95),
+                                      color: isSelected ? Colors.white : NexoraTokens.ink,
                                     ),
                                   ),
                                 ],
@@ -164,7 +157,7 @@ class _GateCarouselState extends State<GateCarousel> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.18),
+                    color: Colors.black.withOpacity(0.22),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -182,39 +175,35 @@ class _GateCarouselState extends State<GateCarousel> {
           ),
         ],
 
-        // PageView Swipeable HeroCard
-        Builder(
-          builder: (context) {
-            final textScale = MediaQuery.of(context).textScaleFactor.clamp(1.0, 1.35);
-            final heroHeight = 265.0 * textScale;
-
-            return SizedBox(
-              height: heroHeight,
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: widget.gates.length,
-                onPageChanged: (index) {
-                  HapticFeedback.selectionClick();
-                  setState(() {
-                    _currentIndex = index;
-                  });
-                },
-                itemBuilder: (context, index) {
-                  final gate = widget.gates[index];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 1),
-                    child: HeroCard(
-                      key: ValueKey('${gate.id}_${gate.name}_${gate.hardwarePin}'),
-                      deviceId: gate.id,
-                      deviceName: gate.name,
-                      hardwarePin: gate.hardwarePin,
-                      onEdit: () => _showQuickEditGate(context, gate),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
+        // HeroCard dengan Tinggi Alami + Listener Swipe (Tidak pernah mencuri tap pada Tombol / Edit)
+        Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: hasMultiple
+              ? (event) {
+                  _pointerDownPos = event.position;
+                }
+              : null,
+          onPointerUp: hasMultiple
+              ? (event) {
+                  if (_pointerDownPos == null) return;
+                  final delta = event.position - _pointerDownPos!;
+                  _pointerDownPos = null;
+                  if (delta.dx.abs() > 64 && delta.dx.abs() > delta.dy.abs() * 1.6) {
+                    if (delta.dx < 0 && _currentIndex < widget.gates.length - 1) {
+                      _goToGate(_currentIndex + 1);
+                    } else if (delta.dx > 0 && _currentIndex > 0) {
+                      _goToGate(_currentIndex - 1);
+                    }
+                  }
+                }
+              : null,
+          child: HeroCard(
+            key: ValueKey('${activeGate.id}_${activeGate.name}_${activeGate.hardwarePin}'),
+            deviceId: activeGate.id,
+            deviceName: activeGate.name,
+            hardwarePin: activeGate.hardwarePin,
+            onEdit: () => _showQuickEditGate(context, activeGate),
+          ),
         ),
 
         // Dots Indicator Elegan jika ada lebih dari 1 gerbang
@@ -247,7 +236,6 @@ class _GateCarouselState extends State<GateCarousel> {
 
   void _showQuickEditGate(BuildContext context, CustomDeviceItem gate) {
     final nameCtrl = TextEditingController(text: gate.name);
-    final pinCtrl = TextEditingController(text: gate.hardwarePin);
 
     showModalBottomSheet(
       context: context,
@@ -342,20 +330,28 @@ class _GateCarouselState extends State<GateCarousel> {
               ),
               const SizedBox(height: 14),
 
-              // Pin ESP32 / Alamat PLC
-              const Text(
-                'Pin ESP32 / Alamat PLC (contoh: GPIO 2 (%QX0.0))',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NexoraTokens.inkSecondary),
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: pinCtrl,
-                decoration: InputDecoration(
-                  hintText: 'GPIO 2 (%QX0.0)',
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: NexoraTokens.cardBorder)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.shield_outlined, size: 16, color: NexoraTokens.brandCyan),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'PIN Hardware gerbang dikontrol langsung oleh Super Admin di Website.',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                          color: NexoraTokens.inkSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 22),
@@ -366,7 +362,6 @@ class _GateCarouselState extends State<GateCarousel> {
                 child: ElevatedButton(
                   onPressed: () {
                     final updatedName = nameCtrl.text.trim();
-                    final updatedPin = pinCtrl.text.trim();
                     if (updatedName.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Nama gerbang tidak boleh kosong!')),
@@ -377,7 +372,6 @@ class _GateCarouselState extends State<GateCarousel> {
                     DeviceManagerService().updateDevice(
                       gate.id,
                       newName: updatedName,
-                      newPin: updatedPin.isNotEmpty ? updatedPin : gate.hardwarePin,
                     );
 
                     Navigator.pop(ctx);

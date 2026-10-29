@@ -42,7 +42,8 @@ class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMix
     _waveController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2400),
-    )..repeat();
+    );
+    _syncWaveAnimation();
 
     _mqttSub = MqttService().stateStream.listen((event) {
       if (!mounted) return;
@@ -54,6 +55,7 @@ class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMix
         }
       }
       if (matched) {
+        _syncWaveAnimation();
         setState(() {});
       }
     });
@@ -61,7 +63,23 @@ class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMix
     _deviceSub = DeviceManagerService().devicesStream.listen((_) {
       if (!mounted) return;
       _loadPumps();
+      _syncWaveAnimation();
     });
+  }
+
+  void _syncWaveAnimation() {
+    if (_pumps.isEmpty) return;
+    final idx = _currentIndex.clamp(0, _pumps.length - 1);
+    final isCurrentActive = _pumps[idx].isActive;
+    if (isCurrentActive) {
+      if (!_waveController.isAnimating) {
+        _waveController.repeat();
+      }
+    } else {
+      if (_waveController.isAnimating) {
+        _waveController.stop();
+      }
+    }
   }
 
   void _loadPumps() {
@@ -102,6 +120,7 @@ class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMix
     setState(() {
       pump.isActive = nextState;
     });
+    _syncWaveAnimation();
     widget.onActiveChanged?.call(nextState);
 
     MqttService().publishSet(pump.id, state: nextState);
@@ -307,16 +326,16 @@ class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMix
                               ),
                             ),
                             const SizedBox(width: 6),
-                            Expanded(
+                            const Expanded(
                               child: Text(
-                                '• ${pump.hardwarePin}',
+                                '• Otomasi Hub',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontFamily: NexoraTokens.fontFamilySans,
                                   fontSize: 10.5,
-                                  fontWeight: FontWeight.w500,
-                                  color: NexoraTokens.inkMuted,
+                                  fontWeight: FontWeight.w600,
+                                  color: NexoraTokens.brandCyan,
                                 ),
                               ),
                             ),

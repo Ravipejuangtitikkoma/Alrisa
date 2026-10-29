@@ -209,18 +209,19 @@ class _HeroCardState extends State<HeroCard> with TickerProviderStateMixin {
                           style: NexoraTokens.sectionLabel,
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
+                            color: const Color(0xFFF0FDF4),
                             borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFBBF7D0)),
                           ),
-                          child: Text(
-                            widget.hardwarePin,
-                            style: const TextStyle(
+                          child: const Text(
+                            '● Cloud Hub',
+                            style: TextStyle(
                               fontFamily: 'JetBrains Mono',
                               fontSize: 8.5,
                               fontWeight: FontWeight.w700,
-                              color: NexoraTokens.inkSecondary,
+                              color: Color(0xFF15803D),
                             ),
                           ),
                         ),
