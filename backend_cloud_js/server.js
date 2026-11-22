@@ -93,6 +93,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Web Navigation Routes
+app.get('/api', (req, res) => res.json({ status: 'ok', service: 'ALRISA Cloud API', timestamp: new Date().toISOString() }));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/backend_cloud_js/server.js', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/server.js', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));

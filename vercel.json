@@ -14,10 +14,6 @@
     {
       "source": "/sbadmin",
       "destination": "/sb_admin_dashboard.html"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/api"
     }
   ]
 }
