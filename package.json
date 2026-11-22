@@ -1,0 +1,20 @@
+{
+  "name": "alrisa-ecosystem",
+  "version": "2.5.0",
+  "private": true,
+  "main": "backend_cloud_js/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node backend_cloud_js/server.js"
+  },
+  "dependencies": {
+    "aedes": "^1.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mqtt": "^5.10.4",
+    "mysql2": "^3.24.6",
+    "pg": "^8.23.1",
+    "ws": "^8.18.1"
+  }
+}

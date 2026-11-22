@@ -1,24 +1,22 @@
 /**
  * ============================================================================
- * ALRISA CLOUD HUB — MYSQL DATABASE ENGINE (Laragon & Cloud Hosting Ready)
+ * ALRISA CLOUD HUB — HYBRID DATABASE ENGINE (PostgreSQL / Supabase + MySQL)
  * ============================================================================
- * Modul ini menangani:
- * 1. Auto-Create Database `alrisa_cloud` & 5 Tabel Utama jika belum ada di MySQL
- * 2. Auto-Migrate / Seed data awal dari settings.json ke MySQL saat pertama jalan
- * 3. Load & Sinkronisasi Real-Time seluruh tabel:
- *    - system_settings
- *    - accounts
- *    - devices
- *    - cctv_cameras
- *    - activity_logs
+ * Modul ini mendukung:
+ * 1. Supabase / PostgreSQL (Vercel Cloud Serverless, jika POSTGRES_URL / DATABASE_URL ada)
+ * 2. MySQL / MariaDB (Laragon / Docker / VPS / cPanel, jika DB_HOST ada)
+ * 3. Fallback ke settings.json lokal jika database belum terhubung
  * ============================================================================
  */
 
 import mysql from 'mysql2/promise';
+import pkg from 'pg';
+const { Pool: PgPool } = pkg;
 import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Konfigurasi MySQL
 export const DB_CONFIG = {
   host: process.env.DB_HOST || '127.0.0.1',
   port: parseInt(process.env.DB_PORT || '3306', 10),
@@ -27,7 +25,16 @@ export const DB_CONFIG = {
   database: process.env.DB_NAME || 'alrisa_cloud',
 };
 
-let pool = null;
+// Deteksi koneksi PostgreSQL / Supabase
+const PG_CONN_STRING =
+  process.env.POSTGRES_URL ||
+  process.env.DATABASE_URL ||
+  process.env.SUPABASE_DB_URL ||
+  null;
+
+let mysqlPool = null;
+let pgPool = null;
+let activeEngine = 'NONE'; // 'POSTGRES' | 'MYSQL' | 'NONE'
 let dbConnected = false;
 let lastDbError = null;
 let isSyncing = false;
@@ -35,29 +42,72 @@ let pendingSyncData = null;
 
 export function getDbStatus() {
   return {
-    engine: 'MySQL',
+    engine: activeEngine === 'POSTGRES' ? 'PostgreSQL (Supabase)' : (activeEngine === 'MYSQL' ? 'MySQL' : 'JSON Local'),
     connected: dbConnected,
-    host: DB_CONFIG.host,
-    port: DB_CONFIG.port,
-    database: DB_CONFIG.database,
-    user: DB_CONFIG.user,
+    host: activeEngine === 'POSTGRES' ? 'Supabase Cloud' : DB_CONFIG.host,
+    port: activeEngine === 'POSTGRES' ? 5432 : DB_CONFIG.port,
+    database: activeEngine === 'POSTGRES' ? 'postgres' : DB_CONFIG.database,
+    user: activeEngine === 'POSTGRES' ? 'supabase_user' : DB_CONFIG.user,
     error: lastDbError,
   };
 }
 
 /**
- * Inisialisasi koneksi MySQL, buat database & tabel otomatis jika belum ada,
- * lalu muat atau seed data dari fallbackData.
+ * Inisialisasi Database: otomatis memilih PostgreSQL (Supabase) jika ada POSTGRES_URL,
+ * atau MySQL (Laragon/Local) jika ada MySQL.
  */
 export async function initMySQLDatabase(fallbackData) {
+  // 1. Coba hubungkan ke PostgreSQL (Supabase) jika ada connection string
+  if (PG_CONN_STRING) {
+    try {
+      console.log('🐘 [DB ENGINE] Mendeteksi URL PostgreSQL / Supabase, mencoba koneksi...');
+      pgPool = new PgPool({
+        connectionString: PG_CONN_STRING,
+        ssl: { rejectUnauthorized: false },
+        connectionTimeoutMillis: 8000,
+      });
+
+      // Uji query
+      await pgPool.query('SELECT 1');
+      activeEngine = 'POSTGRES';
+      dbConnected = true;
+      lastDbError = null;
+      console.log('✅ [SUPABASE CONNECTED] Berhasil terhubung ke Supabase PostgreSQL!');
+
+      // Cek apakah tabel accounts ada dan memiliki isi
+      try {
+        const accCheck = await pgPool.query('SELECT COUNT(*) AS total FROM accounts');
+        const count = parseInt(accCheck.rows[0]?.total || '0', 10);
+        if (count === 0 && fallbackData && Array.isArray(fallbackData.accounts) && fallbackData.accounts.length > 0) {
+          console.log('🌱 [SUPABASE AUTO-SEED] Menyalin data akun awal ke Supabase...');
+          await syncToPostgres(fallbackData);
+        }
+      } catch (tableErr) {
+        console.warn('⚠️ [SUPABASE TABLE NOTICE] Tabel belum dibuat di Supabase:', tableErr.message);
+      }
+
+      const loadedData = await loadFromPostgres();
+      const loadedLogs = await loadLogsFromPostgres();
+
+      return {
+        connected: true,
+        settingsData: loadedData || fallbackData,
+        activityLogs: loadedLogs,
+      };
+    } catch (pgErr) {
+      console.warn(`⚠️ [SUPABASE WARNING] Gagal konek Supabase (${pgErr.message}), beralih ke fallback MySQL/Lokal...`);
+      pgPool = null;
+    }
+  }
+
+  // 2. Coba hubungkan ke MySQL jika PostgreSQL tidak aktif
   try {
-    // 1. Koneksi awal tanpa nama database untuk memastikan database `alrisa_cloud` dibuat
     const bootstrapConn = await mysql.createConnection({
       host: DB_CONFIG.host,
       port: DB_CONFIG.port,
       user: DB_CONFIG.user,
       password: DB_CONFIG.password,
-      connectTimeout: 5000,
+      connectTimeout: 4000,
     });
 
     await bootstrapConn.query(
@@ -65,8 +115,7 @@ export async function initMySQLDatabase(fallbackData) {
     );
     await bootstrapConn.end();
 
-    // 2. Buat Connection Pool ke database `alrisa_cloud`
-    pool = mysql.createPool({
+    mysqlPool = mysql.createPool({
       host: DB_CONFIG.host,
       port: DB_CONFIG.port,
       user: DB_CONFIG.user,
@@ -78,26 +127,23 @@ export async function initMySQLDatabase(fallbackData) {
       charset: 'utf8mb4',
     });
 
-    // 3. Buat 5 tabel utama secara otomatis jika belum ada
-    await createTablesIfNotExist();
+    await createMySQLTablesIfNotExist();
 
+    activeEngine = 'MYSQL';
     dbConnected = true;
     lastDbError = null;
     console.log(`🗄️ [MYSQL CONNECTED] Terhubung ke MySQL (${DB_CONFIG.host}:${DB_CONFIG.port}/${DB_CONFIG.database})`);
 
-    // 4. Cek apakah tabel accounts masih kosong. Jika kosong, seed dari fallbackData (settings.json)
-    const [accCountRows] = await pool.query('SELECT COUNT(*) AS total FROM `accounts`');
+    const [accCountRows] = await mysqlPool.query('SELECT COUNT(*) AS total FROM `accounts`');
     const totalAccounts = accCountRows[0]?.total || 0;
 
     if (totalAccounts === 0 && fallbackData && Array.isArray(fallbackData.accounts) && fallbackData.accounts.length > 0) {
-      console.log('🌱 [MYSQL AUTO-SEED] Tabel MySQL masih kosong, menyalin data awal ke MySQL...');
-      await syncToMySQL(fallbackData);
-      console.log(`✅ [MYSQL AUTO-SEED] Berhasil menyimpan ${fallbackData.accounts.length} akun ke MySQL!`);
+      console.log('🌱 [MYSQL AUTO-SEED] Menyalin data awal ke MySQL...');
+      await syncToMySQLDirect(fallbackData);
     }
 
-    // 5. Muat data terbaru dari MySQL
-    const loadedData = await loadFromMySQL();
-    const loadedLogs = await loadLogsFromMySQL();
+    const loadedData = await loadFromMySQLDirect();
+    const loadedLogs = await loadLogsFromMySQLDirect();
 
     return {
       connected: true,
@@ -106,9 +152,9 @@ export async function initMySQLDatabase(fallbackData) {
     };
   } catch (err) {
     dbConnected = false;
+    activeEngine = 'NONE';
     lastDbError = err.message;
-    console.warn(`⚠️ [MYSQL WARNING] Belum terhubung ke MySQL (${err.message}). Menggunakan fallback lokal sementara & akan mencoba konek ulang otomatis saat MySQL Laragon menyala.`);
-    scheduleReconnect(fallbackData);
+    console.warn(`⚠️ [DB NOTICE] Database online belum aktif (${err.message}). Menggunakan penyimpanan memori/JSON lokal.`);
     return {
       connected: false,
       settingsData: fallbackData,
@@ -117,35 +163,301 @@ export async function initMySQLDatabase(fallbackData) {
   }
 }
 
-let reconnectTimer = null;
-function scheduleReconnect(fallbackData) {
-  if (reconnectTimer) return;
-  reconnectTimer = setInterval(async () => {
-    if (dbConnected) {
-      clearInterval(reconnectTimer);
-      reconnectTimer = null;
-      return;
-    }
-    try {
-      const testConn = await mysql.createConnection({
-        host: DB_CONFIG.host,
-        port: DB_CONFIG.port,
-        user: DB_CONFIG.user,
-        password: DB_CONFIG.password,
-        connectTimeout: 3000,
+/**
+ * ============================================================================
+ * POSTGRESQL / SUPABASE HANDLERS
+ * ============================================================================
+ */
+async function loadFromPostgres() {
+  if (!pgPool) return null;
+  try {
+    const sysRes = await pgPool.query('SELECT * FROM system_settings WHERE id = 1 LIMIT 1');
+    const sys = sysRes.rows[0] || {
+      active_account_id: 'acc_superadmin',
+      app_name: 'ALRISA Smart Home & Gate Hub (Multi-Account Edition)',
+      mqtt_default_broker: 'broker.emqx.io',
+      mqtt_default_port: 1883,
+      api_secret_key: 'ALRISA_SUPERADMIN_KEY_2026',
+    };
+
+    const accRes = await pgPool.query('SELECT * FROM accounts ORDER BY created_at ASC, id ASC');
+    const devRes = await pgPool.query('SELECT * FROM devices ORDER BY uid ASC');
+    const cctvRes = await pgPool.query('SELECT * FROM cctv_cameras ORDER BY uid ASC');
+
+    const devicesByAcc = {};
+    for (const d of devRes.rows) {
+      if (!devicesByAcc[d.account_id]) devicesByAcc[d.account_id] = [];
+      devicesByAcc[d.account_id].push({
+        id: d.id,
+        name: d.name,
+        type: Number(d.type),
+        category: d.category || 'Keamanan',
+        hardwarePin: d.hardware_pin || 'GPIO 2 (%QX0.0)',
+        isActive: Boolean(d.is_active),
+        value: Number(d.value || 0),
+        statusText: d.status_text || (d.is_active ? 'Menyala' : 'Terkunci'),
       });
-      await testConn.end();
-      clearInterval(reconnectTimer);
-      reconnectTimer = null;
-      await initMySQLDatabase(fallbackData);
-    } catch (_) {}
-  }, 5000);
+    }
+
+    const cctvByAcc = {};
+    for (const c of cctvRes.rows) {
+      if (!cctvByAcc[c.account_id]) cctvByAcc[c.account_id] = [];
+      cctvByAcc[c.account_id].push({
+        id: c.id,
+        name: c.name,
+        location: c.location || 'Area Rumah',
+        rtspUrl: c.rtsp_url || '',
+        rtsp_url: c.rtsp_url || '',
+        onvifHost: c.onvif_host || '192.168.1.50',
+        onvif_host: c.onvif_host || '192.168.1.50',
+        onvifPort: Number(c.onvif_port || 80),
+        onvif_port: Number(c.onvif_port || 80),
+        boundGateId: c.bound_gate_id || null,
+        bound_gate: c.bound_gate_id || null,
+        isOnline: Boolean(c.is_online),
+        fps: Number(c.fps || 25),
+        resolution: c.resolution || '1080P FHD (H.264)',
+      });
+    }
+
+    const accounts = accRes.rows.map((a) => ({
+      id: a.id,
+      name: a.name,
+      email: a.email,
+      password: a.password,
+      role: a.role || 'user',
+      division: a.division || '',
+      created_at: a.created_at instanceof Date ? a.created_at.toISOString().split('T')[0] : String(a.created_at || '2026-10-24'),
+      hardware_type: a.hardware_type || 'ESP32 Smart Automation Hub',
+      hardware_desc: a.hardware_desc || '',
+      mqtt_broker: a.mqtt_broker || 'broker.emqx.io',
+      mqtt_port: Number(a.mqtt_port || 1883),
+      mqtt_ws_port: Number(a.mqtt_ws_port || 8083),
+      mqtt_prefix: a.mqtt_prefix || `alrisa/${a.id}`,
+      mqtt_user: a.mqtt_user || '',
+      mqtt_pass: a.mqtt_pass || '',
+      plc_ip: a.plc_ip || '192.168.1.100',
+      plc_port: Number(a.plc_port || 502),
+      plc_type: a.plc_type || 'Mitsubishi FX5U (Modbus TCP)',
+      wifi_ssid: a.wifi_ssid || '',
+      wifi_password: a.wifi_password || '',
+      devices: devicesByAcc[a.id] || [],
+      cctv: cctvByAcc[a.id] || [],
+    }));
+
+    return {
+      active_account_id: sys.active_account_id || 'acc_superadmin',
+      system: {
+        app_name: sys.app_name || 'ALRISA Smart Home & Gate Hub (Multi-Account Edition)',
+        mqtt_default_broker: sys.mqtt_default_broker || 'broker.emqx.io',
+        mqtt_default_port: Number(sys.mqtt_default_port || 1883),
+        api_secret_key: sys.api_secret_key || 'ALRISA_SUPERADMIN_KEY_2026',
+      },
+      accounts,
+    };
+  } catch (err) {
+    console.warn('⚠️ Gagal membaca data dari Supabase:', err.message);
+    return null;
+  }
 }
 
-async function createTablesIfNotExist() {
-  if (!pool) return;
+async function loadLogsFromPostgres() {
+  if (!pgPool) return null;
+  try {
+    const res = await pgPool.query(
+      'SELECT timestamp, device_id AS "deviceId", action, origin, account_id AS "accountId" FROM activity_logs ORDER BY id DESC LIMIT 50'
+    );
+    return res.rows;
+  } catch (err) {
+    return null;
+  }
+}
 
-  await pool.query(`
+async function insertLogToPostgres(logItem) {
+  if (!pgPool || !logItem) return;
+  try {
+    await pgPool.query(
+      'INSERT INTO activity_logs (timestamp, device_id, action, origin, account_id) VALUES ($1, $2, $3, $4, $5)',
+      [
+        logItem.timestamp || new Date().toLocaleTimeString('id-ID'),
+        logItem.deviceId || 'SYSTEM',
+        logItem.action || '',
+        logItem.origin || 'SYSTEM',
+        logItem.accountId || 'acc_superadmin',
+      ]
+    );
+  } catch (_) {}
+}
+
+async function syncToPostgres(settingsData) {
+  if (!pgPool || !settingsData) return;
+  const client = await pgPool.connect();
+  try {
+    await client.query('BEGIN');
+    const sys = settingsData.system || {};
+    await client.query(
+      `INSERT INTO system_settings (id, active_account_id, app_name, mqtt_default_broker, mqtt_default_port, api_secret_key)
+       VALUES (1, $1, $2, $3, $4, $5)
+       ON CONFLICT (id) DO UPDATE SET
+         active_account_id = EXCLUDED.active_account_id,
+         app_name = EXCLUDED.app_name,
+         mqtt_default_broker = EXCLUDED.mqtt_default_broker,
+         mqtt_default_port = EXCLUDED.mqtt_default_port,
+         api_secret_key = EXCLUDED.api_secret_key,
+         updated_at = NOW()`,
+      [
+        settingsData.active_account_id || 'acc_superadmin',
+        sys.app_name || 'ALRISA Smart Home & Gate Hub (Multi-Account Edition)',
+        sys.mqtt_default_broker || 'broker.emqx.io',
+        Number(sys.mqtt_default_port || 1883),
+        sys.api_secret_key || 'ALRISA_SUPERADMIN_KEY_2026',
+      ]
+    );
+
+    const accounts = Array.isArray(settingsData.accounts) ? settingsData.accounts : [];
+    for (const acc of accounts) {
+      const createdDate = acc.created_at && /^\d{4}-\d{2}-\d{2}/.test(String(acc.created_at))
+        ? String(acc.created_at).substring(0, 10)
+        : '2026-10-24';
+
+      await client.query(
+        `INSERT INTO accounts (
+          id, name, email, password, role, division,
+          hardware_type, hardware_desc,
+          mqtt_broker, mqtt_port, mqtt_ws_port, mqtt_prefix, mqtt_user, mqtt_pass,
+          plc_ip, plc_port, plc_type, wifi_ssid, wifi_password, created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+        ON CONFLICT (id) DO UPDATE SET
+          name = EXCLUDED.name,
+          email = EXCLUDED.email,
+          password = EXCLUDED.password,
+          role = EXCLUDED.role,
+          division = EXCLUDED.division,
+          hardware_type = EXCLUDED.hardware_type,
+          hardware_desc = EXCLUDED.hardware_desc,
+          mqtt_broker = EXCLUDED.mqtt_broker,
+          mqtt_port = EXCLUDED.mqtt_port,
+          mqtt_ws_port = EXCLUDED.mqtt_ws_port,
+          mqtt_prefix = EXCLUDED.mqtt_prefix,
+          mqtt_user = EXCLUDED.mqtt_user,
+          mqtt_pass = EXCLUDED.mqtt_pass,
+          plc_ip = EXCLUDED.plc_ip,
+          plc_port = EXCLUDED.plc_port,
+          plc_type = EXCLUDED.plc_type,
+          wifi_ssid = EXCLUDED.wifi_ssid,
+          wifi_password = EXCLUDED.wifi_password,
+          updated_at = NOW()`,
+        [
+          acc.id,
+          acc.name || 'Pengguna Alrisa',
+          acc.email || `${acc.id}@alrisa.id`,
+          acc.password || '123456',
+          acc.role || 'user',
+          acc.division || '',
+          acc.hardware_type || 'ESP32 Smart Automation Hub',
+          acc.hardware_desc || '',
+          acc.mqtt_broker || 'broker.emqx.io',
+          Number(acc.mqtt_port || 1883),
+          Number(acc.mqtt_ws_port || 8083),
+          acc.mqtt_prefix || `alrisa/${acc.id}`,
+          acc.mqtt_user || '',
+          acc.mqtt_pass || '',
+          acc.plc_ip || '192.168.1.100',
+          Number(acc.plc_port || 502),
+          acc.plc_type || 'Mitsubishi FX5U (Modbus TCP)',
+          acc.wifi_ssid || '',
+          acc.wifi_password || '',
+          createdDate,
+        ]
+      );
+
+      // Devices
+      const devs = Array.isArray(acc.devices) ? acc.devices : [];
+      for (const d of devs) {
+        await client.query(
+          `INSERT INTO devices (
+            id, account_id, name, type, category, hardware_pin, is_active, value, status_text
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          ON CONFLICT (account_id, id) DO UPDATE SET
+            name = EXCLUDED.name,
+            type = EXCLUDED.type,
+            category = EXCLUDED.category,
+            hardware_pin = EXCLUDED.hardware_pin,
+            is_active = EXCLUDED.is_active,
+            value = EXCLUDED.value,
+            status_text = EXCLUDED.status_text,
+            updated_at = NOW()`,
+          [
+            d.id,
+            acc.id,
+            d.name || d.id,
+            Number(d.type !== undefined ? d.type : 0),
+            d.category || 'Keamanan',
+            d.hardwarePin || 'GPIO 2 (%QX0.0)',
+            Boolean(d.isActive),
+            Number(d.value || 0),
+            d.statusText || (d.isActive ? 'Menyala' : 'Terkunci'),
+          ]
+        );
+      }
+
+      // CCTV
+      const cams = Array.isArray(acc.cctv) ? acc.cctv : [];
+      for (const c of cams) {
+        const rtsp = c.rtspUrl !== undefined ? c.rtspUrl : (c.rtsp_url || '');
+        const host = c.onvifHost !== undefined ? c.onvifHost : (c.onvif_host || '192.168.1.50');
+        const port = c.onvifPort !== undefined ? c.onvifPort : (c.onvif_port || 80);
+        const boundGate = c.boundGateId !== undefined ? c.boundGateId : (c.bound_gate || null);
+
+        await client.query(
+          `INSERT INTO cctv_cameras (
+            id, account_id, name, location, rtsp_url, onvif_host, onvif_port, bound_gate_id, is_online, fps, resolution
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          ON CONFLICT (account_id, id) DO UPDATE SET
+            name = EXCLUDED.name,
+            location = EXCLUDED.location,
+            rtsp_url = EXCLUDED.rtsp_url,
+            onvif_host = EXCLUDED.onvif_host,
+            onvif_port = EXCLUDED.onvif_port,
+            bound_gate_id = EXCLUDED.bound_gate_id,
+            is_online = EXCLUDED.is_online,
+            fps = EXCLUDED.fps,
+            resolution = EXCLUDED.resolution,
+            updated_at = NOW()`,
+          [
+            c.id,
+            acc.id,
+            c.name || c.id,
+            c.location || 'Area Rumah',
+            rtsp,
+            host,
+            Number(port || 80),
+            boundGate,
+            c.isOnline !== false,
+            Number(c.fps || 25),
+            c.resolution || '1080P FHD (H.264)',
+          ]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('⚠️ Gagal sinkronisasi Supabase:', err.message);
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * ============================================================================
+ * MYSQL HANDLERS
+ * ============================================================================
+ */
+async function createMySQLTablesIfNotExist() {
+  if (!mysqlPool) return;
+  await mysqlPool.query(`
     CREATE TABLE IF NOT EXISTS \`system_settings\` (
       \`id\` INT UNSIGNED NOT NULL DEFAULT 1,
       \`active_account_id\` VARCHAR(64) NOT NULL DEFAULT 'acc_superadmin',
@@ -158,7 +470,7 @@ async function createTablesIfNotExist() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
 
-  await pool.query(`
+  await mysqlPool.query(`
     CREATE TABLE IF NOT EXISTS \`accounts\` (
       \`id\` VARCHAR(64) NOT NULL,
       \`name\` VARCHAR(150) NOT NULL,
@@ -186,7 +498,7 @@ async function createTablesIfNotExist() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
 
-  await pool.query(`
+  await mysqlPool.query(`
     CREATE TABLE IF NOT EXISTS \`devices\` (
       \`uid\` INT UNSIGNED NOT NULL AUTO_INCREMENT,
       \`id\` VARCHAR(64) NOT NULL,
@@ -205,7 +517,7 @@ async function createTablesIfNotExist() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
 
-  await pool.query(`
+  await mysqlPool.query(`
     CREATE TABLE IF NOT EXISTS \`cctv_cameras\` (
       \`uid\` INT UNSIGNED NOT NULL AUTO_INCREMENT,
       \`id\` VARCHAR(64) NOT NULL,
@@ -226,7 +538,7 @@ async function createTablesIfNotExist() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
 
-  await pool.query(`
+  await mysqlPool.query(`
     CREATE TABLE IF NOT EXISTS \`activity_logs\` (
       \`id\` INT UNSIGNED NOT NULL AUTO_INCREMENT,
       \`timestamp\` VARCHAR(32) NOT NULL,
@@ -242,13 +554,9 @@ async function createTablesIfNotExist() {
   `);
 }
 
-/**
- * Muat seluruh struktur data (system_settings, accounts, devices, cctv_cameras) dari MySQL
- */
-export async function loadFromMySQL() {
-  if (!pool || !dbConnected) return null;
-
-  const [sysRows] = await pool.query('SELECT * FROM `system_settings` WHERE `id` = 1 LIMIT 1');
+async function loadFromMySQLDirect() {
+  if (!mysqlPool) return null;
+  const [sysRows] = await mysqlPool.query('SELECT * FROM `system_settings` WHERE `id` = 1 LIMIT 1');
   const sys = sysRows[0] || {
     active_account_id: 'acc_superadmin',
     app_name: 'ALRISA Smart Home & Gate Hub (Multi-Account Edition)',
@@ -257,9 +565,9 @@ export async function loadFromMySQL() {
     api_secret_key: 'ALRISA_SUPERADMIN_KEY_2026',
   };
 
-  const [accRows] = await pool.query('SELECT * FROM `accounts` ORDER BY `created_at` ASC, `id` ASC');
-  const [devRows] = await pool.query('SELECT * FROM `devices` ORDER BY `uid` ASC');
-  const [cctvRows] = await pool.query('SELECT * FROM `cctv_cameras` ORDER BY `uid` ASC');
+  const [accRows] = await mysqlPool.query('SELECT * FROM `accounts` ORDER BY `created_at` ASC, `id` ASC');
+  const [devRows] = await mysqlPool.query('SELECT * FROM `devices` ORDER BY `uid` ASC');
+  const [cctvRows] = await mysqlPool.query('SELECT * FROM `cctv_cameras` ORDER BY `uid` ASC');
 
   const devicesByAcc = {};
   for (const d of devRows) {
@@ -334,61 +642,23 @@ export async function loadFromMySQL() {
   };
 }
 
-/**
- * Muat 50 riwayat log terbaru dari tabel `activity_logs` di MySQL
- */
-export async function loadLogsFromMySQL() {
-  if (!pool || !dbConnected) return null;
+async function loadLogsFromMySQLDirect() {
+  if (!mysqlPool) return null;
   try {
-    const [rows] = await pool.query(
+    const [rows] = await mysqlPool.query(
       'SELECT `timestamp`, `device_id` AS `deviceId`, `action`, `origin`, `account_id` AS `accountId` FROM `activity_logs` ORDER BY `id` DESC LIMIT 50'
     );
     return rows;
-  } catch (err) {
-    console.error('⚠️ Gagal memuat log dari MySQL:', err.message);
+  } catch (_) {
     return null;
   }
 }
 
-/**
- * Simpan satu baris log baru ke tabel `activity_logs` di MySQL
- */
-export async function insertLogToMySQL(logItem) {
-  if (!pool || !dbConnected || !logItem) return;
-  try {
-    await pool.query(
-      'INSERT INTO `activity_logs` (`timestamp`, `device_id`, `action`, `origin`, `account_id`) VALUES (?, ?, ?, ?, ?)',
-      [
-        logItem.timestamp || new Date().toLocaleTimeString('id-ID'),
-        logItem.deviceId || 'SYSTEM',
-        logItem.action || '',
-        logItem.origin || 'SYSTEM',
-        logItem.accountId || 'acc_superadmin',
-      ]
-    );
-  } catch (err) {
-    console.error('⚠️ Gagal menyimpan log ke MySQL:', err.message);
-  }
-}
-
-/**
- * Sinkronkan seluruh perubahan state (settingsData) ke tabel MySQL secara transaksional
- */
-export async function syncToMySQL(settingsData) {
-  if (!pool || !settingsData) return;
-
-  if (isSyncing) {
-    pendingSyncData = settingsData;
-    return;
-  }
-
-  isSyncing = true;
-  const conn = await pool.getConnection();
-
+async function syncToMySQLDirect(settingsData) {
+  if (!mysqlPool || !settingsData) return;
+  const conn = await mysqlPool.getConnection();
   try {
     await conn.beginTransaction();
-
-    // 1. Upsert system_settings
     const sys = settingsData.system || {};
     await conn.query(
       `INSERT INTO \`system_settings\` (\`id\`, \`active_account_id\`, \`app_name\`, \`mqtt_default_broker\`, \`mqtt_default_port\`, \`api_secret_key\`)
@@ -411,14 +681,10 @@ export async function syncToMySQL(settingsData) {
     const accounts = Array.isArray(settingsData.accounts) ? settingsData.accounts : [];
     const currentAccountIds = accounts.map((a) => a.id).filter(Boolean);
 
-    // 2. Hapus akun yang sudah tidak ada di daftar
     if (currentAccountIds.length > 0) {
       await conn.query('DELETE FROM `accounts` WHERE `id` NOT IN (?)', [currentAccountIds]);
-    } else {
-      await conn.query('DELETE FROM `accounts`');
     }
 
-    // 3. Upsert setiap akun beserta devices & cctv_cameras miliknya
     for (const acc of accounts) {
       const createdDate = acc.created_at && /^\d{4}-\d{2}-\d{2}/.test(String(acc.created_at))
         ? String(acc.created_at).substring(0, 10)
@@ -474,15 +740,7 @@ export async function syncToMySQL(settingsData) {
         ]
       );
 
-      // Sinkronkan perangkat (devices) milik akun ini
       const devs = Array.isArray(acc.devices) ? acc.devices : [];
-      const devIds = devs.map((d) => d.id).filter(Boolean);
-      if (devIds.length > 0) {
-        await conn.query('DELETE FROM `devices` WHERE `account_id` = ? AND `id` NOT IN (?)', [acc.id, devIds]);
-      } else {
-        await conn.query('DELETE FROM `devices` WHERE `account_id` = ?', [acc.id]);
-      }
-
       for (const d of devs) {
         await conn.query(
           `INSERT INTO \`devices\` (
@@ -510,15 +768,7 @@ export async function syncToMySQL(settingsData) {
         );
       }
 
-      // Sinkronkan kamera CCTV (cctv_cameras) milik akun ini
       const cams = Array.isArray(acc.cctv) ? acc.cctv : [];
-      const camIds = cams.map((c) => c.id).filter(Boolean);
-      if (camIds.length > 0) {
-        await conn.query('DELETE FROM `cctv_cameras` WHERE `account_id` = ? AND `id` NOT IN (?)', [acc.id, camIds]);
-      } else {
-        await conn.query('DELETE FROM `cctv_cameras` WHERE `account_id` = ?', [acc.id]);
-      }
-
       for (const c of cams) {
         const rtsp = c.rtspUrl !== undefined ? c.rtspUrl : (c.rtsp_url || '');
         const host = c.onvifHost !== undefined ? c.onvifHost : (c.onvif_host || '192.168.1.50');
@@ -555,16 +805,63 @@ export async function syncToMySQL(settingsData) {
         );
       }
     }
-
     await conn.commit();
-    dbConnected = true;
-    lastDbError = null;
   } catch (err) {
     await conn.rollback();
-    console.error('⚠️ Gagal sinkronisasi ke MySQL:', err.message);
-    lastDbError = err.message;
   } finally {
     conn.release();
+  }
+}
+
+/**
+ * ============================================================================
+ * UNIFIED EXPORTS (Diimpor oleh server.js)
+ * ============================================================================
+ */
+export async function loadFromMySQL() {
+  if (activeEngine === 'POSTGRES') return await loadFromPostgres();
+  if (activeEngine === 'MYSQL') return await loadFromMySQLDirect();
+  return null;
+}
+
+export async function loadLogsFromMySQL() {
+  if (activeEngine === 'POSTGRES') return await loadLogsFromPostgres();
+  if (activeEngine === 'MYSQL') return await loadLogsFromMySQLDirect();
+  return null;
+}
+
+export async function insertLogToMySQL(logItem) {
+  if (activeEngine === 'POSTGRES') return await insertLogToPostgres(logItem);
+  if (activeEngine === 'MYSQL') {
+    if (!mysqlPool || !logItem) return;
+    try {
+      await mysqlPool.query(
+        'INSERT INTO `activity_logs` (`timestamp`, `device_id`, `action`, `origin`, `account_id`) VALUES (?, ?, ?, ?, ?)',
+        [
+          logItem.timestamp || new Date().toLocaleTimeString('id-ID'),
+          logItem.deviceId || 'SYSTEM',
+          logItem.action || '',
+          logItem.origin || 'SYSTEM',
+          logItem.accountId || 'acc_superadmin',
+        ]
+      );
+    } catch (_) {}
+  }
+}
+
+export async function syncToMySQL(settingsData) {
+  if (isSyncing) {
+    pendingSyncData = settingsData;
+    return;
+  }
+  isSyncing = true;
+  try {
+    if (activeEngine === 'POSTGRES') {
+      await syncToPostgres(settingsData);
+    } else if (activeEngine === 'MYSQL') {
+      await syncToMySQLDirect(settingsData);
+    }
+  } finally {
     isSyncing = false;
     if (pendingSyncData) {
       const nextData = pendingSyncData;
@@ -573,4 +870,3 @@ export async function syncToMySQL(settingsData) {
     }
   }
 }
-

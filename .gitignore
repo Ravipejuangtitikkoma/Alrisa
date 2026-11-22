@@ -1,0 +1,5 @@
+node_modules/
+backend_cloud_js/node_modules/
+.env
+*.log
+.gemini/
