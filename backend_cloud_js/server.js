@@ -31,12 +31,33 @@ const SETTINGS_PATH = path.join(__dirname, 'settings.json');
 
 // Middleware
 app.use(cors());
+
+// Vercel Serverless URL Normalizer (mencegah Cannot GET /backend_cloud_js/server.js)
+app.use((req, res, next) => {
+  const matched = req.headers['x-matched-path'];
+  if (matched && !matched.endsWith('server.js') && !matched.endsWith('index.js')) {
+    req.url = matched;
+  } else {
+    req.url = req.url
+      .replace(/^\/backend_cloud_js\/server\.js/, '')
+      .replace(/^\/server\.js/, '')
+      .replace(/^\/api\/index\.js/, '')
+      .replace(/^\/api$/, '');
+    if (!req.url || req.url === '') {
+      req.url = '/';
+    }
+  }
+  next();
+});
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Web Navigation Routes
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/backend_cloud_js/server.js', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/server.js', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
