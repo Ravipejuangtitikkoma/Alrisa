@@ -127,51 +127,71 @@ void onMqttMessageReceived(char* topic, byte* payload, unsigned int length) {
   }
   message.trim();
 
+  String strTopic = String(topic);
+
+  // Abaikan pesan feedback status dari ESP32 sendiri atau device lain agar tidak loop
+  if (strTopic.endsWith("/state")) {
+    return;
+  }
+
   Serial.println("--------------------------------------------------------");
-  Serial.print("📩 [PERINTAH MASUK DARI CLOUD / HP]\n📍 Topik : ");
+  Serial.print("📩 [PERINTAH MASUK DARI CLOUD / HP / WEB]\n📍 Topik : ");
   Serial.println(topic);
   Serial.print("📦 Isi   : ");
   Serial.println(message);
 
   // Deteksi nama device dari topik (misal: "alrisa/pagar/set" -> device "pagar")
-  String strTopic = String(topic);
   String targetDev = "pagar";
-  if (strTopic.indexOf("/gorden/") >= 0) {
+  if (strTopic.indexOf("/gorden") >= 0) {
     targetDev = "gorden";
-  } else if (strTopic.indexOf("/lampu_teras/") >= 0 || strTopic.indexOf("/lampu/") >= 0) {
+  } else if (strTopic.indexOf("/lampu") >= 0) {
     targetDev = "lampu_teras";
-  } else if (strTopic.indexOf("/pintu/") >= 0) {
+  } else if (strTopic.indexOf("/pintu") >= 0) {
     targetDev = "pintu";
+  } else if (strTopic.indexOf("/pagar") >= 0 || strTopic.indexOf("/gate") >= 0) {
+    targetDev = "pagar";
   }
 
-  // Evaluasi perintah Buka/Nyalakan
-  bool turnOn = (message.indexOf("OPEN") >= 0 ||
-                 message.indexOf("open") >= 0 ||
-                 message.indexOf("BUKA") >= 0 ||
-                 message.indexOf("buka") >= 0 ||
-                 message.indexOf("ON") >= 0 ||
-                 message.indexOf("on") >= 0 ||
-                 message.indexOf("true") >= 0 ||
-                 message == "1");
+  bool turnOn = false;
+  bool turnOff = false;
 
-  // Evaluasi perintah Tutup/Matikan
-  bool turnOff = (message.indexOf("CLOSE") >= 0 ||
-                  message.indexOf("close") >= 0 ||
-                  message.indexOf("TUTUP") >= 0 ||
-                  message.indexOf("tutup") >= 0 ||
-                  message.indexOf("LOCKED") >= 0 ||
-                  message.indexOf("locked") >= 0 ||
-                  message.indexOf("OFF") >= 0 ||
-                  message.indexOf("off") >= 0 ||
-                  message.indexOf("false") >= 0 ||
-                  message == "0");
+  // 1. Parsing jika format JSON (misal: {"state":true,"action":"OPEN"})
+  if (message.startsWith("{")) {
+    // Evaluasi BUKA / ON
+    if (message.indexOf("\"state\":true") >= 0 ||
+        message.indexOf("\"state\": true") >= 0 ||
+        message.indexOf("\"action\":\"OPEN\"") >= 0 ||
+        message.indexOf("\"action\":\"ON\"") >= 0 ||
+        message.indexOf("\"action\":\"BUKA\"") >= 0) {
+      turnOn = true;
+    }
+    // Evaluasi TUTUP / OFF
+    else if (message.indexOf("\"state\":false") >= 0 ||
+             message.indexOf("\"state\": false") >= 0 ||
+             message.indexOf("\"action\":\"CLOSE\"") >= 0 ||
+             message.indexOf("\"action\":\"OFF\"") >= 0 ||
+             message.indexOf("\"action\":\"TUTUP\"") >= 0 ||
+             message.indexOf("\"action\":\"LOCKED\"") >= 0) {
+      turnOff = true;
+    }
+  } 
+  // 2. Parsing format Teks Biasa (Raw Text: "OPEN", "CLOSE", dll.)
+  else {
+    String upper = message;
+    upper.toUpperCase();
+    if (upper == "OPEN" || upper == "ON" || upper == "1" || upper == "BUKA" || upper == "TRUE") {
+      turnOn = true;
+    } else if (upper == "CLOSE" || upper == "OFF" || upper == "0" || upper == "TUTUP" || upper == "FALSE" || upper == "LOCKED") {
+      turnOff = true;
+    }
+  }
 
   if (turnOn) {
     setRelay(true, targetDev.c_str());
   } else if (turnOff) {
     setRelay(false, targetDev.c_str());
   } else {
-    Serial.println("ℹ️ Format perintah tidak dikenali atau berupa pesan status.");
+    Serial.println("ℹ️ Format perintah diabaikan atau bukan instruksi kendali.");
   }
   Serial.println("--------------------------------------------------------");
 }
@@ -192,16 +212,11 @@ void checkMqttConnection() {
     if (mqttClient.connect(mqttClientId)) {
       Serial.println("TERHUBUNG! ✅");
 
-      // Berlangganan topik kendali ALRISA & Nexora
-      mqttClient.subscribe("alrisa/+/set");
-      mqttClient.subscribe("alrisa/+/+/set");
-      mqttClient.subscribe("alrisa/pagar/set");
-      mqttClient.subscribe("alrisa/gorden/set");
-      mqttClient.subscribe("alrisa/lampu_teras/set");
-      mqttClient.subscribe("nexora/+/set");
-      mqttClient.subscribe("nexora/pagar/set");
+      // Berlangganan topik kendali ALRISA & Nexora secara menyeluruh dengan wildcard '#'
+      mqttClient.subscribe("alrisa/#");
+      mqttClient.subscribe("nexora/#");
 
-      Serial.println("📡 Sukses subscribe topik: alrisa/+/set & nexora/+/set");
+      Serial.println("📡 Sukses subscribe wildcard: alrisa/# & nexora/#");
 
       // Publikasikan status awal ke broker
       setRelay(isRelayActive, "pagar");

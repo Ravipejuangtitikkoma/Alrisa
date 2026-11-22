@@ -1592,8 +1592,59 @@ app.post('/api/cctv/delete', (req, res) => {
   });
 });
 
+// Helper untuk publikasi MQTT aman & terjamin (menunggu callback sebelum response di serverless Vercel)
+async function publishMqttBatch(pubList) {
+  return new Promise((resolve) => {
+    if (!pubList || pubList.length === 0) return resolve();
+
+    // 1. Jika mqttClient global sudah terhubung
+    if (mqttClient && mqttClient.connected) {
+      let pending = pubList.length;
+      pubList.forEach(({ topic, payload, qos = 1 }) => {
+        mqttClient.publish(topic, payload, { qos }, () => {
+          pending--;
+          if (pending <= 0) resolve();
+        });
+      });
+      setTimeout(resolve, 1500);
+      return;
+    }
+
+    // 2. Jika belum terhubung (cold start di serverless Vercel)
+    const tempClient = mqtt.connect(MQTT_BROKER, {
+      clientId: `alrisa-srvless-${Math.random().toString(16).substring(2, 8)}`,
+      clean: true,
+      connectTimeout: 2000,
+    });
+
+    let done = false;
+    const finalize = () => {
+      if (!done) {
+        done = true;
+        try { tempClient.end(true); } catch (_) {}
+        resolve();
+      }
+    };
+
+    const safetyTimer = setTimeout(finalize, 2500);
+
+    tempClient.on('connect', () => {
+      let pending = pubList.length;
+      if (pending === 0) return finalize();
+      pubList.forEach(({ topic, payload, qos = 1 }) => {
+        tempClient.publish(topic, payload, { qos }, () => {
+          pending--;
+          if (pending <= 0) finalize();
+        });
+      });
+    });
+
+    tempClient.on('error', () => finalize());
+  });
+}
+
 // 7. Kontrol Perangkat (Dua Format: /api/devices/:id/control & /api/control)
-function handleControl(deviceId, action, value, origin, targetAccountId, res) {
+async function handleControl(deviceId, action, value, origin, targetAccountId, res) {
   let acc = null;
   if (targetAccountId) acc = findAccount(targetAccountId);
   if (!acc) acc = getActiveAccount();
@@ -1648,31 +1699,50 @@ function handleControl(deviceId, action, value, origin, targetAccountId, res) {
     hardwarePin: targetDev ? targetDev.hardwarePin : undefined,
   });
 
-  // 1. Publikasikan ke topic perintah (/set)
-  mqttClient.publish(`${prefix}/${deviceId}/set`, jsonPayload, { qos: 1 });
-  mqttClient.publish(`nexora/${deviceId}/set`, jsonPayload, { qos: 1 });
-  mqttClient.publish(`alrisa/${deviceId}/set`, jsonPayload, { qos: 1 });
-  if (targetDev && targetDev.id !== deviceId) {
-    mqttClient.publish(`${prefix}/${targetDev.id}/set`, jsonPayload, { qos: 1 });
-    mqttClient.publish(`nexora/${targetDev.id}/set`, jsonPayload, { qos: 1 });
+  const pubList = [
+    // 1. Publikasikan ke topic perintah (/set) dalam format JSON & String
+    { topic: `${prefix}/${deviceId}/set`, payload: jsonPayload },
+    { topic: `${prefix}/${deviceId}/set`, payload: cmdStr },
+    { topic: `nexora/${deviceId}/set`, payload: jsonPayload },
+    { topic: `nexora/${deviceId}/set`, payload: cmdStr },
+    { topic: `alrisa/${deviceId}/set`, payload: jsonPayload },
+    { topic: `alrisa/${deviceId}/set`, payload: cmdStr },
+
+    // 2. Publikasikan status seketika ke topic state (/state) agar APLIKASI HP & WOKWI LANGSUNG TERUPDATE!
+    { topic: `${prefix}/${deviceId}/state`, payload: stateStr },
+    { topic: `nexora/${deviceId}/state`, payload: stateStr },
+    { topic: `alrisa/${deviceId}/state`, payload: stateStr },
+    { topic: `${prefix}/${deviceId}/state`, payload: statePayload },
+    { topic: `nexora/${deviceId}/state`, payload: statePayload },
+    { topic: `alrisa/${deviceId}/state`, payload: statePayload },
+
+    // 3. Kirim juga ke topic /cmd
+    { topic: `${prefix}/${deviceId}/cmd`, payload: cmdStr },
+    { topic: `nexora/${deviceId}/cmd`, payload: cmdStr },
+    { topic: `alrisa/${deviceId}/cmd`, payload: cmdStr },
+  ];
+
+  if (deviceId.includes('pagar') || deviceId.includes('gate') || (targetDev && targetDev.type === 0)) {
+    pubList.push(
+      { topic: 'alrisa/pagar/set', payload: jsonPayload },
+      { topic: 'alrisa/pagar/set', payload: cmdStr },
+      { topic: 'nexora/pagar/set', payload: jsonPayload },
+      { topic: 'nexora/pagar/set', payload: cmdStr },
+      { topic: 'alrisa/pagar/state', payload: stateStr },
+      { topic: 'alrisa/pagar/state', payload: statePayload }
+    );
   }
 
-  // 2. Publikasikan status seketika ke topic state (/state) agar APLIKASI HP LANGSUNG TERUPDATE!
-  mqttClient.publish(`${prefix}/${deviceId}/state`, stateStr, { qos: 1 });
-  mqttClient.publish(`nexora/${deviceId}/state`, stateStr, { qos: 1 });
-  mqttClient.publish(`alrisa/${deviceId}/state`, stateStr, { qos: 1 });
-  mqttClient.publish(`${prefix}/${deviceId}/state`, statePayload, { qos: 1 });
-  mqttClient.publish(`nexora/${deviceId}/state`, statePayload, { qos: 1 });
   if (targetDev && targetDev.id !== deviceId) {
-    mqttClient.publish(`${prefix}/${targetDev.id}/state`, stateStr, { qos: 1 });
-    mqttClient.publish(`nexora/${targetDev.id}/state`, stateStr, { qos: 1 });
-    mqttClient.publish(`${prefix}/${targetDev.id}/state`, statePayload, { qos: 1 });
-    mqttClient.publish(`nexora/${targetDev.id}/state`, statePayload, { qos: 1 });
+    pubList.push(
+      { topic: `${prefix}/${targetDev.id}/set`, payload: jsonPayload },
+      { topic: `${prefix}/${targetDev.id}/set`, payload: cmdStr },
+      { topic: `nexora/${targetDev.id}/set`, payload: jsonPayload },
+      { topic: `nexora/${targetDev.id}/set`, payload: cmdStr },
+      { topic: `${prefix}/${targetDev.id}/state`, payload: stateStr },
+      { topic: `nexora/${targetDev.id}/state`, payload: stateStr }
+    );
   }
-
-  // 3. Kirim juga string singkat untuk firmware sederhana
-  mqttClient.publish(`${prefix}/${deviceId}/cmd`, cmdStr, { qos: 1 });
-  mqttClient.publish(`nexora/${deviceId}/cmd`, cmdStr, { qos: 1 });
 
   // 4. Sinkronisasikan ke seluruh klien WebSocket & Mobile Sync
   if (acc) {
@@ -1681,6 +1751,9 @@ function handleControl(deviceId, action, value, origin, targetAccountId, res) {
 
   addLog(deviceId, `Perintah: ${cmdStr}${value !== undefined && value !== null ? ` (${value}%)` : ''}`, origin, acc?.id);
   broadcastWs({ type: 'device_update', deviceId, isStateOn, value, accountId: acc?.id });
+
+  // Await MQTT publish agar Vercel Serverless Function tidak menutup socket sebelum pesan terkirim
+  await publishMqttBatch(pubList);
 
   res.json({
     success: true,
@@ -1693,18 +1766,18 @@ function handleControl(deviceId, action, value, origin, targetAccountId, res) {
   });
 }
 
-app.post('/api/devices/:id/control', (req, res) => {
+app.post('/api/devices/:id/control', async (req, res) => {
   const deviceId = req.params.id;
   const { state, action, value, account_id } = req.body;
   const act = state !== undefined ? state : action;
-  handleControl(deviceId, act, value, 'WEB_DASHBOARD', account_id, res);
+  await handleControl(deviceId, act, value, 'WEB_DASHBOARD', account_id, res);
 });
 
-app.post('/api/control', (req, res) => {
+app.post('/api/control', async (req, res) => {
   const { device_id, action, state, value, account_id } = req.body;
   const act = action !== undefined ? action : state;
   if (!device_id) return res.status(400).json({ success: false, message: 'device_id wajib diisi' });
-  handleControl(device_id, act, value, 'API_CONTROL', account_id, res);
+  await handleControl(device_id, act, value, 'API_CONTROL', account_id, res);
 });
 
 // 8. Sinkronisasi PLC (Kompatibel dengan /api/plc_sync.php)

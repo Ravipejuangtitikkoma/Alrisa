@@ -51,6 +51,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
+  <!-- MQTT.js Browser Client: Kontrol Real-Time 0ms Langsung ke Broker EMQX via WSS -->
+  <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+
   <style>
     :root, [data-theme="dark"] {
       --bg-base: #070B14;
@@ -5056,40 +5059,97 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
     initNavbarMenuSearch();
 
-    // 4. WEBSOCKET REAL-TIME CONNECTION (0ms Latensi)
+    // 4. CLOUD MQTT LIVE CONNECTION (0ms Latensi Langsung ke Broker EMQX) & WEBSOCKET
+    let browserMqttClient = null;
+
+    function setupBrowserMqtt() {
+      if (typeof mqtt === 'undefined') {
+        console.warn('MQTT.js library not loaded yet, retrying in 1s...');
+        setTimeout(setupBrowserMqtt, 1000);
+        return;
+      }
+
+      try {
+        const clientId = 'alrisa-web-' + Math.random().toString(16).substring(2, 10);
+        browserMqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+          clientId: clientId,
+          clean: true,
+          reconnectPeriod: 3000,
+        });
+
+        window.browserMqttClient = browserMqttClient;
+
+        browserMqttClient.on('connect', () => {
+          console.log('✅ [Web MQTT] Terhubung ke Cloud MQTT Broker (WSS:8084) - Kontrol Real-Time 0ms Aktif!');
+          const mqttLabel = document.getElementById('mqttStatusLabel');
+          const mqttDot = document.getElementById('mqttPulseDot');
+          if (mqttLabel) mqttLabel.innerText = 'MQTT: Terhubung (0ms Live)';
+          if (mqttDot) mqttDot.className = 'pulse-dot';
+
+          browserMqttClient.subscribe(['alrisa/#', 'nexora/#'], (err) => {
+            if (!err) console.log('📡 [Web MQTT] Berhasil subscribe alrisa/# & nexora/#');
+          });
+        });
+
+        browserMqttClient.on('message', (topic, message) => {
+          try {
+            const top = topic.toString();
+            const msg = message.toString();
+
+            if (top.endsWith('/state')) {
+              const parts = top.split('/');
+              const devId = parts[parts.length - 2];
+              let isStateOn = false;
+              let val = null;
+
+              if (msg.startsWith('{')) {
+                const parsed = JSON.parse(msg);
+                isStateOn = !!parsed.state;
+                if (parsed.value !== undefined) val = parsed.value;
+              } else {
+                const u = msg.toUpperCase();
+                isStateOn = (u === 'OPEN' || u === 'ON' || u === '1' || u === 'BUKA' || u === 'TRUE');
+              }
+
+              console.log(`📡 [Web MQTT State In] Device: ${devId} -> ${isStateOn ? 'ON/BUKA' : 'OFF/TUTUP'}`);
+              updateDeviceStateInUI(devId, isStateOn, val);
+            }
+          } catch (_) {}
+        });
+
+        browserMqttClient.on('close', () => {
+          const mqttLabel = document.getElementById('mqttStatusLabel');
+          const mqttDot = document.getElementById('mqttPulseDot');
+          if (mqttLabel) mqttLabel.innerText = 'MQTT: Menghubungkan ulang...';
+          if (mqttDot) mqttDot.className = 'pulse-dot amber';
+        });
+
+        browserMqttClient.on('error', (err) => {
+          console.warn('⚠️ [Web MQTT Error]:', err);
+        });
+      } catch (e) {
+        console.warn('⚠️ setupBrowserMqtt exception:', e);
+      }
+    }
+
     function setupWebSocket() {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}`;
+      // Local dev WebSocket fallback
+      try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}`;
+        ws = new WebSocket(wsUrl);
 
-      ws = new WebSocket(wsUrl);
+        ws.onopen = () => {
+          measureLatency();
+        };
 
-      ws.onopen = () => {
-        const mqttLabel = document.getElementById('mqttStatusLabel');
-        const mqttDot = document.getElementById('mqttPulseDot');
-        if (mqttLabel) mqttLabel.innerText = 'MQTT: Terhubung';
-        if (mqttDot) mqttDot.className = 'pulse-dot';
-        measureLatency();
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          handleWebSocketMessage(msg);
-        } catch (_) {}
-      };
-
-      ws.onclose = () => {
-        const mqttLabel = document.getElementById('mqttStatusLabel');
-        const mqttDot = document.getElementById('mqttPulseDot');
-        if (mqttLabel) mqttLabel.innerText = 'MQTT: Menghubungkan ulang...';
-        if (mqttDot) mqttDot.className = 'pulse-dot amber';
-        setTimeout(setupWebSocket, 3000);
-      };
-
-      ws.onerror = () => {
-        const mqttDot = document.getElementById('mqttPulseDot');
-        if (mqttDot) mqttDot.className = 'pulse-dot rose';
-      };
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            handleWebSocketMessage(msg);
+          } catch (_) {}
+        };
+      } catch (_) {}
     }
 
     function measureLatency() {
@@ -5826,10 +5886,42 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       `;
     }
 
-    // 10. KONTROL PERANGKAT INSTAN (REST & WEBSOCKET)
+    // 10. KONTROL PERANGKAT INSTAN (REST & MQTT 0ms LIVE)
     async function toggleDevice(deviceId, newState) {
       updateDeviceStateInUI(deviceId, newState);
 
+      const cmdStr = newState ? 'OPEN' : 'CLOSE';
+      const jsonPayload = JSON.stringify({
+        state: newState,
+        action: cmdStr,
+        deviceId: deviceId,
+        origin: 'WEB_DASHBOARD'
+      });
+
+      // 1. Publikasikan LANGSUNG dari Browser ke Cloud MQTT Broker (WSS:8084)
+      // Ini menjamin Wokwi Simulator & Hardware ESP32 menerima perintah dalam hitungan < 50ms!
+      if (window.browserMqttClient && window.browserMqttClient.connected) {
+        try {
+          // Topik spesifik perangkat
+          window.browserMqttClient.publish(`alrisa/${deviceId}/set`, jsonPayload, { qos: 1 });
+          window.browserMqttClient.publish(`alrisa/${deviceId}/set`, cmdStr, { qos: 1 });
+          window.browserMqttClient.publish(`nexora/${deviceId}/set`, jsonPayload, { qos: 1 });
+          window.browserMqttClient.publish(`nexora/${deviceId}/set`, cmdStr, { qos: 1 });
+
+          // Topik fallback khusus pagar/gerbang
+          if (deviceId.includes('pagar') || deviceId.includes('gate') || deviceId === 'pagar') {
+            window.browserMqttClient.publish('alrisa/pagar/set', jsonPayload, { qos: 1 });
+            window.browserMqttClient.publish('alrisa/pagar/set', cmdStr, { qos: 1 });
+            window.browserMqttClient.publish('nexora/pagar/set', jsonPayload, { qos: 1 });
+            window.browserMqttClient.publish('nexora/pagar/set', cmdStr, { qos: 1 });
+          }
+          console.log(`⚡ [Web MQTT Out] Terkirim instan: alrisa/${deviceId}/set -> ${cmdStr}`);
+        } catch (mqttErr) {
+          console.warn('⚠️ Web MQTT publish error:', mqttErr);
+        }
+      }
+
+      // 2. Kirim ke REST API Backend (Supabase DB Update & Activity Logs)
       try {
         const res = await fetch(`/api/devices/${deviceId}/control`, {
           method: 'POST',
@@ -5838,10 +5930,10 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         });
         const result = await res.json();
         if (!result.success) {
-          console.error('Gagal kontrol alat:', result.message);
+          console.error('Gagal kontrol alat via REST:', result.message);
         }
       } catch (err) {
-        console.error('Koneksi kontrol error:', err);
+        console.error('Koneksi kontrol REST error:', err);
       }
     }
 
@@ -7487,6 +7579,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     // 20. INISIALISASI SAAT HALAMAN DIBUKA
     window.addEventListener('DOMContentLoaded', () => {
       initAuth();
+      setupBrowserMqtt();
       setupWebSocket();
       fetchInitialData();
       initTableScrollInteractions();
