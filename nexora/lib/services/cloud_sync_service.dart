@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:nexora/core/config/mqtt_config.dart';
 import 'package:nexora/services/auth_service.dart';
 import 'package:nexora/services/device_manager_service.dart';
 import 'package:nexora/services/cctv_manager_service.dart';
+import 'package:nexora/services/mqtt_service.dart';
 
 import 'package:path_provider/path_provider.dart';
 
@@ -17,9 +19,9 @@ class CloudSyncService {
     initBaseUrl();
   }
 
-  // URL Backend Node.js
-  // Default diatur ke IP Laptop (192.168.1.8:3000) agar HP fisik Android dapat langsung terhubung.
-  String _baseUrl = 'http://192.168.1.8:3000';
+  // URL Backend Cloud ALRISA
+  // Default terhubung langsung ke server cloud Vercel (https://alrisa.vercel.app)
+  String _baseUrl = 'https://alrisa.vercel.app';
   String get baseUrl => _baseUrl;
 
   Future<void> initBaseUrl() async {
@@ -66,6 +68,32 @@ class CloudSyncService {
     _debounceTimer = Timer(const Duration(milliseconds: 800), () {
       syncToCloud();
     });
+  }
+
+  /// Sinkronkan perubahan status kontrol perangkat langsung ke Website Cloud via HTTP REST (Zero-delay backup)
+  Future<void> syncDeviceState(String deviceId, bool state, {num? value}) async {
+    final user = AuthService().currentUser;
+    final accountId = user?.id ?? 'acc_superadmin';
+
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(milliseconds: 2500);
+    try {
+      final uri = Uri.parse('$_baseUrl/api/devices/$deviceId/control');
+      final req = await client.postUrl(uri);
+      req.headers.contentType = ContentType.json;
+      req.write(json.encode({
+        'state': state,
+        'value': value,
+        'account_id': accountId,
+        'origin': 'APLIKASI_HP',
+      }));
+      final res = await req.close().timeout(const Duration(seconds: 3));
+      await res.drain();
+    } catch (e) {
+      debugPrint('⚠️ [CLOUD SYNC] Gagal sync state ke HTTP: $e');
+    } finally {
+      client.close();
+    }
   }
 
   /// Simpan atau perbarui satu perangkat ke Website Cloud (Dua Arah: HP -> Website)
@@ -241,6 +269,7 @@ class CloudSyncService {
         ? <String>[_baseUrl]
         : <String>{
             _baseUrl,
+            'https://alrisa.vercel.app',
             'http://192.168.1.8:3000',
             'http://10.0.2.2:3000',
             'http://localhost:3000',
@@ -341,6 +370,33 @@ class CloudSyncService {
               }
 
               CctvManagerService().setCamerasFromRemote(parsedCameras, targetUserKey: email);
+            }
+
+            // 3. Sinkronkan Konfigurasi Broker MQTT & Prefix dari Website ke HP secara dinamis
+            if (data['account'] is Map) {
+              final acc = Map<String, dynamic>.from(data['account']);
+              final newBroker = (acc['mqtt_broker'] ?? '').toString().trim();
+              final newPortVal = acc['mqtt_port'] ?? 1883;
+              final newPort = newPortVal is num ? newPortVal.toInt() : (int.tryParse(newPortVal.toString()) ?? 1883);
+              final newPrefix = (acc['mqtt_prefix'] ?? '').toString().trim();
+              final newUsername = (acc['mqtt_user'] ?? '').toString().trim();
+              final newPassword = (acc['mqtt_pass'] ?? '').toString().trim();
+
+              final bool brokerChanged = newBroker.isNotEmpty && newBroker != MqttConfig.broker;
+              final bool portChanged = newPort != MqttConfig.port;
+              final bool prefixChanged = newPrefix.isNotEmpty && newPrefix != MqttConfig.topicPrefix;
+
+              if (brokerChanged || portChanged || prefixChanged) {
+                debugPrint('🔄 [SYNC MQTT] Konfigurasi MQTT berubah dari Website! Mengupdate ke $newBroker:$newPort (Prefix: $newPrefix)...');
+                MqttConfig.updateConfig(
+                  newBroker: newBroker.isNotEmpty ? newBroker : MqttConfig.broker,
+                  newPort: newPort,
+                  newPrefix: newPrefix.isNotEmpty ? newPrefix : null,
+                  newUsername: newUsername.isNotEmpty ? newUsername : null,
+                  newPassword: newPassword.isNotEmpty ? newPassword : null,
+                );
+                MqttService().reconnect();
+              }
             }
 
             client.close();

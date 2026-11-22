@@ -209,7 +209,7 @@ class _AuthViewState extends State<AuthView> {
                                 }
                               },
                         style: ElevatedButton.styleFrom(
-                          primary: const Color(0xFF0284C7),
+                          backgroundColor: const Color(0xFF0284C7),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           elevation: 2,
                           shadowColor: const Color(0xFF0284C7).withOpacity(0.4),
@@ -340,7 +340,7 @@ class _AuthViewState extends State<AuthView> {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx),
             style: ElevatedButton.styleFrom(
-              primary: const Color(0xFF0284C7),
+              backgroundColor: const Color(0xFF0284C7),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               elevation: 0,
             ),
@@ -356,7 +356,7 @@ class _AuthViewState extends State<AuthView> {
 
   void _showServerConfigDialog() {
     final ipController = TextEditingController(
-      text: CloudSyncService().baseUrl.replaceAll('http://', ''),
+      text: CloudSyncService().baseUrl,
     );
     showDialog(
       context: context,
@@ -371,12 +371,12 @@ class _AuthViewState extends State<AuthView> {
                 color: const Color(0xFFE0F2FE),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.dns_rounded, color: Color(0xFF0284C7), size: 24),
+              child: const Icon(Icons.cloud_sync_rounded, color: Color(0xFF0284C7), size: 24),
             ),
             const SizedBox(width: 12),
             const Expanded(
               child: Text(
-                'Alamat Server Node.js',
+                'Alamat Server ALRISA',
                 style: TextStyle(
                   fontFamily: NexoraTokens.fontFamilySans,
                   fontSize: 17,
@@ -392,14 +392,14 @@ class _AuthViewState extends State<AuthView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Masukkan IP Laptop dan port backend Node.js (Pastikan HP dan Laptop terhubung ke WiFi yang sama):',
+              'Gunakan server Cloud Vercel agar HP bisa mengontrol perangkat dari mana saja (24 Jam) tanpa tergantung WiFi laptop:',
               style: TextStyle(fontSize: 12.5, color: Color(0xFF475569), height: 1.4),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: ipController,
               decoration: InputDecoration(
-                prefixText: 'http://',
+                hintText: 'https://alrisa.vercel.app',
                 filled: true,
                 fillColor: const Color(0xFFF8FAFC),
                 border: OutlineInputBorder(
@@ -415,16 +415,17 @@ class _AuthViewState extends State<AuthView> {
               runSpacing: 6,
               children: [
                 ActionChip(
-                  label: const Text('192.168.1.8:3000', style: TextStyle(fontSize: 11)),
-                  onPressed: () => ipController.text = '192.168.1.8:3000',
+                  avatar: const Icon(Icons.cloud_done_rounded, size: 14, color: Color(0xFF0284C7)),
+                  label: const Text('alrisa.vercel.app (Cloud)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  onPressed: () => ipController.text = 'https://alrisa.vercel.app',
                 ),
                 ActionChip(
-                  label: const Text('10.0.2.2:3000', style: TextStyle(fontSize: 11)),
-                  onPressed: () => ipController.text = '10.0.2.2:3000',
+                  label: const Text('192.168.1.8:3000 (Lokal)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => ipController.text = 'http://192.168.1.8:3000',
                 ),
                 ActionChip(
                   label: const Text('localhost:3000', style: TextStyle(fontSize: 11)),
-                  onPressed: () => ipController.text = 'localhost:3000',
+                  onPressed: () => ipController.text = 'http://localhost:3000',
                 ),
               ],
             ),
@@ -439,7 +440,11 @@ class _AuthViewState extends State<AuthView> {
             onPressed: () async {
               String newUrl = ipController.text.trim();
               if (!newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
-                newUrl = 'http://$newUrl';
+                if (newUrl.contains('vercel.app') || newUrl.startsWith('alrisa.')) {
+                  newUrl = 'https://$newUrl';
+                } else {
+                  newUrl = 'http://$newUrl';
+                }
               }
               await CloudSyncService().setBaseUrl(newUrl);
               Navigator.pop(ctx);
@@ -448,12 +453,12 @@ class _AuthViewState extends State<AuthView> {
               if (ok) {
                 _showToast('✅ Berhasil terhubung & tersinkron dengan website!', isError: false);
               } else {
-                _showToast('⚠️ Gagal terhubung ke $newUrl. Periksa WiFi & IP laptop.', isError: true);
+                _showToast('⚠️ Gagal terhubung ke $newUrl. Periksa koneksi internet.', isError: true);
               }
               setState(() {});
             },
             style: ElevatedButton.styleFrom(
-              primary: const Color(0xFF0284C7),
+              backgroundColor: const Color(0xFF0284C7),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               elevation: 0,
             ),
@@ -853,7 +858,7 @@ class _AuthViewState extends State<AuthView> {
       child: ElevatedButton(
         onPressed: _isLoading ? null : onTap,
         style: ElevatedButton.styleFrom(
-          primary: Colors.transparent,
+          backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         ),
