@@ -413,10 +413,14 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/db-status', async (req, res) => {
   const status = getDbStatus();
+  const dbEnvKeys = Object.keys(process.env).filter((k) =>
+    k.includes('POSTGRES') || k.includes('SUPABASE') || k.includes('DB') || k.includes('DATABASE') || k.includes('PG')
+  );
   res.json({
     success: status.connected,
     ...status,
     total_accounts: (settingsData.accounts || []).length,
+    detected_db_env_keys: dbEnvKeys,
   });
 });
 

@@ -25,12 +25,35 @@ export const DB_CONFIG = {
   database: process.env.DB_NAME || 'alrisa_cloud',
 };
 
-// Deteksi koneksi PostgreSQL / Supabase
-const PG_CONN_STRING =
-  process.env.POSTGRES_URL ||
-  process.env.DATABASE_URL ||
-  process.env.SUPABASE_DB_URL ||
-  null;
+// Deteksi koneksi PostgreSQL / Supabase secara dinamis dari berbagai varian environment variable
+function getPgConnectionString() {
+  if (process.env.POSTGRES_URL) return process.env.POSTGRES_URL;
+  if (process.env.POSTGRES_PRISMA_URL) return process.env.POSTGRES_PRISMA_URL;
+  if (process.env.POSTGRES_URL_NON_POOLING) return process.env.POSTGRES_URL_NON_POOLING;
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  if (process.env.SUPABASE_DB_URL) return process.env.SUPABASE_DB_URL;
+  if (process.env.SUPABASE_POSTGRES_URL) return process.env.SUPABASE_POSTGRES_URL;
+
+  // Cek jika variabel dipecah per komponen (POSTGRES_HOST, dll)
+  const host = process.env.POSTGRES_HOST || process.env.PGHOST;
+  const user = process.env.POSTGRES_USER || process.env.PGUSER;
+  const password = process.env.POSTGRES_PASSWORD || process.env.PGPASSWORD;
+  const database = process.env.POSTGRES_DATABASE || process.env.PGDATABASE || 'postgres';
+  const port = process.env.POSTGRES_PORT || process.env.PGPORT || 5432;
+
+  if (host && user) {
+    return `postgres://${encodeURIComponent(user)}:${encodeURIComponent(password || '')}@${host}:${port}/${database}?sslmode=require`;
+  }
+
+  // Cek apakah ada environment variable lain yang diawali atau diakhiri dengan POSTGRES_URL
+  for (const [key, val] of Object.entries(process.env)) {
+    if ((key.includes('POSTGRES_URL') || key.includes('DATABASE_URL')) && typeof val === 'string' && val.startsWith('postgres')) {
+      return val;
+    }
+  }
+
+  return null;
+}
 
 let mysqlPool = null;
 let pgPool = null;
@@ -41,9 +64,11 @@ let isSyncing = false;
 let pendingSyncData = null;
 
 export function getDbStatus() {
+  const pgConn = getPgConnectionString();
   return {
     engine: activeEngine === 'POSTGRES' ? 'PostgreSQL (Supabase)' : (activeEngine === 'MYSQL' ? 'MySQL' : 'JSON Local'),
     connected: dbConnected,
+    has_postgres_env: Boolean(pgConn),
     host: activeEngine === 'POSTGRES' ? 'Supabase Cloud' : DB_CONFIG.host,
     port: activeEngine === 'POSTGRES' ? 5432 : DB_CONFIG.port,
     database: activeEngine === 'POSTGRES' ? 'postgres' : DB_CONFIG.database,
@@ -57,12 +82,13 @@ export function getDbStatus() {
  * atau MySQL (Laragon/Local) jika ada MySQL.
  */
 export async function initMySQLDatabase(fallbackData) {
+  const pgConn = getPgConnectionString();
   // 1. Coba hubungkan ke PostgreSQL (Supabase) jika ada connection string
-  if (PG_CONN_STRING) {
+  if (pgConn) {
     try {
       console.log('🐘 [DB ENGINE] Mendeteksi URL PostgreSQL / Supabase, mencoba koneksi...');
       pgPool = new PgPool({
-        connectionString: PG_CONN_STRING,
+        connectionString: pgConn,
         ssl: { rejectUnauthorized: false },
         connectionTimeoutMillis: 8000,
       });
