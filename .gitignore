@@ -3,3 +3,5 @@ backend_cloud_js/node_modules/
 .env
 *.log
 .gemini/
+*.apk
+nexora.apk
