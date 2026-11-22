@@ -1,21 +1,18 @@
 /*
   =============================================================================
   ALRISA SMART HOME & IOT HUB — ESP32 RELAY & ACTUATOR FIRMWARE (WOKWI EDITION)
-  Simulasi Virtual Kontrol Relay (Pagar, Gorden, Lampu) via Wokwi & MQTT Cloud
+  Sistem Kontrol Gerbang Multi-User & Multi-Device dengan Filter PIN GPIO & ID
   Pengembang: Alfatech Solutions IDN.
   =============================================================================
 
-  FITUR SISTEM:
-  1. Koneksi Otomatis ke WiFi (Wokwi-GUEST untuk simulator / WiFi Rumah untuk alat fisik).
-  2. Terhubung ke Cloud MQTT Broker (broker.emqx.io:1883) dengan Client ID unik acak.
-  3. Mengendalikan Relay Beban pada GPIO 2 (dan LED Internal ESP32):
-     - ON / BUKA  : Relay Kontak ON (COM-NO menyambung) -> Lampu Beban / Motor MENYALA.
-     - OFF / TUTUP: Relay Kontak OFF (COM-NO terputus)  -> Lampu Beban / Motor PADAM.
-  4. Mendukung multi-device (Pagar, Gorden, Lampu) dan format perintah:
-     - Teks: "OPEN", "CLOSE", "ON", "OFF", "BUKA", "TUTUP", "1", "0"
-     - JSON: {"state": true}, {"state": false}
-  5. Feedback dua arah: Mengirim status balik ke Web Dashboard & Aplikasi HP secara real-time.
-  6. Pengujian interaktif lewat Serial Monitor (bisa diketik langsung: OPEN / CLOSE).
+  FITUR SISTEM MULTI-GERBANG:
+  1. Identitas Khusus Perangkat (Target Account, Target Device ID, & Target GPIO Pin).
+  2. Filter Ketat (Strict Matching):
+     - Hanya merespon jika perintah ditujukan khusus untuk Device ID atau Pin GPIO milik ESP32 ini.
+     - Perintah untuk gerbang lain otomatis DIABAIKAN (Relay tidak akan bergerak salah sasaran).
+  3. Mendukung multi-user & multi-gerbang (Gerbang Utama, Gerbang Kedua, Gorden, Lampu).
+  4. Kompatibel 100% dengan Web Dashboard (https://alrisa.vercel.app) & Aplikasi HP Flutter.
+  5. Feedback status balik dua arah secara real-time ke Cloud MQTT Broker.
   =============================================================================
 */
 
@@ -23,30 +20,46 @@
 #include <PubSubClient.h>
 
 // -----------------------------------------------------------------------------
-// 1. KONFIGURASI WIFI & MQTT BROKER
+// ⚙️ 1. PENGATURAN IDENTITAS ESP32 INI (SESUAIKAN DENGAN WEBSITE)
 // -----------------------------------------------------------------------------
-// Catatan: Di Wokwi simulator gunakan "Wokwi-GUEST" (tanpa password)
-// Untuk alat fisik di rumah, ganti dengan nama WiFi & Password rumah Anda
+// A. Akun Pemilik (Topik Prefix MQTT dari Akun Anda di Website):
+//    - Default Super Admin : "alrisa"
+//    - Admin Cabang/Ilham : "alrisa/admin_ilham"
+const char* TARGET_ACCOUNT_PREFIX = "alrisa";
+
+// B. ID Perangkat yang Dikontrol oleh ESP32 ini:
+//    - Untuk Gerbang Utama : "pagar" (atau "gerbang_utama")
+//    - Untuk Gerbang Kedua : "gerbang_kedua" (atau "pagar_belakang")
+//    - Untuk Lampu         : "lampu_teras"
+const char* TARGET_DEVICE_ID      = "pagar";
+
+// C. Pin Hardware GPIO Relay (Samakan persis dengan yang diatur di Website):
+//    - Gerbang Utama : 2 (GPIO 2)
+//    - Gerbang Kedua : 4 (GPIO 4)
+const int   TARGET_GPIO_PIN       = 2;
+
+// D. Mode Filter Ketat (Strict Matching):
+//    - true  = HANYA merespon jika perintah untuk TARGET_DEVICE_ID atau TARGET_GPIO_PIN ini.
+//    - false = Respon semua (mode umum)
+const bool  STRICT_MATCHING       = true;
+
+// -----------------------------------------------------------------------------
+// 2. KONFIGURASI WIFI & MQTT BROKER
+// -----------------------------------------------------------------------------
+// Catatan: Di Wokwi gunakan "Wokwi-GUEST". Untuk alat fisik gunakan WiFi rumah Anda.
 const char* WIFI_SSID     = "Wokwi-GUEST";
 const char* WIFI_PASSWORD = "";
 
-// Cloud MQTT Broker EMQX (Gratis & Publik)
+// Cloud MQTT Broker EMQX (Publik & Gratis)
 const char* MQTT_SERVER   = "broker.emqx.io";
 const int   MQTT_PORT     = 1883;
 
-// Client ID dibuat dinamis di setup() agar tidak bentrok dengan pengguna lain di EMQX
+// Client ID dinamis agar tidak bentrok
 char mqttClientId[40];
 
-// -----------------------------------------------------------------------------
-// 2. PIN HARDWARE ESP32
-// -----------------------------------------------------------------------------
-// Di Wokwi & modul ESP32 standar, GPIO 2 terhubung ke Relay Input & LED Biru Onboard
-#define RELAY_PIN         2
-#define LED_ONBOARD_PIN   2
-
-// Konfigurasi tipe modul relay:
+// Konfigurasi tipe relay:
 // - Wokwi Relay Module = Active-HIGH (true saat sinyal HIGH) -> RELAY_ACTIVE_LOW = false
-// - Modul Relay Fisik di pasaran biasanya Active-LOW       -> ubah jadi true jika pakai alat fisik
+// - Modul Relay Fisik di pasaran biasanya Active-LOW       -> ubah jadi true jika pakai modul fisik
 const bool RELAY_ACTIVE_LOW = false;
 
 // -----------------------------------------------------------------------------
@@ -57,68 +70,64 @@ WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
 // -----------------------------------------------------------------------------
-// 4. FUNGSI PENGGERAK RELAY & PENGIRIMAN FEEDBACK
+// 4. FUNGSI PENGGERAK RELAY & PENGIRIMAN FEEDBACK STATUS KE CLOUD
 // -----------------------------------------------------------------------------
-void setRelay(bool turnOn, const char* targetDevice = "pagar") {
+void setRelay(bool turnOn, const char* targetDevice, int targetPin) {
   isRelayActive = turnOn;
 
-  // Aktifkan atau nonaktifkan pin GPIO sesuai tipe logika relay
+  // Aktifkan atau matikan pin GPIO Relay
   if (RELAY_ACTIVE_LOW) {
-    digitalWrite(RELAY_PIN, turnOn ? LOW : HIGH);
+    digitalWrite(targetPin, turnOn ? LOW : HIGH);
   } else {
-    digitalWrite(RELAY_PIN, turnOn ? HIGH : LOW);
+    digitalWrite(targetPin, turnOn ? HIGH : LOW);
   }
-  digitalWrite(LED_ONBOARD_PIN, turnOn ? HIGH : LOW);
 
   // Tampilkan visual log di Serial Monitor
   Serial.println("\n========================================================");
   if (turnOn) {
-    Serial.print("⚡ [RELAY ON / MENYAMBUNG] Target: ");
-    Serial.println(targetDevice);
-    Serial.println("🟢 Kontak COM-NO Menyambung -> Lampu Beban / Motor MENYALA!");
+    Serial.print("⚡ [RELAY ON / MENYAMBUNG] Perangkat: ");
+    Serial.print(targetDevice);
+    Serial.print(" | PIN: GPIO ");
+    Serial.println(targetPin);
+    Serial.println("🟢 Kontak COM-NO Menyambung -> Motor Gerbang / Lampu BEBAN MENYALA!");
   } else {
-    Serial.print("🛑 [RELAY OFF / TERPUTUS] Target: ");
-    Serial.println(targetDevice);
-    Serial.println("⚫ Kontak COM-NO Terputus   -> Lampu Beban / Motor PADAM!");
+    Serial.print("🛑 [RELAY OFF / TERPUTUS] Perangkat: ");
+    Serial.print(targetDevice);
+    Serial.print(" | PIN: GPIO ");
+    Serial.println(targetPin);
+    Serial.println("⚫ Kontak COM-NO Terputus   -> Motor Gerbang / Lampu BEBAN PADAM!");
   }
   Serial.println("========================================================");
 
   // Kirim feedback status balik ke broker MQTT agar HP dan Web seketika terupdate!
   if (mqttClient.connected()) {
     const char* strState = turnOn ? "OPEN" : "LOCKED";
-    const char* strOnOff = turnOn ? "ON" : "OFF";
-    char jsonFeedback[80];
-    snprintf(jsonFeedback, sizeof(jsonFeedback), "{\"state\":%s,\"value\":%d,\"statusText\":\"%s\"}",
-             turnOn ? "true" : "false", turnOn ? 100 : 0, turnOn ? "Menyala" : "Terkunci");
+    char jsonFeedback[128];
+    snprintf(jsonFeedback, sizeof(jsonFeedback),
+             "{\"state\":%s,\"action\":\"%s\",\"value\":%d,\"pin\":%d,\"deviceId\":\"%s\",\"statusText\":\"%s\"}",
+             turnOn ? "true" : "false", turnOn ? "OPEN" : "CLOSE", turnOn ? 100 : 0, targetPin, targetDevice, turnOn ? "Terbuka" : "Terkunci");
 
-    // Publikasikan ke topik ALRISA
-    char stateTopic[64];
-    snprintf(stateTopic, sizeof(stateTopic), "alrisa/%s/state", targetDevice);
+    // Publikasikan ke topik status perangkat
+    char stateTopic[80];
+    snprintf(stateTopic, sizeof(stateTopic), "%s/%s/state", TARGET_ACCOUNT_PREFIX, targetDevice);
     mqttClient.publish(stateTopic, strState);
     mqttClient.publish(stateTopic, jsonFeedback);
 
-    // Publikasikan juga ke fallback topik nexora
-    char nexoraStateTopic[64];
-    snprintf(nexoraStateTopic, sizeof(nexoraStateTopic), "nexora/%s/state", targetDevice);
-    mqttClient.publish(nexoraStateTopic, strState);
-    mqttClient.publish(nexoraStateTopic, jsonFeedback);
-
-    // Feedback cadangan untuk lampu & gorden jika dipanggil
-    if (strcmp(targetDevice, "lampu_teras") == 0 || strcmp(targetDevice, "lampu") == 0) {
-      mqttClient.publish("alrisa/lampu_teras/state", strOnOff);
-    } else if (strcmp(targetDevice, "gorden") == 0) {
-      mqttClient.publish("alrisa/gorden/state", turnOn ? "OPEN" : "CLOSED");
+    // Fallback jika device adalah pagar utama
+    if (strcmp(targetDevice, "pagar") == 0) {
+      mqttClient.publish("alrisa/pagar/state", strState);
+      mqttClient.publish("alrisa/pagar/state", jsonFeedback);
     }
 
     Serial.print("📡 [STATUS BALIK KE CLOUD] Topik: ");
     Serial.print(stateTopic);
-    Serial.print(" | Nilai: ");
+    Serial.print(" | Status: ");
     Serial.println(strState);
   }
 }
 
 // -----------------------------------------------------------------------------
-// 5. PARSER PESAN MASUK DARI MQTT (HP & WEB DASHBOARD)
+// 5. PARSER PESAN MASUK DARI MQTT DENGAN FILTERING IDENTITAS GERBANG
 // -----------------------------------------------------------------------------
 void onMqttMessageReceived(char* topic, byte* payload, unsigned int length) {
   String message = "";
@@ -129,53 +138,85 @@ void onMqttMessageReceived(char* topic, byte* payload, unsigned int length) {
 
   String strTopic = String(topic);
 
-  // Abaikan pesan feedback status dari ESP32 sendiri atau device lain agar tidak loop
+  // 1. Abaikan jika topik berupa feedback status (/state)
   if (strTopic.endsWith("/state")) {
     return;
   }
 
+  // 2. Ekstrak nama Device ID dari topik (misal: "alrisa/gerbang_kedua/set" -> "gerbang_kedua")
+  String topicDevId = "";
+  int lastSlash = strTopic.lastIndexOf('/');
+  if (lastSlash > 0) {
+    int prevSlash = strTopic.lastIndexOf('/', lastSlash - 1);
+    if (prevSlash >= 0) {
+      topicDevId = strTopic.substring(prevSlash + 1, lastSlash);
+    } else {
+      topicDevId = strTopic.substring(0, lastSlash);
+    }
+  }
+
+  // 3. Ekstrak Pin GPIO dari Payload JSON (misal: "pin": 4)
+  int payloadPin = -1;
+  int pinIdx = message.indexOf("\"pin\":");
+  if (pinIdx >= 0) {
+    String sub = message.substring(pinIdx + 6);
+    sub.trim();
+    payloadPin = sub.toInt();
+  }
+
+  // 4. LOGIKA FILTERING (PENYARINGAN KETAT UNTUK MULTI-GERBANG & MULTI-USER):
+  if (STRICT_MATCHING) {
+    bool isMatchById  = (topicDevId.equalsIgnoreCase(TARGET_DEVICE_ID));
+    bool isMatchByPin = (payloadPin > 0 && payloadPin == TARGET_GPIO_PIN);
+
+    // Jika perintah BUKAN untuk Device ID ini dan BUKAN untuk PIN GPIO ini -> ABAIKAN!
+    if (!isMatchById && !isMatchByPin) {
+      Serial.println("--------------------------------------------------------");
+      Serial.print("⏩ [DIABAIKAN] Perintah ditujukan untuk gerbang lain: \"");
+      Serial.print(topicDevId);
+      if (payloadPin > 0) {
+        Serial.print("\" (GPIO ");
+        Serial.print(payloadPin);
+        Serial.print(")");
+      } else {
+        Serial.print("\"");
+      }
+      Serial.print("\nℹ️  ESP32 ini khusus mengontrol: \"");
+      Serial.print(TARGET_DEVICE_ID);
+      Serial.print("\" pada PIN GPIO ");
+      Serial.println(TARGET_GPIO_PIN);
+      Serial.println("--------------------------------------------------------");
+      return;
+    }
+  }
+
   Serial.println("--------------------------------------------------------");
-  Serial.print("📩 [PERINTAH MASUK DARI CLOUD / HP / WEB]\n📍 Topik : ");
+  Serial.print("🎯 [PERINTAH DITERIMA — SESUAI TARGET!]\n📍 Topik : ");
   Serial.println(topic);
   Serial.print("📦 Isi   : ");
   Serial.println(message);
 
-  // Deteksi nama device dari topik (misal: "alrisa/pagar/set" -> device "pagar")
-  String targetDev = "pagar";
-  if (strTopic.indexOf("/gorden") >= 0) {
-    targetDev = "gorden";
-  } else if (strTopic.indexOf("/lampu") >= 0) {
-    targetDev = "lampu_teras";
-  } else if (strTopic.indexOf("/pintu") >= 0) {
-    targetDev = "pintu";
-  } else if (strTopic.indexOf("/pagar") >= 0 || strTopic.indexOf("/gate") >= 0) {
-    targetDev = "pagar";
-  }
-
   bool turnOn = false;
   bool turnOff = false;
 
-  // 1. Parsing jika format JSON (misal: {"state":true,"action":"OPEN"})
+  // Evaluasi jika format JSON
   if (message.startsWith("{")) {
-    // Evaluasi BUKA / ON
     if (message.indexOf("\"state\":true") >= 0 ||
         message.indexOf("\"state\": true") >= 0 ||
         message.indexOf("\"action\":\"OPEN\"") >= 0 ||
         message.indexOf("\"action\":\"ON\"") >= 0 ||
         message.indexOf("\"action\":\"BUKA\"") >= 0) {
       turnOn = true;
-    }
-    // Evaluasi TUTUP / OFF
-    else if (message.indexOf("\"state\":false") >= 0 ||
-             message.indexOf("\"state\": false") >= 0 ||
-             message.indexOf("\"action\":\"CLOSE\"") >= 0 ||
-             message.indexOf("\"action\":\"OFF\"") >= 0 ||
-             message.indexOf("\"action\":\"TUTUP\"") >= 0 ||
-             message.indexOf("\"action\":\"LOCKED\"") >= 0) {
+    } else if (message.indexOf("\"state\":false") >= 0 ||
+               message.indexOf("\"state\": false") >= 0 ||
+               message.indexOf("\"action\":\"CLOSE\"") >= 0 ||
+               message.indexOf("\"action\":\"OFF\"") >= 0 ||
+               message.indexOf("\"action\":\"TUTUP\"") >= 0 ||
+               message.indexOf("\"action\":\"LOCKED\"") >= 0) {
       turnOff = true;
     }
   } 
-  // 2. Parsing format Teks Biasa (Raw Text: "OPEN", "CLOSE", dll.)
+  // Evaluasi jika format teks singkat (OPEN, CLOSE, BUKA, TUTUP)
   else {
     String upper = message;
     upper.toUpperCase();
@@ -187,11 +228,11 @@ void onMqttMessageReceived(char* topic, byte* payload, unsigned int length) {
   }
 
   if (turnOn) {
-    setRelay(true, targetDev.c_str());
+    setRelay(true, TARGET_DEVICE_ID, TARGET_GPIO_PIN);
   } else if (turnOff) {
-    setRelay(false, targetDev.c_str());
+    setRelay(false, TARGET_DEVICE_ID, TARGET_GPIO_PIN);
   } else {
-    Serial.println("ℹ️ Format perintah diabaikan atau bukan instruksi kendali.");
+    Serial.println("ℹ️ Format perintah bukan instruksi BUKA/TUTUP yang valid.");
   }
   Serial.println("--------------------------------------------------------");
 }
@@ -212,16 +253,19 @@ void checkMqttConnection() {
     if (mqttClient.connect(mqttClientId)) {
       Serial.println("TERHUBUNG! ✅");
 
-      // Berlangganan topik kendali ALRISA & Nexora secara menyeluruh dengan wildcard '#'
-      mqttClient.subscribe("alrisa/#");
+      // Berlangganan topik kendali akun ini dan fallback nexora
+      char topicSub[64];
+      snprintf(topicSub, sizeof(topicSub), "%s/#", TARGET_ACCOUNT_PREFIX);
+      mqttClient.subscribe(topicSub);
       mqttClient.subscribe("nexora/#");
 
-      Serial.println("📡 Sukses subscribe wildcard: alrisa/# & nexora/#");
+      Serial.print("📡 Berhasil subscribe: ");
+      Serial.println(topicSub);
 
       // Publikasikan status awal ke broker
-      setRelay(isRelayActive, "pagar");
+      setRelay(isRelayActive, TARGET_DEVICE_ID, TARGET_GPIO_PIN);
 
-      Serial.println("✅ ESP32 Siap menerima kendali dari Web Dashboard & HP Anda!\n");
+      Serial.println("✅ ESP32 Siap menerima kendali!\n");
     } else {
       Serial.print("Gagal (state=");
       Serial.print(mqttClient.state());
@@ -243,11 +287,11 @@ void handleSerialMonitor() {
     Serial.println(input);
 
     if (input.equalsIgnoreCase("OPEN") || input.equalsIgnoreCase("ON") || input.equalsIgnoreCase("1") || input.equalsIgnoreCase("BUKA")) {
-      setRelay(true, "pagar");
+      setRelay(true, TARGET_DEVICE_ID, TARGET_GPIO_PIN);
     } else if (input.equalsIgnoreCase("CLOSE") || input.equalsIgnoreCase("OFF") || input.equalsIgnoreCase("0") || input.equalsIgnoreCase("TUTUP")) {
-      setRelay(false, "pagar");
+      setRelay(false, TARGET_DEVICE_ID, TARGET_GPIO_PIN);
     } else {
-      Serial.println("❓ Ketik 'OPEN' atau 'CLOSE' untuk menguji relay manual.");
+      Serial.println("❓ Ketik 'OPEN' atau 'CLOSE' untuk menguji relay secara manual.");
     }
   }
 }
@@ -261,18 +305,19 @@ void setup() {
 
   // Buat Client ID acak unik
   randomSeed(micros());
-  snprintf(mqttClientId, sizeof(mqttClientId), "ALRISA_ESP32_%04X", (unsigned int)random(0xFFFF));
+  snprintf(mqttClientId, sizeof(mqttClientId), "ALRISA_%s_%04X", TARGET_DEVICE_ID, (unsigned int)random(0xFFFF));
 
   Serial.println("\n========================================================");
-  Serial.println("🚀 ALRISA SMART HOME & IOT HUB — ESP32 RELAY SIMULATOR");
-  Serial.println("🏢 Alfatech Solutions IDN. — Wokwi & Cloud Ready");
-  Serial.print("🆔 Client ID: ");
-  Serial.println(mqttClientId);
+  Serial.println("🚀 ALRISA SMART HOME & IOT HUB — ESP32 CONTROLLER");
+  Serial.print("🏢 Akun Target   : "); Serial.println(TARGET_ACCOUNT_PREFIX);
+  Serial.print("🚪 Target Gerbang : "); Serial.println(TARGET_DEVICE_ID);
+  Serial.print("📌 Pin GPIO Relay : GPIO "); Serial.println(TARGET_GPIO_PIN);
+  Serial.print("🔒 Strict Filter  : "); Serial.println(STRICT_MATCHING ? "AKTIF (Menolak Perangkat Lain)" : "NONAKTIF");
+  Serial.print("🆔 Client ID      : "); Serial.println(mqttClientId);
   Serial.println("========================================================");
 
-  pinMode(RELAY_PIN, OUTPUT);
-  pinMode(LED_ONBOARD_PIN, OUTPUT);
-  setRelay(false, "pagar"); // Posisi awal: Relay Terputus (OFF)
+  pinMode(TARGET_GPIO_PIN, OUTPUT);
+  setRelay(false, TARGET_DEVICE_ID, TARGET_GPIO_PIN); // Posisi awal: Relay Terputus (OFF)
 
   // Hubungkan ke WiFi
   Serial.print("📶 Menghubungkan ke WiFi (");
@@ -293,12 +338,10 @@ void setup() {
   // Setup MQTT
   mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
   mqttClient.setCallback(onMqttMessageReceived);
-  mqttClient.setBufferSize(512); // Peningkatan buffer untuk JSON payload
+  mqttClient.setBufferSize(512);
 
-  Serial.println("\n💡 TIPS PENGUJIAN:");
-  Serial.println("1. Klik tombol di Website ALRISA (https://alrisa.vercel.app)");
-  Serial.println("2. Atau tekan tombol Buka/Kunci di Aplikasi HP");
-  Serial.println("3. Atau ketik 'OPEN' / 'CLOSE' di Serial Monitor di bawah ini!");
+  Serial.println("\n💡 TIPS MULTI-GERBANG:");
+  Serial.println("Jika perintah dari Web/HP untuk Gerbang atau Pin lain, ESP32 ini akan mengabaikannya secara otomatis!");
   Serial.println("========================================================\n");
 }
 

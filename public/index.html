@@ -5890,32 +5890,49 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     async function toggleDevice(deviceId, newState) {
       updateDeviceStateInUI(deviceId, newState);
 
+      const targetDev = devices.find(d => d.id === deviceId);
+      let pinNumber = null;
+      if (targetDev && targetDev.hardwarePin) {
+        const match = String(targetDev.hardwarePin).match(/(?:gpio\s*|pin\s*|#)?(\d+)/i);
+        if (match) pinNumber = parseInt(match[1], 10);
+      }
+
+      const activeAcc = accounts.find(a => a.id === selectedAccountId);
+      const accPrefix = activeAcc?.mqtt_prefix || activeAcc?.mqttPrefix || 'alrisa';
+
       const cmdStr = newState ? 'OPEN' : 'CLOSE';
       const jsonPayload = JSON.stringify({
         state: newState,
         action: cmdStr,
         deviceId: deviceId,
+        pin: pinNumber,
+        hardwarePin: targetDev ? targetDev.hardwarePin : undefined,
+        account_id: selectedAccountId,
+        prefix: accPrefix,
         origin: 'WEB_DASHBOARD'
       });
 
       // 1. Publikasikan LANGSUNG dari Browser ke Cloud MQTT Broker (WSS:8084)
-      // Ini menjamin Wokwi Simulator & Hardware ESP32 menerima perintah dalam hitungan < 50ms!
+      // Menyertakan ID Perangkat dan Nomor Pin GPIO agar ESP32 yang tepat yang merespon!
       if (window.browserMqttClient && window.browserMqttClient.connected) {
         try {
-          // Topik spesifik perangkat
-          window.browserMqttClient.publish(`alrisa/${deviceId}/set`, jsonPayload, { qos: 1 });
-          window.browserMqttClient.publish(`alrisa/${deviceId}/set`, cmdStr, { qos: 1 });
-          window.browserMqttClient.publish(`nexora/${deviceId}/set`, jsonPayload, { qos: 1 });
-          window.browserMqttClient.publish(`nexora/${deviceId}/set`, cmdStr, { qos: 1 });
+          // Topik spesifik berdasarkan akun dan ID perangkat: [prefix]/[device_id]/set
+          window.browserMqttClient.publish(`${accPrefix}/${deviceId}/set`, jsonPayload, { qos: 1 });
+          window.browserMqttClient.publish(`${accPrefix}/${deviceId}/set`, cmdStr, { qos: 1 });
 
-          // Topik fallback khusus pagar/gerbang
-          if (deviceId.includes('pagar') || deviceId.includes('gate') || deviceId === 'pagar') {
+          // Fallback global jika prefix bukan alrisa
+          if (accPrefix !== 'alrisa') {
+            window.browserMqttClient.publish(`alrisa/${deviceId}/set`, jsonPayload, { qos: 1 });
+            window.browserMqttClient.publish(`alrisa/${deviceId}/set`, cmdStr, { qos: 1 });
+          }
+
+          // Khusus jika device utama adalah "pagar"
+          if (deviceId === 'pagar') {
             window.browserMqttClient.publish('alrisa/pagar/set', jsonPayload, { qos: 1 });
             window.browserMqttClient.publish('alrisa/pagar/set', cmdStr, { qos: 1 });
-            window.browserMqttClient.publish('nexora/pagar/set', jsonPayload, { qos: 1 });
-            window.browserMqttClient.publish('nexora/pagar/set', cmdStr, { qos: 1 });
           }
-          console.log(`⚡ [Web MQTT Out] Terkirim instan: alrisa/${deviceId}/set -> ${cmdStr}`);
+
+          console.log(`⚡ [Web MQTT Out] ${accPrefix}/${deviceId}/set (PIN: GPIO ${pinNumber}) -> ${cmdStr}`);
         } catch (mqttErr) {
           console.warn('⚠️ Web MQTT publish error:', mqttErr);
         }

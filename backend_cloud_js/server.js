@@ -1722,7 +1722,7 @@ async function handleControl(deviceId, action, value, origin, targetAccountId, r
     { topic: `alrisa/${deviceId}/cmd`, payload: cmdStr },
   ];
 
-  if (deviceId.includes('pagar') || deviceId.includes('gate') || (targetDev && targetDev.type === 0)) {
+  if (deviceId === 'pagar') {
     pubList.push(
       { topic: 'alrisa/pagar/set', payload: jsonPayload },
       { topic: 'alrisa/pagar/set', payload: cmdStr },
