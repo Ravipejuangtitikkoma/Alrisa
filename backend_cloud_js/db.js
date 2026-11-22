@@ -25,34 +25,31 @@ export const DB_CONFIG = {
   database: process.env.DB_NAME || 'alrisa_cloud',
 };
 
-// Deteksi koneksi PostgreSQL / Supabase secara dinamis dari berbagai varian environment variable
-function getPgConnectionString() {
-  if (process.env.POSTGRES_URL) return process.env.POSTGRES_URL;
-  if (process.env.POSTGRES_PRISMA_URL) return process.env.POSTGRES_PRISMA_URL;
-  if (process.env.POSTGRES_URL_NON_POOLING) return process.env.POSTGRES_URL_NON_POOLING;
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
-  if (process.env.SUPABASE_DB_URL) return process.env.SUPABASE_DB_URL;
-  if (process.env.SUPABASE_POSTGRES_URL) return process.env.SUPABASE_POSTGRES_URL;
+function getAllPgCandidates() {
+  const list = [
+    { name: 'DATABASE_URL', uri: process.env.DATABASE_URL },
+    { name: 'SUPABASE_DB_URL', uri: process.env.SUPABASE_DB_URL },
+    { name: 'POSTGRES_PRISMA_URL', uri: process.env.POSTGRES_PRISMA_URL },
+    { name: 'POSTGRES_URL', uri: process.env.POSTGRES_URL },
+    { name: 'POSTGRES_URL_NON_POOLING', uri: process.env.POSTGRES_URL_NON_POOLING },
+    { name: 'SUPABASE_POSTGRES_URL', uri: process.env.SUPABASE_POSTGRES_URL },
+  ];
 
-  // Cek jika variabel dipecah per komponen (POSTGRES_HOST, dll)
-  const host = process.env.POSTGRES_HOST || process.env.PGHOST;
-  const user = process.env.POSTGRES_USER || process.env.PGUSER;
-  const password = process.env.POSTGRES_PASSWORD || process.env.PGPASSWORD;
-  const database = process.env.POSTGRES_DATABASE || process.env.PGDATABASE || 'postgres';
-  const port = process.env.POSTGRES_PORT || process.env.PGPORT || 5432;
-
-  if (host && user) {
-    return `postgres://${encodeURIComponent(user)}:${encodeURIComponent(password || '')}@${host}:${port}/${database}?sslmode=require`;
+  if (process.env.POSTGRES_HOST && process.env.POSTGRES_USER) {
+    const constructed = `postgres://${encodeURIComponent(process.env.POSTGRES_USER)}:${encodeURIComponent(process.env.POSTGRES_PASSWORD || '')}@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT || 5432}/${process.env.POSTGRES_DATABASE || 'postgres'}?sslmode=require`;
+    list.push({ name: 'CONSTRUCTED_COMPONENTS', uri: constructed });
   }
 
-  // Cek apakah ada environment variable lain yang diawali atau diakhiri dengan POSTGRES_URL
+  // Cari variabel lain yang mengandung URL postgres
   for (const [key, val] of Object.entries(process.env)) {
     if ((key.includes('POSTGRES_URL') || key.includes('DATABASE_URL')) && typeof val === 'string' && val.startsWith('postgres')) {
-      return val;
+      if (!list.some((item) => item.uri === val)) {
+        list.push({ name: key, uri: val });
+      }
     }
   }
 
-  return null;
+  return list.filter((item) => Boolean(item.uri));
 }
 
 let mysqlPool = null;
@@ -60,17 +57,20 @@ let pgPool = null;
 let activeEngine = 'NONE'; // 'POSTGRES' | 'MYSQL' | 'NONE'
 let dbConnected = false;
 let lastDbError = null;
+let connectedCandidateName = null;
 let isSyncing = false;
 let pendingSyncData = null;
 
 export function getDbStatus() {
-  const pgConn = getPgConnectionString();
+  const candidates = getAllPgCandidates();
   return {
     engine: activeEngine === 'POSTGRES' ? 'PostgreSQL (Supabase)' : (activeEngine === 'MYSQL' ? 'MySQL' : 'JSON Local'),
     connected: dbConnected,
-    has_postgres_env: Boolean(pgConn),
+    has_postgres_env: candidates.length > 0,
+    active_source: connectedCandidateName,
+    available_pg_sources: candidates.map((c) => c.name),
     host: activeEngine === 'POSTGRES' ? 'Supabase Cloud' : DB_CONFIG.host,
-    port: activeEngine === 'POSTGRES' ? 5432 : DB_CONFIG.port,
+    port: activeEngine === 'POSTGRES' ? 6543 : DB_CONFIG.port,
     database: activeEngine === 'POSTGRES' ? 'postgres' : DB_CONFIG.database,
     user: activeEngine === 'POSTGRES' ? 'supabase_user' : DB_CONFIG.user,
     error: lastDbError,
@@ -78,51 +78,62 @@ export function getDbStatus() {
 }
 
 /**
- * Inisialisasi Database: otomatis memilih PostgreSQL (Supabase) jika ada POSTGRES_URL,
- * atau MySQL (Laragon/Local) jika ada MySQL.
+ * Inisialisasi Database: otomatis menguji setiap kandidat PostgreSQL (Supabase)
+ * atau MySQL (Laragon/Local) jika di komputer lokal.
  */
 export async function initMySQLDatabase(fallbackData) {
-  const pgConn = getPgConnectionString();
-  // 1. Coba hubungkan ke PostgreSQL (Supabase) jika ada connection string
-  if (pgConn) {
-    try {
-      console.log('🐘 [DB ENGINE] Mendeteksi URL PostgreSQL / Supabase, mencoba koneksi...');
-      pgPool = new PgPool({
-        connectionString: pgConn,
-        ssl: { rejectUnauthorized: false },
-        connectionTimeoutMillis: 8000,
-      });
+  const candidates = getAllPgCandidates();
 
-      // Uji query
-      await pgPool.query('SELECT 1');
-      activeEngine = 'POSTGRES';
-      dbConnected = true;
-      lastDbError = null;
-      console.log('✅ [SUPABASE CONNECTED] Berhasil terhubung ke Supabase PostgreSQL!');
-
-      // Cek apakah tabel accounts ada dan memiliki isi
+  // 1. Coba setiap kandidat PostgreSQL / Supabase
+  if (candidates.length > 0) {
+    const attemptErrors = [];
+    for (const cand of candidates) {
       try {
-        const accCheck = await pgPool.query('SELECT COUNT(*) AS total FROM accounts');
-        const count = parseInt(accCheck.rows[0]?.total || '0', 10);
-        if (count === 0 && fallbackData && Array.isArray(fallbackData.accounts) && fallbackData.accounts.length > 0) {
-          console.log('🌱 [SUPABASE AUTO-SEED] Menyalin data akun awal ke Supabase...');
-          await syncToPostgres(fallbackData);
-        }
-      } catch (tableErr) {
-        console.warn('⚠️ [SUPABASE TABLE NOTICE] Tabel belum dibuat di Supabase:', tableErr.message);
+        console.log(`🐘 [DB ENGINE] Menguji koneksi PostgreSQL via ${cand.name}...`);
+        const testPool = new PgPool({
+          connectionString: cand.uri,
+          ssl: { rejectUnauthorized: false },
+          connectionTimeoutMillis: 7000,
+        });
+
+        await testPool.query('SELECT 1');
+        pgPool = testPool;
+        activeEngine = 'POSTGRES';
+        dbConnected = true;
+        lastDbError = null;
+        connectedCandidateName = cand.name;
+        console.log(`✅ [SUPABASE CONNECTED] Sukses terhubung ke Supabase PostgreSQL via ${cand.name}!`);
+        break;
+      } catch (candErr) {
+        attemptErrors.push(`${cand.name} (${candErr.message})`);
       }
+    }
 
-      const loadedData = await loadFromPostgres();
-      const loadedLogs = await loadLogsFromPostgres();
+    if (dbConnected && pgPool) {
+      // Muat data dari Supabase
+      try {
+        const loadedData = await loadFromPostgres();
+        const loadedLogs = await loadLogsFromPostgres();
+        return {
+          connected: true,
+          settingsData: loadedData || fallbackData,
+          activityLogs: loadedLogs,
+        };
+      } catch (loadErr) {
+        console.warn('⚠️ Gagal load data awal dari Supabase:', loadErr.message);
+      }
+    } else {
+      lastDbError = `Semua koneksi Supabase gagal: ${attemptErrors.join(' | ')}`;
+      console.warn(`⚠️ [SUPABASE FAILED] ${lastDbError}`);
 
-      return {
-        connected: true,
-        settingsData: loadedData || fallbackData,
-        activityLogs: loadedLogs,
-      };
-    } catch (pgErr) {
-      console.warn(`⚠️ [SUPABASE WARNING] Gagal konek Supabase (${pgErr.message}), beralih ke fallback MySQL/Lokal...`);
-      pgPool = null;
+      // Jika berjalan di serverless Vercel, jangan coba MySQL lokal karena pasti tidak ada
+      if (process.env.VERCEL) {
+        return {
+          connected: false,
+          settingsData: fallbackData,
+          activityLogs: null,
+        };
+      }
     }
   }
 
