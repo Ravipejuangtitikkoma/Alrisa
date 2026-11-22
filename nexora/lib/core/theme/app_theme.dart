@@ -9,38 +9,23 @@ class AppTheme {
       fontFamily: NexoraTokens.fontFamilySans,
       scaffoldBackgroundColor: NexoraTokens.background,
       primaryColor: NexoraTokens.brandCyan,
-      accentColor: NexoraTokens.brandCyan,
       cardColor: NexoraTokens.card,
-      
-      // Color Scheme
-      colorScheme: const ColorScheme.light(
-        primary: NexoraTokens.brandCyan,
-        primaryVariant: Color(0xFF008BBF),
-        secondary: NexoraTokens.brandCyan,
-        surface: NexoraTokens.surface,
-        background: NexoraTokens.background,
-        error: NexoraTokens.statusAmber,
-        onPrimary: Colors.white,
-        onSecondary: Colors.white,
-        onSurface: NexoraTokens.ink,
-        onBackground: NexoraTokens.ink,
-      ),
 
       // Tipografi default Plus Jakarta Sans
       textTheme: const TextTheme(
-        headline1: TextStyle(
+        displayLarge: TextStyle(
           fontFamily: NexoraTokens.fontFamilySans,
           fontSize: 30,
           fontWeight: FontWeight.w800,
           color: NexoraTokens.ink,
           letterSpacing: -0.6,
         ),
-        bodyText1: TextStyle(
+        bodyLarge: TextStyle(
           fontFamily: NexoraTokens.fontFamilySans,
           fontSize: 15,
           color: NexoraTokens.ink,
         ),
-        bodyText2: TextStyle(
+        bodyMedium: TextStyle(
           fontFamily: NexoraTokens.fontFamilySans,
           fontSize: 13,
           color: NexoraTokens.inkSecondary,
@@ -64,7 +49,7 @@ class AppTheme {
       ),
 
       // Card Theme: radius 24 dengan border 1px #EBEEF0
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: NexoraTokens.card,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -75,7 +60,15 @@ class AppTheme {
           ),
         ),
         margin: EdgeInsets.zero,
-      ),
+      ), colorScheme: const ColorScheme.light(
+        primary: NexoraTokens.brandCyan,
+        secondary: NexoraTokens.brandCyan,
+        surface: NexoraTokens.surface,
+        error: NexoraTokens.statusAmber,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: NexoraTokens.ink,
+      ).copyWith(secondary: NexoraTokens.brandCyan),
     );
   }
 }

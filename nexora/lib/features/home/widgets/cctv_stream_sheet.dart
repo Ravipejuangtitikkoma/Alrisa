@@ -158,6 +158,7 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
 
     try {
       final url = widget.camera.rtspUrl.trim();
+      final isRtsp = url.toLowerCase().startsWith('rtsp://');
       final isLocal = url.contains('192.168.') ||
           url.contains('10.') ||
           url.contains('127.0.0.1') ||
@@ -175,9 +176,11 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
           advanced: VlcAdvancedOptions([
             VlcAdvancedOptions.networkCaching(cacheMs),
           ]),
-          rtp: VlcRtpOptions([
-            VlcRtpOptions.rtpOverRtsp(true), // TCP interleaved untuk tembus NAT / firewall
-          ]),
+          rtp: isRtsp
+              ? VlcRtpOptions([
+                  VlcRtpOptions.rtpOverRtsp(true), // TCP interleaved untuk tembus NAT / firewall
+                ])
+              : null,
         ),
       );
       controller.addListener(_vlcListener);
@@ -315,7 +318,7 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
                   width: 42,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.3),
+                    color: Colors.white.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -355,7 +358,7 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
                           style: TextStyle(
                             fontFamily: NexoraTokens.fontFamilySans,
                             fontSize: 11,
-                            color: Colors.white.withOpacity(0.65),
+                            color: Colors.white.withValues(alpha: 0.65),
                           ),
                         ),
                       ],
@@ -389,10 +392,10 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
             decoration: BoxDecoration(
               color: const Color(0xFF1E293B),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.12)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.5),
+                  color: Colors.black.withValues(alpha: 0.5),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -414,9 +417,9 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.08),
+                  color: Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withOpacity(0.15)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -492,7 +495,7 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        primary: _isGateOpen ? const Color(0xFF10B981) : const Color(0xFF1E293B),
+                        backgroundColor: _isGateOpen ? const Color(0xFF10B981) : const Color(0xFF1E293B),
                         elevation: _isGateOpen ? 3 : 0,
                         side: BorderSide(
                           color: _isGateOpen ? const Color(0xFF10B981) : const Color(0xFF334155),
@@ -518,7 +521,7 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        primary: !_isGateOpen ? const Color(0xFF0F172A) : const Color(0xFF1E293B),
+                        backgroundColor: !_isGateOpen ? const Color(0xFF0F172A) : const Color(0xFF1E293B),
                         elevation: !_isGateOpen ? 3 : 0,
                         side: BorderSide(
                           color: !_isGateOpen ? const Color(0xFF38BDF8) : const Color(0xFF334155),
@@ -564,7 +567,7 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
         // 3. Flash Efek saat Snapshot Foto
         if (_isSnapshotTaken)
           Positioned.fill(
-            child: Container(color: Colors.white.withOpacity(0.85)),
+            child: Container(color: Colors.white.withValues(alpha: 0.85)),
           ),
 
         // 4. Overlay status LIVE saat aktif
@@ -606,7 +609,7 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: ValueListenableBuilder<String>(
@@ -642,7 +645,7 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
                     style: TextStyle(
                       fontFamily: 'JetBrains Mono',
                       fontSize: 9.5,
-                      color: Colors.white.withOpacity(0.7),
+                      color: Colors.white.withValues(alpha: 0.7),
                     ),
                   ),
                 ),
@@ -692,15 +695,15 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
                   width: 58,
                   height: 58,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
+                    color: Colors.white.withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.18),
+                      color: Colors.white.withValues(alpha: 0.18),
                       width: 1.2,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.25),
+                        color: Colors.black.withValues(alpha: 0.25),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -742,7 +745,7 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
                     fontFamily: 'JetBrains Mono',
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
-                    color: const Color(0xFF94A3B8).withOpacity(0.9),
+                    color: const Color(0xFF94A3B8).withValues(alpha: 0.9),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -756,9 +759,9 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4.5),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.12),
+                        color: Colors.white.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.white.withOpacity(0.18)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -791,7 +794,7 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
+                    color: Colors.black.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(5),
                   ),
                   child: Row(
@@ -817,7 +820,7 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
+                    color: Colors.black.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(5),
                   ),
                   child: ValueListenableBuilder<String>(
@@ -846,7 +849,7 @@ class _CctvStreamSheetState extends State<CctvStreamSheet> with SingleTickerProv
 class _CctvViewportPainter extends CustomPainter {
   final bool isNightVision;
 
-  _CctvViewportPainter({this.isNightVision = false});
+  _CctvViewportPainter() : isNightVision = false;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -876,8 +879,8 @@ class _CctvViewportPainter extends CustomPainter {
     // 3. Siluet Tiang & Pagar Gerbang Besi di Kamera
     final gatePaint = Paint()
       ..color = isNightVision
-          ? const Color(0xFF94A3B8).withOpacity(0.5)
-          : const Color(0xFFE2E8F0).withOpacity(0.35)
+          ? const Color(0xFF94A3B8).withValues(alpha: 0.5)
+          : const Color(0xFFE2E8F0).withValues(alpha: 0.35)
       ..strokeWidth = 2.0;
 
     // Tiang Pagar Kiri & Kanan
@@ -918,7 +921,7 @@ class _CctvViewportPainter extends CustomPainter {
 
     // 4. Grid Crosshair / Target Sensor Kamera
     final reticlePaint = Paint()
-      ..color = Colors.white.withOpacity(0.2)
+      ..color = Colors.white.withValues(alpha: 0.2)
       ..strokeWidth = 1.0;
     final cx = size.width / 2;
     final cy = size.height / 2;

@@ -209,8 +209,8 @@ class _WaterCardState extends State<WaterCard> with SingleTickerProviderStateMix
                         painter: _SmoothWavePainter(
                           progress: _waveController.value,
                           waterColor: isActive
-                              ? const Color(0xFFC7ECF9).withOpacity(0.55)
-                              : const Color(0xFFE2E8F0).withOpacity(0.4),
+                              ? const Color(0xFFC7ECF9).withValues(alpha: 0.55)
+                              : const Color(0xFFE2E8F0).withValues(alpha: 0.4),
                         ),
                       );
                     },

@@ -63,7 +63,7 @@ class _CctvCardState extends State<CctvCard>
         DeviceManagerService().getDevice(_selectedGateId!)?.isActive ?? false;
     _isGateOpen = initialGateState;
 
-    WidgetsBinding.instance?.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _initVlcPlayer();
       }
@@ -105,12 +105,12 @@ class _CctvCardState extends State<CctvCard>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.camera.rtspUrl.trim() != widget.camera.rtspUrl.trim() ||
         widget.camera.rtspUrl.trim() != _lastLoadedRtspUrl) {
-      WidgetsBinding.instance?.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _refreshStream();
       });
     } else if (oldWidget.isActive != widget.isActive) {
-      WidgetsBinding.instance?.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (widget.isActive) {
           try {
@@ -216,7 +216,7 @@ class _CctvCardState extends State<CctvCard>
 
   void _startTimeoutTimer() {
     _connectTimeoutTimer?.cancel();
-    _connectTimeoutTimer = Timer(const Duration(seconds: 4), () {
+    _connectTimeoutTimer = Timer(const Duration(seconds: 12), () {
       if (mounted && widget.isActive && !_isStreamOnline) {
         setState(() {
           _isConnecting = false;
@@ -250,14 +250,15 @@ class _CctvCardState extends State<CctvCard>
         }
         return;
       }
+      final isRtsp = url.toLowerCase().startsWith('rtsp://');
       final isLocal = url.contains('192.168.') ||
           url.contains('10.') ||
           url.contains('127.0.0.1') ||
           url.contains('localhost') ||
           url.contains('172.16.');
 
-      // Low-latency RTSP caching: 150ms agar stream instan tanpa delay buffering 2-3 detik
-      final cacheMs = isLocal ? 150 : 300;
+      // Low-latency caching: 300ms untuk jaringan lokal agar stabil saat handshake
+      final cacheMs = isLocal ? 300 : 800;
 
       final controller = VlcPlayerController.network(
         url,
@@ -267,9 +268,11 @@ class _CctvCardState extends State<CctvCard>
           advanced: VlcAdvancedOptions([
             VlcAdvancedOptions.networkCaching(cacheMs),
           ]),
-          rtp: VlcRtpOptions([
-            VlcRtpOptions.rtpOverRtsp(true), // TCP interleaved untuk tembus firewall/NAT internet
-          ]),
+          rtp: isRtsp
+              ? VlcRtpOptions([
+                  VlcRtpOptions.rtpOverRtsp(true), // TCP interleaved untuk tembus firewall/NAT
+                ])
+              : null,
         ),
       );
 
@@ -583,8 +586,7 @@ class _CctvCardState extends State<CctvCard>
                       icon: const Icon(Icons.check_circle_rounded, size: 18),
                       label: const Text('Simpan Perubahan'),
                       style: ElevatedButton.styleFrom(
-                        primary: const Color(0xFF0284C7),
-                        onPrimary: Colors.white,
+                        foregroundColor: Colors.white, backgroundColor: const Color(0xFF0284C7),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         textStyle: const TextStyle(
@@ -673,12 +675,12 @@ class _CctvCardState extends State<CctvCard>
           border: Border.all(color: const Color(0xFFE2E8F0)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 16,
               offset: const Offset(0, 5),
             ),
             BoxShadow(
-              color: NexoraTokens.brandCyan.withOpacity(0.03),
+              color: NexoraTokens.brandCyan.withValues(alpha: 0.03),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -819,8 +821,7 @@ class _CctvCardState extends State<CctvCard>
                   icon: const Icon(Icons.camera_alt_outlined, size: 13),
                   label: const Text('Snapshot'),
                   style: OutlinedButton.styleFrom(
-                    primary: NexoraTokens.ink,
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    foregroundColor: NexoraTokens.ink, side: const BorderSide(color: Color(0xFFCBD5E1)),
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     textStyle: const TextStyle(
@@ -918,7 +919,7 @@ class _CctvCardState extends State<CctvCard>
                             boxShadow: _isGateOpen
                                 ? [
                                     BoxShadow(
-                                      color: const Color(0xFF059669).withOpacity(0.3),
+                                      color: const Color(0xFF059669).withValues(alpha: 0.3),
                                       blurRadius: 4,
                                       offset: const Offset(0, 1),
                                     )
@@ -960,7 +961,7 @@ class _CctvCardState extends State<CctvCard>
                             boxShadow: !_isGateOpen
                                 ? [
                                     BoxShadow(
-                                      color: const Color(0xFF0284C7).withOpacity(0.25),
+                                      color: const Color(0xFF0284C7).withValues(alpha: 0.25),
                                       blurRadius: 4,
                                       offset: const Offset(0, 1),
                                     )
@@ -1141,7 +1142,7 @@ class _CctvCardState extends State<CctvCard>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.65),
+                    color: Colors.black.withValues(alpha: 0.65),
                     borderRadius: BorderRadius.circular(5),
                   ),
                   child: Row(
@@ -1163,7 +1164,7 @@ class _CctvCardState extends State<CctvCard>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.65),
+                    color: Colors.black.withValues(alpha: 0.65),
                     borderRadius: BorderRadius.circular(5),
                   ),
                   child: ValueListenableBuilder<String>(
@@ -1190,7 +1191,7 @@ class _CctvCardState extends State<CctvCard>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
+                color: Colors.black.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
@@ -1219,7 +1220,7 @@ class _CctvCardState extends State<CctvCard>
           child: Container(
             padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.55),
+              color: Colors.black.withValues(alpha: 0.55),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.fullscreen_rounded, size: 16, color: Colors.white),
@@ -1262,15 +1263,15 @@ class _CctvCardState extends State<CctvCard>
                   width: 50,
                   height: 50,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
+                    color: Colors.white.withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.18),
+                      color: Colors.white.withValues(alpha: 0.18),
                       width: 1.2,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.25),
+                        color: Colors.black.withValues(alpha: 0.25),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
                       ),
@@ -1317,7 +1318,7 @@ class _CctvCardState extends State<CctvCard>
                     fontFamily: 'JetBrains Mono',
                     fontSize: 9.5,
                     fontWeight: FontWeight.w500,
-                    color: const Color(0xFF94A3B8).withOpacity(0.9),
+                    color: const Color(0xFF94A3B8).withValues(alpha: 0.9),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -1330,9 +1331,9 @@ class _CctvCardState extends State<CctvCard>
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withOpacity(0.15)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1367,7 +1368,7 @@ class _CctvCardState extends State<CctvCard>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.45),
+                    color: Colors.black.withValues(alpha: 0.45),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
@@ -1393,7 +1394,7 @@ class _CctvCardState extends State<CctvCard>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.45),
+                    color: Colors.black.withValues(alpha: 0.45),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: ValueListenableBuilder<String>(
@@ -1420,7 +1421,7 @@ class _CctvCardState extends State<CctvCard>
             child: Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.45),
+                color: Colors.black.withValues(alpha: 0.45),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.fullscreen_rounded, size: 16, color: Colors.white70),
@@ -1437,7 +1438,7 @@ class _CctvGridBackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.04)
+      ..color = Colors.white.withValues(alpha: 0.04)
       ..strokeWidth = 1.0;
 
     const step = 24.0;

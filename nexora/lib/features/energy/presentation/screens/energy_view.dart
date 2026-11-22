@@ -616,14 +616,14 @@ class _EnergyViewState extends State<EnergyView> {
           decoration: BoxDecoration(
             color: NexoraTokens.statusAmberSubtle,
             borderRadius: NexoraTokens.borderRadiusCard,
-            border: Border.all(color: NexoraTokens.statusAmber.withOpacity(0.3)),
+            border: Border.all(color: NexoraTokens.statusAmber.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: NexoraTokens.statusAmber.withOpacity(0.2),
+                  color: NexoraTokens.statusAmber.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.eco_rounded, color: NexoraTokens.statusAmber, size: 22),

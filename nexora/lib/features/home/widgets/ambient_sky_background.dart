@@ -161,10 +161,10 @@ class _AmbientSkyBackgroundState extends State<AmbientSkyBackground>
                     end: Alignment.bottomCenter,
                     stops: const [0.0, 0.40, 0.72, 0.90, 1.0],
                     colors: [
-                      Colors.black.withOpacity(0.18),
+                      Colors.black.withValues(alpha: 0.18),
                       Colors.transparent,
-                      NexoraTokens.background.withOpacity(0.40),
-                      NexoraTokens.background.withOpacity(0.85),
+                      NexoraTokens.background.withValues(alpha: 0.40),
+                      NexoraTokens.background.withValues(alpha: 0.85),
                       NexoraTokens.background,
                     ],
                   ),
@@ -217,13 +217,13 @@ class _WeatherParticleOverlayPainter extends CustomPainter {
 
   // Cached static paint untuk 2-batch hardware-accelerated GPU draw call
   static final Paint _fgRainPaint = Paint()
-    ..color = const Color(0xFFD0E8FF).withOpacity(0.48)
+    ..color = const Color(0xFFD0E8FF).withValues(alpha: 0.48)
     ..strokeWidth = 1.4
     ..strokeCap = StrokeCap.round
     ..style = PaintingStyle.stroke;
 
   static final Paint _bgRainPaint = Paint()
-    ..color = const Color(0xFFD0E8FF).withOpacity(0.24)
+    ..color = const Color(0xFFD0E8FF).withValues(alpha: 0.24)
     ..strokeWidth = 0.9
     ..strokeCap = StrokeCap.round
     ..style = PaintingStyle.stroke;
@@ -263,8 +263,8 @@ class _WeatherParticleOverlayPainter extends CustomPainter {
     final sunPaint = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFFFFE082).withOpacity(0.32 + 0.12 * sunPulse),
-          const Color(0xFFFFD54F).withOpacity(0.10),
+          const Color(0xFFFFE082).withValues(alpha: 0.32 + 0.12 * sunPulse),
+          const Color(0xFFFFD54F).withValues(alpha: 0.10),
           Colors.transparent,
         ],
         stops: const [0.0, 0.50, 1.0],
@@ -318,9 +318,9 @@ class _WeatherParticleOverlayPainter extends CustomPainter {
 
       _windBasePaint.shader = LinearGradient(
         colors: [
-          Colors.white.withOpacity(0.0),
-          Colors.white.withOpacity(op),
-          Colors.white.withOpacity(0.0),
+          Colors.white.withValues(alpha: 0.0),
+          Colors.white.withValues(alpha: op),
+          Colors.white.withValues(alpha: 0.0),
         ],
       ).createShader(Rect.fromLTWH(startX, y - 10, w, 20));
 
@@ -345,7 +345,7 @@ class _WeatherParticleOverlayPainter extends CustomPainter {
       final x = star.xPercent * size.width;
       final y = star.yPercent * (size.height * 0.85);
 
-      _starPaint.color = Colors.white.withOpacity(0.35 + 0.55 * twinkle);
+      _starPaint.color = Colors.white.withValues(alpha: 0.35 + 0.55 * twinkle);
       canvas.drawCircle(Offset(x, y), star.radius * (0.8 + 0.4 * twinkle), _starPaint);
     }
   }

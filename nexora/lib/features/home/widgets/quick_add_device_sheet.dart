@@ -407,8 +407,7 @@ class _QuickAddDeviceSheetState extends State<QuickAddDeviceSheet> {
               child: ElevatedButton(
                 onPressed: _saveDevice,
                 style: ElevatedButton.styleFrom(
-                  primary: NexoraTokens.brandCyan,
-                  onPrimary: Colors.white,
+                  foregroundColor: Colors.white, backgroundColor: NexoraTokens.brandCyan,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -454,7 +453,7 @@ class _QuickAddDeviceSheetState extends State<QuickAddDeviceSheet> {
           curve: Curves.easeOut,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.12) : const Color(0xFFF8FAFC),
+            color: isSelected ? color.withValues(alpha: 0.12) : const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isSelected ? color : NexoraTokens.cardBorder,

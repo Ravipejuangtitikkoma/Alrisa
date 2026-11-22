@@ -64,8 +64,7 @@ class _CctvManagementScreenState extends State<CctvManagementScreen> {
               icon: const Icon(Icons.add, size: 16),
               label: Text(lang.isIndonesian ? 'Tambah' : 'Add'),
               style: ElevatedButton.styleFrom(
-                primary: NexoraTokens.brandCyan,
-                onPrimary: Colors.white,
+                foregroundColor: Colors.white, backgroundColor: NexoraTokens.brandCyan,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 shape: RoundedRectangleBorder(
@@ -173,7 +172,7 @@ class _CctvManagementScreenState extends State<CctvManagementScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF065F46).withOpacity(0.12),
+                              color: const Color(0xFF065F46).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Row(
@@ -282,7 +281,7 @@ class _CctvManagementScreenState extends State<CctvManagementScreen> {
         border: Border.all(color: NexoraTokens.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.035),
+            color: Colors.black.withValues(alpha: 0.035),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -332,7 +331,7 @@ class _CctvManagementScreenState extends State<CctvManagementScreen> {
                           decoration: BoxDecoration(
                             color: NexoraTokens.statusGreenSubtle,
                             borderRadius: BorderRadius.circular(5),
-                            border: Border.all(color: NexoraTokens.statusGreen.withOpacity(0.3)),
+                            border: Border.all(color: NexoraTokens.statusGreen.withValues(alpha: 0.3)),
                           ),
                           child: const Text(
                             'LIVE',
@@ -378,7 +377,7 @@ class _CctvManagementScreenState extends State<CctvManagementScreen> {
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        color: NexoraTokens.brandCyan.withOpacity(0.25),
+                        color: NexoraTokens.brandCyan.withValues(alpha: 0.25),
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
@@ -524,8 +523,7 @@ class _CctvManagementScreenState extends State<CctvManagementScreen> {
             ElevatedButton(
               onPressed: onAction,
               style: ElevatedButton.styleFrom(
-                primary: NexoraTokens.brandCyan,
-                onPrimary: Colors.white,
+                foregroundColor: Colors.white, backgroundColor: NexoraTokens.brandCyan,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -639,7 +637,7 @@ class _CctvManagementScreenState extends State<CctvManagementScreen> {
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String?>(
                     isExpanded: true,
-                    value: gateDevices.any((d) => d.id == selectedGateId) ? selectedGateId : (gateDevices.isNotEmpty ? gateDevices.first.id : null),
+                    initialValue: gateDevices.any((d) => d.id == selectedGateId) ? selectedGateId : (gateDevices.isNotEmpty ? gateDevices.first.id : null),
                     items: [
                       const DropdownMenuItem<String?>(value: null, child: Text('Tidak ditautkan', overflow: TextOverflow.ellipsis)),
                       ...gateDevices.map((d) => DropdownMenuItem<String?>(value: d.id, child: Text('${d.name} (${d.id})', overflow: TextOverflow.ellipsis))).toList(),
@@ -711,8 +709,7 @@ class _CctvManagementScreenState extends State<CctvManagementScreen> {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        primary: NexoraTokens.brandCyan,
-                        onPrimary: Colors.white,
+                        foregroundColor: Colors.white, backgroundColor: NexoraTokens.brandCyan,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
@@ -841,7 +838,7 @@ class _CctvManagementScreenState extends State<CctvManagementScreen> {
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String?>(
                     isExpanded: true,
-                    value: gateDevices.any((d) => d.id == selectedGateId) ? selectedGateId : null,
+                    initialValue: gateDevices.any((d) => d.id == selectedGateId) ? selectedGateId : null,
                     items: [
                       const DropdownMenuItem<String?>(value: null, child: Text('Tidak ditautkan', overflow: TextOverflow.ellipsis)),
                       ...gateDevices.map((d) => DropdownMenuItem<String?>(value: d.id, child: Text('${d.name} (${d.id})', overflow: TextOverflow.ellipsis))).toList(),
@@ -883,8 +880,7 @@ class _CctvManagementScreenState extends State<CctvManagementScreen> {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        primary: NexoraTokens.brandCyan,
-                        onPrimary: Colors.white,
+                        foregroundColor: Colors.white, backgroundColor: NexoraTokens.brandCyan,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
@@ -930,7 +926,7 @@ class _CctvManagementScreenState extends State<CctvManagementScreen> {
               );
             },
             style: ElevatedButton.styleFrom(
-              primary: Colors.redAccent,
+              backgroundColor: Colors.redAccent,
               elevation: 0,
             ),
             child: const Text('Hapus', style: TextStyle(color: Colors.white)),

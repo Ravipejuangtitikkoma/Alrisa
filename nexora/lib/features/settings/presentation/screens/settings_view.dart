@@ -100,15 +100,15 @@ class _SettingsViewState extends State<SettingsView> {
             Container(
               padding: const EdgeInsets.all(9),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.20),
+                color: Colors.white.withValues(alpha: 0.20),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.40),
+                  color: Colors.white.withValues(alpha: 0.40),
                   width: 1.2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
+                    color: Colors.black.withValues(alpha: 0.08),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -151,7 +151,7 @@ class _SettingsViewState extends State<SettingsView> {
                       fontFamily: NexoraTokens.fontFamilySans,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white.withOpacity(0.92),
+                      color: Colors.white.withValues(alpha: 0.92),
                       shadows: const [
                         Shadow(
                           color: Colors.black38,
@@ -181,7 +181,7 @@ class _SettingsViewState extends State<SettingsView> {
             border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0F172A).withOpacity(0.05),
+                color: const Color(0xFF0F172A).withValues(alpha: 0.05),
                 blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
@@ -212,7 +212,7 @@ class _SettingsViewState extends State<SettingsView> {
                               border: Border.all(color: Colors.white, width: 2),
                               boxShadow: [
                                 BoxShadow(
-                                  color: NexoraTokens.brandCyan.withOpacity(0.4),
+                                  color: NexoraTokens.brandCyan.withValues(alpha: 0.4),
                                   blurRadius: 6,
                                   offset: const Offset(0, 2),
                                 ),
@@ -496,8 +496,7 @@ class _SettingsViewState extends State<SettingsView> {
                       : const Icon(Icons.sync_rounded, size: 18),
                   label: Text(_isReconnecting ? 'Menyinkronkan Sinyal...' : 'Sinkronkan Ulang Saluran'),
                   style: ElevatedButton.styleFrom(
-                    primary: NexoraTokens.brandCyan,
-                    onPrimary: Colors.white,
+                    foregroundColor: Colors.white, backgroundColor: NexoraTokens.brandCyan,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(
@@ -764,8 +763,7 @@ class _SettingsViewState extends State<SettingsView> {
                         icon: const Icon(Icons.photo_library_outlined, size: 16),
                         label: const Text('Dari Galeri'),
                         style: OutlinedButton.styleFrom(
-                          primary: NexoraTokens.ink,
-                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          foregroundColor: NexoraTokens.ink, side: const BorderSide(color: Color(0xFFCBD5E1)),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
@@ -789,8 +787,7 @@ class _SettingsViewState extends State<SettingsView> {
                         icon: const Icon(Icons.camera_alt_outlined, size: 16),
                         label: const Text('Kamera'),
                         style: OutlinedButton.styleFrom(
-                          primary: NexoraTokens.ink,
-                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          foregroundColor: NexoraTokens.ink, side: const BorderSide(color: Color(0xFFCBD5E1)),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
@@ -873,8 +870,7 @@ class _SettingsViewState extends State<SettingsView> {
                       icon: const Icon(Icons.check_rounded, size: 18),
                       label: const Text('Simpan Perubahan'),
                       style: ElevatedButton.styleFrom(
-                        primary: NexoraTokens.brandCyan,
-                        onPrimary: Colors.white,
+                        foregroundColor: Colors.white, backgroundColor: NexoraTokens.brandCyan,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(vertical: 13),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1274,8 +1270,7 @@ class _SettingsViewState extends State<SettingsView> {
               );
             },
             style: ElevatedButton.styleFrom(
-              primary: Colors.redAccent,
-              onPrimary: Colors.white,
+              foregroundColor: Colors.white, backgroundColor: Colors.redAccent,
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),

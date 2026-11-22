@@ -238,7 +238,7 @@ class _PresetsViewState extends State<PresetsView> {
                       icon: const Icon(Icons.check_rounded, size: 20),
                       label: const Text('Simpan Perubahan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                       style: ElevatedButton.styleFrom(
-                        primary: selectedColor,
+                        backgroundColor: selectedColor,
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
@@ -489,7 +489,7 @@ class _PresetsViewState extends State<PresetsView> {
                       icon: const Icon(Icons.check_rounded, size: 20),
                       label: const Text('Simpan Preset', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                       style: ElevatedButton.styleFrom(
-                        primary: selectedColor,
+                        backgroundColor: selectedColor,
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
@@ -505,7 +505,7 @@ class _PresetsViewState extends State<PresetsView> {
   }
 
   Widget _buildColorChoice(Color color, Color selected, VoidCallback onTap) {
-    final isSelected = color.value == selected.value;
+    final isSelected = color.toARGB32() == selected.toARGB32();
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -520,7 +520,7 @@ class _PresetsViewState extends State<PresetsView> {
             width: isSelected ? 2.5 : 1.5,
           ),
           boxShadow: [
-            BoxShadow(color: color.withOpacity(0.3), blurRadius: 5, offset: const Offset(0, 2)),
+            BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 5, offset: const Offset(0, 2)),
           ],
         ),
       ),
@@ -548,15 +548,15 @@ class _PresetsViewState extends State<PresetsView> {
                       Container(
                         padding: const EdgeInsets.all(9),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.20),
+                          color: Colors.white.withValues(alpha: 0.20),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.40),
+                            color: Colors.white.withValues(alpha: 0.40),
                             width: 1.2,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
+                              color: Colors.black.withValues(alpha: 0.08),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -599,7 +599,7 @@ class _PresetsViewState extends State<PresetsView> {
                                 fontFamily: NexoraTokens.fontFamilySans,
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w500,
-                                color: Colors.white.withOpacity(0.92),
+                                color: Colors.white.withValues(alpha: 0.92),
                                 shadows: const [
                                   Shadow(
                                     color: Colors.black38,
@@ -624,7 +624,7 @@ class _PresetsViewState extends State<PresetsView> {
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
                   ),
                   style: ElevatedButton.styleFrom(
-                    primary: NexoraTokens.brandCyan,
+                    backgroundColor: NexoraTokens.brandCyan,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -656,7 +656,7 @@ class _PresetsViewState extends State<PresetsView> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: preset.accentColor.withOpacity(preset.isActive ? 0.12 : 0.04),
+                        color: preset.accentColor.withValues(alpha: preset.isActive ? 0.12 : 0.04),
                         blurRadius: preset.isActive ? 16 : 8,
                         offset: const Offset(0, 4),
                       ),
@@ -669,7 +669,7 @@ class _PresetsViewState extends State<PresetsView> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: preset.accentColor.withOpacity(preset.isActive ? 0.2 : 0.1),
+                          color: preset.accentColor.withValues(alpha: preset.isActive ? 0.2 : 0.1),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Icon(
@@ -705,7 +705,7 @@ class _PresetsViewState extends State<PresetsView> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: preset.accentColor.withOpacity(0.15),
+                                      color: preset.accentColor.withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(

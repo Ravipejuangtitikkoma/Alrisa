@@ -105,7 +105,7 @@ class _GateCarouselState extends State<GateCarousel> {
                               duration: const Duration(milliseconds: 220),
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: isSelected ? NexoraTokens.brandCyan : Colors.white.withOpacity(0.85),
+                                color: isSelected ? NexoraTokens.brandCyan : Colors.white.withValues(alpha: 0.85),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
                                   color: isSelected
@@ -116,7 +116,7 @@ class _GateCarouselState extends State<GateCarousel> {
                                 boxShadow: isSelected
                                     ? [
                                         BoxShadow(
-                                          color: NexoraTokens.brandCyan.withOpacity(0.35),
+                                          color: NexoraTokens.brandCyan.withValues(alpha: 0.35),
                                           blurRadius: 8,
                                           offset: const Offset(0, 2),
                                         )
@@ -157,7 +157,7 @@ class _GateCarouselState extends State<GateCarousel> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.22),
+                    color: Colors.black.withValues(alpha: 0.22),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -222,7 +222,7 @@ class _GateCarouselState extends State<GateCarousel> {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? NexoraTokens.brandCyan
-                        : Colors.white.withOpacity(0.4),
+                        : Colors.white.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(3),
                   ),
                 );
@@ -274,7 +274,7 @@ class _GateCarouselState extends State<GateCarousel> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: NexoraTokens.brandCyan.withOpacity(0.12),
+                      color: NexoraTokens.brandCyan.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
@@ -385,7 +385,7 @@ class _GateCarouselState extends State<GateCarousel> {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    primary: NexoraTokens.brandCyan,
+                    backgroundColor: NexoraTokens.brandCyan,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     elevation: 0,
                   ),

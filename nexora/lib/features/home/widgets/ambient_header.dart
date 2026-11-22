@@ -83,10 +83,10 @@ class AmbientHeader extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.22),
+                  color: Colors.white.withValues(alpha: 0.22),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.40),
+                    color: Colors.white.withValues(alpha: 0.40),
                     width: 1.0,
                   ),
                 ),
@@ -106,7 +106,7 @@ class AmbientHeader extends StatelessWidget {
                           fontFamily: NexoraTokens.fontFamilySans,
                           fontSize: 10,
                           fontWeight: !isEn ? FontWeight.w800 : FontWeight.w600,
-                          color: !isEn ? NexoraTokens.ink : Colors.white.withOpacity(0.9),
+                          color: !isEn ? NexoraTokens.ink : Colors.white.withValues(alpha: 0.9),
                         ),
                       ),
                     ),
@@ -124,7 +124,7 @@ class AmbientHeader extends StatelessWidget {
                           fontFamily: NexoraTokens.fontFamilySans,
                           fontSize: 10,
                           fontWeight: isEn ? FontWeight.w800 : FontWeight.w600,
-                          color: isEn ? NexoraTokens.ink : Colors.white.withOpacity(0.9),
+                          color: isEn ? NexoraTokens.ink : Colors.white.withValues(alpha: 0.9),
                         ),
                       ),
                     ),
@@ -148,10 +148,10 @@ class AmbientHeader extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.24),
+                  color: Colors.white.withValues(alpha: 0.24),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.45),
+                    color: Colors.white.withValues(alpha: 0.45),
                     width: 1.0,
                   ),
                 ),
@@ -235,12 +235,12 @@ class AmbientHeader extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: AuthService().isSuperAdmin
-                    ? const Color(0xFF581C87).withOpacity(0.65)
-                    : Colors.black.withOpacity(0.30),
+                    ? const Color(0xFF581C87).withValues(alpha: 0.65)
+                    : Colors.black.withValues(alpha: 0.30),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: AuthService().isSuperAdmin
-                      ? Colors.purpleAccent.withOpacity(0.7)
+                      ? Colors.purpleAccent.withValues(alpha: 0.7)
                       : Colors.white38,
                   width: 1,
                 ),
@@ -281,11 +281,11 @@ class AmbientHeader extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: isManual
-                        ? Colors.black.withOpacity(0.32)
-                        : const Color(0xFF064E3B).withOpacity(0.75),
+                        ? Colors.black.withValues(alpha: 0.32)
+                        : const Color(0xFF064E3B).withValues(alpha: 0.75),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isManual ? Colors.white30 : const Color(0xFF34D399).withOpacity(0.6),
+                      color: isManual ? Colors.white30 : const Color(0xFF34D399).withValues(alpha: 0.6),
                       width: 1,
                     ),
                   ),
@@ -323,10 +323,10 @@ class AmbientHeader extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.32),
+                  color: Colors.black.withValues(alpha: 0.32),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.42),
+                    color: Colors.white.withValues(alpha: 0.42),
                     width: 1.0,
                   ),
                 ),
@@ -355,7 +355,7 @@ class AmbientHeader extends StatelessWidget {
                         fontFamily: NexoraTokens.fontFamilySans,
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white.withOpacity(0.95),
+                        color: Colors.white.withValues(alpha: 0.95),
                       ),
                     ),
                     if (shortCity.isNotEmpty) ...[
@@ -393,7 +393,7 @@ class AmbientHeader extends StatelessWidget {
           style: NexoraTokens.ambientStatus.copyWith(
             fontSize: 12.5,
             fontWeight: FontWeight.w600,
-            color: Colors.white.withOpacity(0.95),
+            color: Colors.white.withValues(alpha: 0.95),
             shadows: const [
               Shadow(
                 color: Colors.black54,

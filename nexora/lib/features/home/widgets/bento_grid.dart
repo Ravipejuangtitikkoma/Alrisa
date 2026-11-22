@@ -274,7 +274,7 @@ class _SingleDimmerLightCardState extends State<_SingleDimmerLightCard> {
                     boxShadow: [
                       if (isLightOn)
                         BoxShadow(
-                          color: NexoraTokens.brandCyan.withOpacity(0.35 * _brightness),
+                          color: NexoraTokens.brandCyan.withValues(alpha: 0.35 * _brightness),
                           blurRadius: 18 * _brightness,
                           spreadRadius: 3 * _brightness,
                         ),
@@ -355,7 +355,7 @@ class _SingleDimmerLightCardState extends State<_SingleDimmerLightCard> {
                     inactiveTrackColor: NexoraTokens.cardBorder,
                     thumbColor: Colors.white,
                     thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 9),
-                    overlayColor: NexoraTokens.brandCyan.withOpacity(0.12),
+                    overlayColor: NexoraTokens.brandCyan.withValues(alpha: 0.12),
                   ),
                   child: Slider(
                     value: _brightness,
@@ -994,7 +994,7 @@ class _SlidingDoorPainter extends CustomPainter {
     // Cahaya Ruangan di Celah saat Terbuka
     if (progress > 0.05) {
       final lightPaint = Paint()
-        ..color = const Color(0xFFFFF3DB).withOpacity(0.9 * progress)
+        ..color = const Color(0xFFFFF3DB).withValues(alpha: 0.9 * progress)
         ..style = PaintingStyle.fill;
 
       canvas.drawRect(
@@ -1009,7 +1009,7 @@ class _SlidingDoorPainter extends CustomPainter {
     final currentX = 2.0 + (slideDistance * progress);
 
     final doorPaint = Paint()
-      ..color = progress > 0.3 ? NexoraTokens.brandCyan : NexoraTokens.ink.withOpacity(0.7)
+      ..color = progress > 0.3 ? NexoraTokens.brandCyan : NexoraTokens.ink.withValues(alpha: 0.7)
       ..strokeWidth = 1.4
       ..style = PaintingStyle.stroke;
 
@@ -1060,7 +1060,7 @@ class _CurtainsPainter extends CustomPainter {
     // Jendela Kaca di Balik Gorden saat Terbuka
     if (progress > 0.05) {
       final windowPaint = Paint()
-        ..color = const Color(0xFFE2F4FD).withOpacity(0.85 * progress)
+        ..color = const Color(0xFFE2F4FD).withValues(alpha: 0.85 * progress)
         ..style = PaintingStyle.fill;
 
       canvas.drawRRect(
@@ -1073,7 +1073,7 @@ class _CurtainsPainter extends CustomPainter {
 
       // Garis silang jendela tipis
       final panePaint = Paint()
-        ..color = Colors.white.withOpacity(0.7 * progress)
+        ..color = Colors.white.withValues(alpha: 0.7 * progress)
         ..strokeWidth = 1.0;
       canvas.drawLine(Offset(size.width / 2, 4), Offset(size.width / 2, size.height - 1), panePaint);
       canvas.drawLine(Offset(3, size.height * 0.52), Offset(size.width - 3, size.height * 0.52), panePaint);
@@ -1084,13 +1084,13 @@ class _CurtainsPainter extends CustomPainter {
     final currentPanelWidth = halfWidth - (halfWidth * 0.65 * progress);
 
     final curtainStroke = Paint()
-      ..color = progress > 0.3 ? NexoraTokens.brandCyan : NexoraTokens.ink.withOpacity(0.75)
+      ..color = progress > 0.3 ? NexoraTokens.brandCyan : NexoraTokens.ink.withValues(alpha: 0.75)
       ..strokeWidth = 1.4
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 
     final curtainFill = Paint()
-      ..color = Colors.white.withOpacity(0.92)
+      ..color = Colors.white.withValues(alpha: 0.92)
       ..style = PaintingStyle.fill;
 
     // Panel Kiri

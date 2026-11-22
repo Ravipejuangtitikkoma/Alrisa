@@ -255,8 +255,8 @@ class _SparklinePainter extends CustomPainter {
       _lastShaderSize = size;
       _fillPaint.shader = LinearGradient(
         colors: [
-          NexoraTokens.statusAmber.withOpacity(0.18),
-          NexoraTokens.statusAmber.withOpacity(0.0),
+          NexoraTokens.statusAmber.withValues(alpha: 0.18),
+          NexoraTokens.statusAmber.withValues(alpha: 0.0),
         ],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,

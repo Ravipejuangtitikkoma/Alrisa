@@ -398,6 +398,9 @@ class MqttService {
           : (state ? 'Menyala' : 'Mati'),
     );
 
+    // 2B. Sinkronkan juga langsung ke Website Cloud (REST API) secara paralel agar instan terupdate
+    CloudSyncService().syncDeviceState(deviceId, state, value: value);
+
     // 3. Teruskan ke broker MQTT jika terhubung
     if (_client == null || _client?.connectionStatus?.state != MqttConnectionState.connected) {
       debugPrint('⚠️ [MQTT] Status: Belum terhubung (state: ${_client?.connectionStatus?.state}). Mencoba connect ulang...');
@@ -418,10 +421,7 @@ class MqttService {
       // Siarkan juga ke nexora/<deviceId>/set agar ESP32 & Web Server lokal langsung sinkron
       if (topic != 'nexora/$deviceId/set') {
         final nexoraBuilder = MqttClientPayloadBuilder();
-        final rawAction = state
-            ? (deviceId.contains('pagar') || deviceId.contains('pintu') || deviceId.contains('gorden') ? 'BUKA' : 'ON')
-            : (deviceId.contains('pagar') || deviceId.contains('pintu') || deviceId.contains('gorden') ? 'TUTUP' : 'OFF');
-        nexoraBuilder.addString(rawAction);
+        nexoraBuilder.addString(jsonString);
         _client!.publishMessage(
           'nexora/$deviceId/set',
           MqttQos.atLeastOnce,

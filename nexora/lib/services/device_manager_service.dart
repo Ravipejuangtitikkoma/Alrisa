@@ -357,11 +357,16 @@ class DeviceManagerService {
   /// Sinkronisasi daftar perangkat dinamis dari Cloud/Website ke memori HP dan disk lokal
   /// (Dua arah: jika di website gerbang ditambah/dihapus/ubah pin, otomatis ter-update di HP)
   void setDevicesFromRemote(List<CustomDeviceItem> newDevices, {String? targetUserKey}) {
-    final key = targetUserKey?.toLowerCase().trim() ?? _activeUserKey;
+    final currentEmail = AuthService().currentUser?.email.toLowerCase().trim();
+    final key = targetUserKey?.toLowerCase().trim() ?? currentEmail ?? _activeUserKey;
 
-    // Cek apakah benar-benar ada perubahan data sebelum memicu rebuild UI / menutup dropdown aktif
+    if (currentEmail != null && currentEmail.isNotEmpty && _activeUserKey != currentEmail) {
+      _activeUserKey = currentEmail;
+    }
+
+    // Cek apakah benar-benar ada perubahan data sebelum memicu rebuild UI
     bool hasChanged = false;
-    final currentList = _activeUserKey == key ? _devices : (_userDevicesDb[key] ?? []);
+    final currentList = (_activeUserKey == key || currentEmail == key) ? _devices : (_userDevicesDb[key] ?? []);
     if (currentList.length != newDevices.length) {
       hasChanged = true;
     } else {
@@ -380,10 +385,10 @@ class DeviceManagerService {
       }
     }
 
-    if (!hasChanged) return;
+    if (!hasChanged && (_activeUserKey == key && _devices.isNotEmpty)) return;
 
     _userDevicesDb[key] = List.from(newDevices);
-    if (_activeUserKey == key) {
+    if (_activeUserKey == key || _activeUserKey == 'default' || currentEmail == key) {
       _devices.clear();
       _devices.addAll(newDevices);
       _devicesController.add(List.unmodifiable(_devices));

@@ -38,12 +38,12 @@ class NexoraLogo extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
           BoxShadow(
-            color: const Color(0xFF65B8EA).withOpacity(0.20 * pulseValue),
+            color: const Color(0xFF65B8EA).withValues(alpha: 0.20 * pulseValue),
             blurRadius: 24,
             spreadRadius: 2,
             offset: const Offset(0, 8),

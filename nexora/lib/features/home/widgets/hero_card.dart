@@ -169,19 +169,19 @@ class _HeroCardState extends State<HeroCard> with TickerProviderStateMixin {
         border: Border.all(
           color: isOpen
               ? NexoraTokens.brandCyanBorder
-              : (isMoving ? NexoraTokens.statusAmber.withOpacity(0.5) : const Color(0xFFE2E8F0)),
+              : (isMoving ? NexoraTokens.statusAmber.withValues(alpha: 0.5) : const Color(0xFFE2E8F0)),
           width: isOpen ? 1.5 : 1.0,
         ),
         boxShadow: isOpen
             ? NexoraTokens.cardShadowActive(NexoraTokens.brandCyan)
             : [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 18,
                   offset: const Offset(0, 6),
                 ),
                 BoxShadow(
-                  color: NexoraTokens.brandCyan.withOpacity(0.03),
+                  color: NexoraTokens.brandCyan.withValues(alpha: 0.03),
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
@@ -493,7 +493,7 @@ class _HeroCardState extends State<HeroCard> with TickerProviderStateMixin {
               boxShadow: isOpen
                   ? [
                       BoxShadow(
-                        color: NexoraTokens.brandCyan.withOpacity(0.28),
+                        color: NexoraTokens.brandCyan.withValues(alpha: 0.28),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       )
@@ -539,7 +539,7 @@ class _HeroCardState extends State<HeroCard> with TickerProviderStateMixin {
               boxShadow: !isOpen
                   ? [
                       BoxShadow(
-                        color: NexoraTokens.ink.withOpacity(0.25),
+                        color: NexoraTokens.ink.withValues(alpha: 0.25),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       )
@@ -594,8 +594,8 @@ class _GateDedicatedScenePainter extends CustomPainter {
       final amberTintPaint = Paint()
         ..shader = LinearGradient(
           colors: [
-            NexoraTokens.statusAmber.withOpacity(0.18 * progress),
-            NexoraTokens.statusAmber.withOpacity(0.04 * progress),
+            NexoraTokens.statusAmber.withValues(alpha: 0.18 * progress),
+            NexoraTokens.statusAmber.withValues(alpha: 0.04 * progress),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -626,7 +626,7 @@ class _GateDedicatedScenePainter extends CustomPainter {
     if (progress < 0.2) {
       final lockAlpha = ((0.2 - progress) / 0.2).clamp(0.0, 1.0);
       final lockPaint = Paint()
-        ..color = NexoraTokens.statusGreen.withOpacity(lockAlpha)
+        ..color = NexoraTokens.statusGreen.withValues(alpha: lockAlpha)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5;
 
@@ -639,7 +639,7 @@ class _GateDedicatedScenePainter extends CustomPainter {
         lockPaint,
       );
       final bodyPaint = Paint()
-        ..color = NexoraTokens.statusGreen.withOpacity(lockAlpha)
+        ..color = NexoraTokens.statusGreen.withValues(alpha: lockAlpha)
         ..style = PaintingStyle.fill;
       canvas.drawRRect(
         RRect.fromRectAndRadius(
@@ -658,7 +658,7 @@ class _GateDedicatedScenePainter extends CustomPainter {
 
     // Bingkai Pintu Pagar
     final gateFramePaint = Paint()
-      ..color = NexoraTokens.ink.withOpacity(0.85)
+      ..color = NexoraTokens.ink.withValues(alpha: 0.85)
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
@@ -670,7 +670,7 @@ class _GateDedicatedScenePainter extends CustomPainter {
 
     // 8 Bar Vertikal di dalam Pagar
     final barPaint = Paint()
-      ..color = NexoraTokens.ink.withOpacity(0.70)
+      ..color = NexoraTokens.ink.withValues(alpha: 0.70)
       ..strokeWidth = 1.4
       ..strokeCap = StrokeCap.round;
 

@@ -23,7 +23,7 @@ void showOfflineWarning(BuildContext context, String featureName) {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFFF5A524).withOpacity(0.18),
+              color: const Color(0xFFF5A524).withValues(alpha: 0.18),
               shape: BoxShape.circle,
             ),
             child: const Icon(

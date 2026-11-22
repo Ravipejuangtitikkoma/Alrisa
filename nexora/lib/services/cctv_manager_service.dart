@@ -322,45 +322,22 @@ class CctvManagerService {
 
   /// Sinkronisasi daftar kamera CCTV & URL RTSP dari Website Cloud ke HP secara real-time
   void setCamerasFromRemote(List<CctvCameraItem> newCameras, {String? targetUserKey}) {
-    final key = targetUserKey?.toLowerCase().trim() ?? _activeUserKey;
+    final currentEmail = AuthService().currentUser?.email.toLowerCase().trim();
+    final key = targetUserKey?.toLowerCase().trim() ?? currentEmail ?? _activeUserKey;
 
-    bool streamChanged = false;
-    if (_activeUserKey == key) {
-      if (_cameras.length != newCameras.length) {
-        streamChanged = true;
-      } else {
-        for (int i = 0; i < newCameras.length; i++) {
-          final oldCam = _cameras.firstWhere(
-            (c) => c.id == newCameras[i].id,
-            orElse: () => CctvCameraItem(id: '', name: '', location: '', rtspUrl: ''),
-          );
-          if (oldCam.id.isEmpty ||
-              oldCam.rtspUrl.trim() != newCameras[i].rtspUrl.trim() ||
-              oldCam.name != newCameras[i].name ||
-              oldCam.location != newCameras[i].location ||
-              oldCam.boundGateId != newCameras[i].boundGateId) {
-            streamChanged = true;
-            break;
-          }
-        }
-      }
-    }
-
-    if (!streamChanged && _activeUserKey == key) {
-      return;
+    if (currentEmail != null && currentEmail.isNotEmpty && _activeUserKey != currentEmail) {
+      _activeUserKey = currentEmail;
     }
 
     _userCamerasDb[key] = List.from(newCameras);
-    if (_activeUserKey == key) {
+    if (_activeUserKey == key || _activeUserKey == 'default' || currentEmail == key) {
       _cameras.clear();
       _cameras.addAll(newCameras);
       _cctvController.add(List.unmodifiable(_cameras));
-      if (streamChanged) {
-        triggerRefresh();
-      }
+      triggerRefresh();
     }
     _saveToDisk(key);
-    debugPrint('📹 [CCTV SYNC] Berhasil sinkronisasi ${newCameras.length} CCTV dari Website ke HP untuk $key');
+    debugPrint('📹 [CCTV SYNC] Berhasil sinkronisasi ${_cameras.length} CCTV dari Website ke HP untuk $key');
   }
 
   CctvCameraItem? getCameraForGate(String gateId) {

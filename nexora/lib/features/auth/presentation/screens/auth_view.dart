@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nexora/core/design_tokens.dart';
@@ -212,7 +211,7 @@ class _AuthViewState extends State<AuthView> {
                           backgroundColor: const Color(0xFF0284C7),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           elevation: 2,
-                          shadowColor: const Color(0xFF0284C7).withOpacity(0.4),
+                          shadowColor: const Color(0xFF0284C7).withValues(alpha: 0.4),
                         ),
                         child: sheetLoading
                             ? const SizedBox(
@@ -476,12 +475,12 @@ class _AuthViewState extends State<AuthView> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.95),
+          color: Colors.white.withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: const Color(0xFFE2E8F0)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -589,12 +588,12 @@ class _AuthViewState extends State<AuthView> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF0284C7).withOpacity(0.18),
+                            color: const Color(0xFF0284C7).withValues(alpha: 0.18),
                             blurRadius: 24,
                             offset: const Offset(0, 8),
                           ),
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: Colors.black.withValues(alpha: 0.04),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -660,7 +659,7 @@ class _AuthViewState extends State<AuthView> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF0F172A).withOpacity(0.05),
+                            color: const Color(0xFF0F172A).withValues(alpha: 0.05),
                             blurRadius: 24,
                             offset: const Offset(0, 10),
                           ),
@@ -849,7 +848,7 @@ class _AuthViewState extends State<AuthView> {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0284C7).withOpacity(0.35),
+            color: const Color(0xFF0284C7).withValues(alpha: 0.35),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),

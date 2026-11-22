@@ -53,13 +53,13 @@ class NexoraTokens {
   // ==========================================
   static List<BoxShadow> get cardShadow => [
     BoxShadow(
-      color: const Color(0xFF0F1417).withOpacity(0.04),
+      color: const Color(0xFF0F1417).withValues(alpha: 0.04),
       blurRadius: 20,
       spreadRadius: 0,
       offset: const Offset(0, 8),
     ),
     BoxShadow(
-      color: const Color(0xFF0F1417).withOpacity(0.02),
+      color: const Color(0xFF0F1417).withValues(alpha: 0.02),
       blurRadius: 8,
       spreadRadius: 0,
       offset: const Offset(0, 2),
@@ -68,13 +68,13 @@ class NexoraTokens {
 
   static List<BoxShadow> cardShadowActive(Color glowColor) => [
     BoxShadow(
-      color: glowColor.withOpacity(0.18),
+      color: glowColor.withValues(alpha: 0.18),
       blurRadius: 24,
       spreadRadius: 0,
       offset: const Offset(0, 10),
     ),
     BoxShadow(
-      color: const Color(0xFF0F1417).withOpacity(0.03),
+      color: const Color(0xFF0F1417).withValues(alpha: 0.03),
       blurRadius: 10,
       spreadRadius: 0,
       offset: const Offset(0, 2),
@@ -83,13 +83,13 @@ class NexoraTokens {
 
   static List<BoxShadow> get pillNavShadow => [
     BoxShadow(
-      color: const Color(0xFF0F1417).withOpacity(0.12),
+      color: const Color(0xFF0F1417).withValues(alpha: 0.12),
       blurRadius: 30,
       spreadRadius: 0,
       offset: const Offset(0, 12),
     ),
     BoxShadow(
-      color: const Color(0xFF0F1417).withOpacity(0.04),
+      color: const Color(0xFF0F1417).withValues(alpha: 0.04),
       blurRadius: 10,
       spreadRadius: 0,
       offset: const Offset(0, 4),

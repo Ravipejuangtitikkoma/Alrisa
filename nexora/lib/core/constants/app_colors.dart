@@ -40,7 +40,7 @@ class AppColors {
   static List<BoxShadow> get cardShadow => NexoraTokens.cardShadow;
   static List<BoxShadow> get cyanSoftGlow => [
     BoxShadow(
-      color: primaryCyan.withOpacity(0.18),
+      color: primaryCyan.withValues(alpha: 0.18),
       blurRadius: 16,
       spreadRadius: 0,
       offset: const Offset(0, 4),

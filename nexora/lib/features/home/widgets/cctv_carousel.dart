@@ -111,7 +111,7 @@ class _CctvCarouselState extends State<CctvCarousel> {
                               duration: const Duration(milliseconds: 200),
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: isSelected ? NexoraTokens.brandCyan : Colors.white.withOpacity(0.85),
+                                color: isSelected ? NexoraTokens.brandCyan : Colors.white.withValues(alpha: 0.85),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
                                   color: isSelected ? NexoraTokens.brandCyan : const Color(0xFFCBD5E1),
@@ -120,7 +120,7 @@ class _CctvCarouselState extends State<CctvCarousel> {
                                 boxShadow: isSelected
                                     ? [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.18),
+                                          color: Colors.black.withValues(alpha: 0.18),
                                           blurRadius: 6,
                                           offset: const Offset(0, 2),
                                         ),
@@ -161,7 +161,7 @@ class _CctvCarouselState extends State<CctvCarousel> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.25),
+                    color: Colors.black.withValues(alpha: 0.25),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(

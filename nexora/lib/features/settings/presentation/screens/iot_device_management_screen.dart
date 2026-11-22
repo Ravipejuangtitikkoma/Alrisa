@@ -64,8 +64,7 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
               icon: const Icon(Icons.add, size: 16),
               label: Text(lang.isIndonesian ? 'Tambah' : 'Add'),
               style: ElevatedButton.styleFrom(
-                primary: NexoraTokens.brandCyan,
-                onPrimary: Colors.white,
+                foregroundColor: Colors.white, backgroundColor: NexoraTokens.brandCyan,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 shape: RoundedRectangleBorder(
@@ -348,7 +347,7 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
         border: Border.all(color: NexoraTokens.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -360,7 +359,7 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: devColor.withOpacity(0.12),
+              color: devColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(devIcon, size: 22, color: devColor),
@@ -440,7 +439,7 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
                 color: dev.isActive ? NexoraTokens.statusGreenSubtle : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: dev.isActive ? NexoraTokens.statusGreen.withOpacity(0.4) : const Color(0xFFCBD5E1),
+                  color: dev.isActive ? NexoraTokens.statusGreen.withValues(alpha: 0.4) : const Color(0xFFCBD5E1),
                 ),
               ),
               child: Text(
@@ -526,8 +525,7 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
             ElevatedButton(
               onPressed: onAction,
               style: ElevatedButton.styleFrom(
-                primary: NexoraTokens.brandCyan,
-                onPrimary: Colors.white,
+                foregroundColor: Colors.white, backgroundColor: NexoraTokens.brandCyan,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -637,7 +635,7 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
                   const SizedBox(height: 6),
                   DropdownButtonFormField<DeviceType>(
                     isExpanded: true,
-                    value: selectedType,
+                    initialValue: selectedType,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
@@ -722,8 +720,7 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        primary: NexoraTokens.brandCyan,
-                        onPrimary: Colors.white,
+                        foregroundColor: Colors.white, backgroundColor: NexoraTokens.brandCyan,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
@@ -846,8 +843,7 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    primary: NexoraTokens.brandCyan,
-                    onPrimary: Colors.white,
+                    foregroundColor: Colors.white, backgroundColor: NexoraTokens.brandCyan,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
@@ -891,7 +887,7 @@ class _IotDeviceManagementScreenState extends State<IotDeviceManagementScreen> {
               );
             },
             style: ElevatedButton.styleFrom(
-              primary: Colors.redAccent,
+              backgroundColor: Colors.redAccent,
               elevation: 0,
             ),
             child: const Text('Hapus', style: TextStyle(color: Colors.white)),

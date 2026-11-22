@@ -6,6 +6,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:nexora/core/config/mqtt_config.dart';
 import 'package:nexora/services/mqtt_service.dart';
 import 'package:nexora/services/cloud_sync_service.dart';
+import 'package:nexora/services/device_manager_service.dart';
+import 'package:nexora/services/cctv_manager_service.dart';
+import 'package:nexora/services/preset_manager_service.dart';
 
 enum UserRole {
   superadmin,
@@ -227,15 +230,22 @@ class AuthService {
           _lastActiveTime = DateTime.now();
           _authController.add(_currentUser);
 
+          // Muat dataset perangkat & CCTV milik user ini
+          DeviceManagerService().loadUserDevices(_currentUser!.email);
+          CctvManagerService().loadUserCameras(_currentUser!.email);
+          PresetManagerService().loadUserPresets(_currentUser!.email);
+
           // Sinkronkan prefix MQTT akun ini
           MqttConfig.updateConfig(
             newBroker: _currentUser!.mqttBroker,
             newPort: _currentUser!.mqttPort,
             newPrefix: _currentUser!.mqttPrefix,
           );
+          MqttService().reconnect();
 
           // Simpan timestamp terbaru (Rolling Session)
           await _saveSessionToFile(_currentUser!, _lastActiveTime!);
+          CloudSyncService().fetchFromCloud(targetEmail: _currentUser!.email, targetAccountId: _currentUser!.id);
           return true;
         }
       }
@@ -373,6 +383,11 @@ class AuthService {
           _lastActiveTime = DateTime.now();
           _authController.add(_currentUser);
 
+          // Muat dataset perangkat & CCTV milik user ini ke UI
+          DeviceManagerService().loadUserDevices(user.email);
+          CctvManagerService().loadUserCameras(user.email);
+          PresetManagerService().loadUserPresets(user.email);
+
           // Update MQTT Config
           MqttConfig.updateConfig(
             newBroker: user.mqttBroker,
@@ -382,7 +397,7 @@ class AuthService {
           MqttService().reconnect();
 
           await _saveSessionToFile(_currentUser!, _lastActiveTime!);
-          CloudSyncService().fetchFromCloud();
+          CloudSyncService().fetchFromCloud(targetEmail: user.email, targetAccountId: user.id);
 
           return {
             'success': true,
@@ -421,6 +436,11 @@ class AuthService {
     _lastActiveTime = DateTime.now();
     _authController.add(_currentUser);
 
+    // Muat dataset perangkat & CCTV milik user ini ke UI
+    DeviceManagerService().loadUserDevices(user.email);
+    CctvManagerService().loadUserCameras(user.email);
+    PresetManagerService().loadUserPresets(user.email);
+
     MqttConfig.updateConfig(
       newBroker: user.mqttBroker,
       newPort: user.mqttPort,
@@ -429,6 +449,7 @@ class AuthService {
     MqttService().reconnect();
 
     await _saveSessionToFile(_currentUser!, _lastActiveTime!);
+    CloudSyncService().fetchFromCloud(targetEmail: user.email, targetAccountId: user.id);
 
     return {
       'success': true,
@@ -458,7 +479,19 @@ class AuthService {
     _lastActiveTime = DateTime.now();
     _authController.add(_currentUser);
 
+    DeviceManagerService().loadUserDevices(user.email);
+    CctvManagerService().loadUserCameras(user.email);
+    PresetManagerService().loadUserPresets(user.email);
+
+    MqttConfig.updateConfig(
+      newBroker: user.mqttBroker,
+      newPort: user.mqttPort,
+      newPrefix: user.mqttPrefix,
+    );
+    MqttService().reconnect();
+
     await _saveSessionToFile(_currentUser!, _lastActiveTime!);
+    CloudSyncService().fetchFromCloud(targetEmail: user.email, targetAccountId: user.id);
 
     return {
       'success': true,

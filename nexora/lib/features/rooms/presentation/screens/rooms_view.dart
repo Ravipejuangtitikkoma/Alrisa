@@ -193,15 +193,15 @@ class _RoomsViewState extends State<RoomsView> {
                   Container(
                     padding: const EdgeInsets.all(9),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.20),
+                      color: Colors.white.withValues(alpha: 0.20),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.40),
+                        color: Colors.white.withValues(alpha: 0.40),
                         width: 1.2,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
+                          color: Colors.black.withValues(alpha: 0.08),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -246,7 +246,7 @@ class _RoomsViewState extends State<RoomsView> {
                             fontFamily: NexoraTokens.fontFamilySans,
                             fontSize: 12.5,
                             fontWeight: FontWeight.w500,
-                            color: Colors.white.withOpacity(0.92),
+                            color: Colors.white.withValues(alpha: 0.92),
                             shadows: const [
                               Shadow(
                                 color: Colors.black38,
@@ -309,7 +309,7 @@ class _RoomsViewState extends State<RoomsView> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
+                      color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -383,7 +383,7 @@ class _RoomsViewState extends State<RoomsView> {
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: NexoraTokens.brandCyan.withOpacity(0.3),
+                              color: NexoraTokens.brandCyan.withValues(alpha: 0.3),
                               blurRadius: 10,
                               offset: const Offset(0, 3),
                             ),
@@ -517,7 +517,7 @@ class _RoomsViewState extends State<RoomsView> {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: section.accentColor.withOpacity(0.12),
+                        color: section.accentColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
@@ -543,7 +543,7 @@ class _RoomsViewState extends State<RoomsView> {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: activeCount > 0
-                        ? section.accentColor.withOpacity(0.12)
+                        ? section.accentColor.withValues(alpha: 0.12)
                         : const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -723,7 +723,7 @@ class _RoomsViewState extends State<RoomsView> {
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      primary: dev.isActive ? NexoraTokens.brandCyan : Colors.white,
+                      backgroundColor: dev.isActive ? NexoraTokens.brandCyan : Colors.white,
                       elevation: dev.isActive ? 2 : 0,
                       side: BorderSide(
                         color: dev.isActive ? NexoraTokens.brandCyan : NexoraTokens.cardBorder,
@@ -755,7 +755,7 @@ class _RoomsViewState extends State<RoomsView> {
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      primary: !dev.isActive ? NexoraTokens.ink : Colors.white,
+                      backgroundColor: !dev.isActive ? NexoraTokens.ink : Colors.white,
                       elevation: !dev.isActive ? 2 : 0,
                       side: BorderSide(
                         color: !dev.isActive ? NexoraTokens.ink : NexoraTokens.cardBorder,
@@ -795,7 +795,7 @@ class _RoomsViewState extends State<RoomsView> {
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      primary: dev.isActive ? NexoraTokens.brandCyan : Colors.white,
+                      backgroundColor: dev.isActive ? NexoraTokens.brandCyan : Colors.white,
                       elevation: dev.isActive ? 2 : 0,
                       side: BorderSide(
                         color: dev.isActive ? NexoraTokens.brandCyan : NexoraTokens.cardBorder,
@@ -827,7 +827,7 @@ class _RoomsViewState extends State<RoomsView> {
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      primary: !dev.isActive ? NexoraTokens.ink : Colors.white,
+                      backgroundColor: !dev.isActive ? NexoraTokens.ink : Colors.white,
                       elevation: !dev.isActive ? 2 : 0,
                       side: BorderSide(
                         color: !dev.isActive ? NexoraTokens.ink : NexoraTokens.cardBorder,

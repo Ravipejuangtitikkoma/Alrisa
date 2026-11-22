@@ -65,7 +65,7 @@ class PresetSceneItem {
     'name': name,
     'description': description,
     'icon': icon.codePoint,
-    'accentColor': accentColor.value,
+    'accentColor': accentColor.toARGB32(),
     'actions': actions.map((a) => a.toJson()).toList(),
     'isDefault': isDefault,
     'isActive': isActive,

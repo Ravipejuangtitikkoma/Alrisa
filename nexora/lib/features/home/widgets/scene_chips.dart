@@ -28,7 +28,7 @@ class SceneChips extends StatelessWidget {
               style: TextStyle(
                 fontFamily: NexoraTokens.fontFamilySans,
                 fontSize: 12.5,
-                color: Colors.white.withOpacity(0.85),
+                color: Colors.white.withValues(alpha: 0.85),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -97,7 +97,7 @@ class SceneChips extends StatelessWidget {
                     curve: Curves.easeOutCubic,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: isActive ? accentColor.withOpacity(0.18) : Colors.white,
+                      color: isActive ? accentColor.withValues(alpha: 0.18) : Colors.white,
                       borderRadius: NexoraTokens.borderRadiusChip,
                       border: Border.all(
                         color: isActive ? accentColor : const Color(0xFFE2E8F0),
@@ -106,7 +106,7 @@ class SceneChips extends StatelessWidget {
                       boxShadow: isActive
                           ? [
                               BoxShadow(
-                                color: accentColor.withOpacity(0.25),
+                                color: accentColor.withValues(alpha: 0.25),
                                 blurRadius: 10,
                                 offset: const Offset(0, 3),
                               )

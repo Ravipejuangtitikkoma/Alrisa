@@ -201,7 +201,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                         color: isMqttConnected ? const Color(0xFFF0FDF4) : NexoraTokens.statusAmberSubtle,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: isMqttConnected ? const Color(0xFFBBF7D0) : NexoraTokens.statusAmber.withOpacity(0.35),
+                          color: isMqttConnected ? const Color(0xFFBBF7D0) : NexoraTokens.statusAmber.withValues(alpha: 0.35),
                         ),
                       ),
                       child: Column(
@@ -290,8 +290,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                               icon: const Icon(Icons.refresh_rounded, size: 15),
                               label: const Text('Hubungkan Ulang (Reconnect)'),
                               style: ElevatedButton.styleFrom(
-                                primary: NexoraTokens.ink,
-                                onPrimary: Colors.white,
+                                foregroundColor: Colors.white, backgroundColor: NexoraTokens.ink,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
@@ -351,7 +350,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: NexoraTokens.statusGreen.withOpacity(0.15),
+                            color: NexoraTokens.statusGreen.withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -455,7 +454,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                 boxShadow: isCityActive
                                     ? [
                                         BoxShadow(
-                                          color: NexoraTokens.brandCyan.withOpacity(0.3),
+                                          color: NexoraTokens.brandCyan.withValues(alpha: 0.3),
                                           blurRadius: 8,
                                           offset: const Offset(0, 2),
                                         )
@@ -581,7 +580,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       decoration: BoxDecoration(
         color: NexoraTokens.statusAmberSubtle,
         borderRadius: NexoraTokens.borderRadiusChip,
-        border: Border.all(color: NexoraTokens.statusAmber.withOpacity(0.3)),
+        border: Border.all(color: NexoraTokens.statusAmber.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: const [
