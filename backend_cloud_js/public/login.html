@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login Administrator — NEXORA Smart Home & IoT</title>
+  <title>Login Administrator — ALRISA Smart Home & IoT</title>
   
   <!-- Modern Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -73,9 +73,9 @@
       --status-text: #94A3B8;
       
       --success: #10B981;
-      --error-bg: rgba(244, 63, 94, 0.1);
-      --error-border: rgba(244, 63, 94, 0.35);
-      --error-text: #FECDD3;
+      --error-bg: rgba(37, 99, 235, 0.12);
+      --error-border: rgba(59, 130, 246, 0.35);
+      --error-text: #93C5FD;
     }
 
     * {
@@ -505,7 +505,7 @@
         <div class="brand-logo-wrap">
           <img 
             src="logo_alrisa.png" 
-            alt="NEXORA" 
+            alt="ALRISA" 
             class="brand-logo-img" 
             onerror="this.onerror=null; this.src='icon_alrisa.png'; this.style.maxHeight='44px';"
           >
@@ -548,7 +548,7 @@
               type="text" 
               id="loginIdentifier" 
               class="form-input" 
-              placeholder="admin@nexora.id" 
+              placeholder="admin@alrisa.id" 
               required
               autofocus
             />
@@ -614,7 +614,7 @@
 
     <!-- Footer -->
     <div class="login-footer">
-      <p>© 2026 NEXORA Smart Home & IoT Automation System</p>
+      <p>© 2026 ALRISA Smart Home & IoT Automation System</p>
       <p style="margin-top: 4px; font-size: 11.5px;">Portal khusus personel administrator yang berwenang.</p>
     </div>
   </div>
@@ -625,7 +625,7 @@
       <h3 class="modal-title">Bantuan Hak Akses Administrator</h3>
       <p class="modal-body">
         Portal ini khusus untuk pengelolaan sistem dan kontrol IoT oleh pihak Administrator.<br><br>
-        Pelanggan atau pengguna smartphone silakan gunakan <b>Aplikasi Mobile Nexora</b> di smartphone Anda.<br><br>
+        Pelanggan atau pengguna smartphone silakan gunakan <b>Aplikasi Mobile ALRISA</b> di smartphone Anda.<br><br>
         Jika Anda adalah staf administrator dan lupa kata sandi atau memerlukan akun baru, hubungi Head Administrator IT perusahaan.
       </p>
       <div class="modal-footer">
@@ -635,6 +635,21 @@
   </div>
 
   <script>
+    // 0. Smart API URL Resolver (Kompatibel untuk Node.js :3000, Laragon www/backend_cloud_js, & Hosting)
+    (function() {
+      const origFetch = window.fetch.bind(window);
+      window.fetch = function(input, init) {
+        if (typeof input === 'string' && input.startsWith('/api/')) {
+          const path = window.location.pathname;
+          const idx = path.indexOf('/backend_cloud_js');
+          if (idx !== -1) {
+            input = path.substring(0, idx + '/backend_cloud_js'.length) + input;
+          }
+        }
+        return origFetch(input, init);
+      };
+    })();
+
     // 1. Theme Management (Light Mode Default, Toggleable)
     const htmlEl = document.documentElement;
     const themeToggleBtn = document.getElementById('themeToggleBtn');
@@ -643,6 +658,7 @@
 
     function applyTheme(theme) {
       htmlEl.setAttribute('data-theme', theme);
+      localStorage.setItem('alrisa_theme', theme);
       localStorage.setItem('nexora_theme', theme);
       if (theme === 'dark') {
         themeIcon.textContent = '☀️';
@@ -653,7 +669,7 @@
       }
     }
 
-    const savedTheme = localStorage.getItem('nexora_theme') || 'light';
+    const savedTheme = localStorage.getItem('alrisa_theme') || localStorage.getItem('nexora_theme') || 'light';
     applyTheme(savedTheme);
 
     themeToggleBtn.addEventListener('click', () => {
@@ -765,10 +781,13 @@
             loginAt: new Date().toISOString()
           };
 
+          localStorage.setItem('alrisa_auth_user', JSON.stringify(sessionData));
           localStorage.setItem('nexora_auth_user', JSON.stringify(sessionData));
           if (rememberMeInput.checked) {
+            localStorage.setItem('alrisa_remember', 'true');
             localStorage.setItem('nexora_remember', 'true');
           } else {
+            sessionStorage.setItem('alrisa_auth_user', JSON.stringify(sessionData));
             sessionStorage.setItem('nexora_auth_user', JSON.stringify(sessionData));
           }
 
@@ -803,8 +822,9 @@
 
     // 8. Cek pesan akses ditolak dari pengalihan dashboard
     window.addEventListener('DOMContentLoaded', () => {
-      const deniedMsg = sessionStorage.getItem('nexora_access_denied_msg');
+      const deniedMsg = sessionStorage.getItem('alrisa_access_denied_msg') || sessionStorage.getItem('nexora_access_denied_msg');
       if (deniedMsg) {
+        sessionStorage.removeItem('alrisa_access_denied_msg');
         sessionStorage.removeItem('nexora_access_denied_msg');
         showAlert(deniedMsg, true);
       }

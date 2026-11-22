@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ALRISA CLOUD - Enterprise IoT Gateway & Hub Dashboard</title>
+<!-- Font and Material Symbols -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS v3 with Container Queries & Forms Plugin -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+          "on-primary-fixed": "#00174d",
+          "on-secondary-fixed-variant": "#005235",
+          "surface-tint": "#2e57c2",
+          "surface-container-high": "#e6e7f7",
+          "on-primary-container": "#fefcff",
+          "on-tertiary-fixed": "#001f24",
+          "on-tertiary": "#ffffff",
+          "background": "#faf8ff",
+          "surface-container": "#ecedfc",
+          "surface-container-low": "#f3f2ff",
+          "on-secondary-fixed": "#002113",
+          "on-secondary": "#ffffff",
+          "primary-fixed-dim": "#b5c4ff",
+          "surface-container-highest": "#e1e1f1",
+          "on-surface-variant": "#434653",
+          "on-error-container": "#93000a",
+          "on-surface": "#191b26",
+          "surface-variant": "#e1e1f1",
+          "tertiary": "#006672",
+          "primary": "#2b54bf",
+          "tertiary-container": "#008190",
+          "on-background": "#191b26",
+          "on-primary-fixed-variant": "#053da9",
+          "error-container": "#ffdad6",
+          "secondary-fixed": "#66fdba",
+          "surface-dim": "#d8d9e8",
+          "tertiary-fixed": "#9bf0ff",
+          "on-primary": "#ffffff",
+          "surface-bright": "#faf8ff",
+          "secondary-fixed-dim": "#43df9f",
+          "primary-fixed": "#dbe1ff",
+          "outline": "#747684",
+          "on-tertiary-container": "#f7feff",
+          "secondary-container": "#66fdba",
+          "on-secondary-container": "#00734d",
+          "outline-variant": "#c4c6d5",
+          "surface-container-lowest": "#ffffff",
+          "error": "#ba1a1a",
+          "on-error": "#ffffff",
+          "inverse-on-surface": "#eff0ff",
+          "surface": "#faf8ff",
+          "inverse-surface": "#2d303c",
+          "primary-container": "#496eda",
+          "on-tertiary-fixed-variant": "#004f58",
+          "tertiary-fixed-dim": "#5dd7ea",
+          "secondary": "#006c48",
+          "inverse-primary": "#b5c4ff"
+        },
+        "borderRadius": {
+          "DEFAULT": "0.125rem",
+          "lg": "0.25rem",
+          "xl": "0.5rem",
+          "full": "0.75rem"
+        },
+        "spacing": {
+          "space-sm": "0.5rem",
+          "gutter": "1.5rem",
+          "space-lg": "1.5rem",
+          "gutter-lg": "2rem",
+          "gutter-sm": "0.75rem",
+          "margin-mobile": "1rem",
+          "space-md": "1rem",
+          "space-xs": "0.25rem",
+          "margin": "1.5rem",
+          "margin-desktop": "2rem",
+          "space-xl": "2rem"
+        },
+        "fontFamily": {
+          "label-lg": ["Inter"],
+          "body-sm": ["Inter"],
+          "headline-md": ["Inter"],
+          "label-md": ["Inter"],
+          "title-md": ["Inter"],
+          "label-sm": ["Inter"],
+          "body-lg": ["Inter"],
+          "headline-xl": ["Inter"],
+          "headline-sm": ["Inter"],
+          "body-md": ["Inter"],
+          "headline-lg": ["Inter"]
+        },
+        "fontSize": {
+          "label-lg": ["0.75rem", { "lineHeight": "1rem", "letterSpacing": "0.05em", "fontWeight": "700" }],
+          "body-sm": ["0.8125rem", { "lineHeight": "1.125rem", "fontWeight": "400" }],
+          "headline-md": ["1.25rem", { "lineHeight": "1.75rem", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+          "label-md": ["0.75rem", { "lineHeight": "1rem", "fontWeight": "600" }],
+          "title-md": ["1rem", { "lineHeight": "1.375rem", "fontWeight": "600" }],
+          "label-sm": ["0.6875rem", { "lineHeight": "0.875rem", "fontWeight": "600" }],
+          "body-lg": ["1rem", { "lineHeight": "1.5rem", "fontWeight": "400" }],
+          "headline-xl": ["1.75rem", { "lineHeight": "2.25rem", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+          "headline-sm": ["1.125rem", { "lineHeight": "1.5rem", "fontWeight": "600" }],
+          "body-md": ["0.875rem", { "lineHeight": "1.25rem", "fontWeight": "400" }],
+          "headline-lg": ["1.5rem", { "lineHeight": "2rem", "letterSpacing": "-0.015em", "fontWeight": "700" }]
+        }
+      }
+    }
+  }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    .sb-card-shadow {
+      box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    }
+    .sb-sidebar-gradient {
+      background: linear-gradient(180deg, #4e73df 10%, #224abe 100%);
+    }
+    .table-striped tbody tr:nth-of-type(odd) {
+      background-color: rgba(0, 0, 0, 0.02);
+    }
+  </style>
+</head>
+<body class="bg-[#f8f9fc] text-on-surface antialiased overflow-x-hidden min-h-screen">
+<!-- SideNavBar Component (Fixed collapsible rail sidebar) -->
+<aside class="fixed top-0 left-0 h-full w-56 flex flex-col z-30 sb-sidebar-gradient border-r border-outline-variant shadow-md select-none">
+<!-- Header / Brand -->
+<div class="h-16 flex items-center justify-center gap-2.5 px-4 border-b border-white/10 text-on-primary">
+<span class="material-symbols-outlined text-2xl text-on-primary" data-icon="rocket">rocket</span>
+<div class="flex flex-col">
+<span class="text-headline-sm font-headline-sm font-bold tracking-wider text-on-primary leading-tight">ALRISA CLOUD</span>
+<span class="text-[0.625rem] text-primary-fixed-dim font-medium tracking-tight">Enterprise IoT Gateway</span>
+</div>
+</div>
+<!-- Navigation Scroll Container -->
+<div class="flex-1 overflow-y-auto py-2">
+<!-- Section: CORE -->
+<div class="px-4 pt-2 pb-1 text-[0.65rem] font-bold text-white/50 tracking-wider">CORE</div>
+<!-- Tab 1: Dashboard (Active) -->
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary font-bold bg-primary-container/30 border-l-4 border-on-primary rounded-none transition-all duration-150 ease-in-out" href="/sb-admin">
+<span class="material-symbols-outlined text-lg" data-icon="dashboard">dashboard</span>
+<span class="text-label-md font-label-md">Dashboard</span>
+</a>
+<!-- Divider -->
+<hr class="border-t border-white/15 my-2 mx-3"/>
+<!-- Section: INTERFACE -->
+<div class="px-4 pt-1 pb-1 text-[0.65rem] font-bold text-white/50 tracking-wider">INTERFACE</div>
+<!-- Tab 2: Perangkat IoT -->
+<a class="flex items-center gap-3 px-4 py-2.5 text-primary-fixed-dim hover:text-on-primary hover:bg-primary-container/20 transition-colors" href="/admin">
+<span class="material-symbols-outlined text-lg" data-icon="developer_board">developer_board</span>
+<span class="text-label-md font-label-md">Perangkat IoT</span>
+</a>
+<!-- Tab 3: Kamera CCTV -->
+<a class="flex items-center gap-3 px-4 py-2.5 text-primary-fixed-dim hover:text-on-primary hover:bg-primary-container/20 transition-colors" href="/admin">
+<span class="material-symbols-outlined text-lg" data-icon="videocam">videocam</span>
+<span class="text-label-md font-label-md">Kamera CCTV</span>
+</a>
+<!-- Tab 4: Administrator -->
+<a class="flex items-center gap-3 px-4 py-2.5 text-primary-fixed-dim hover:text-on-primary hover:bg-primary-container/20 transition-colors" href="/admin">
+<span class="material-symbols-outlined text-lg" data-icon="admin_panel_settings">admin_panel_settings</span>
+<span class="text-label-md font-label-md">Administrator</span>
+</a>
+<!-- Divider -->
+<hr class="border-t border-white/15 my-2 mx-3"/>
+<!-- Section: MANAGEMENT -->
+<div class="px-4 pt-1 pb-1 text-[0.65rem] font-bold text-white/50 tracking-wider">MANAGEMENT</div>
+<!-- Tab 5: Pelanggan Mobile -->
+<a class="flex items-center gap-3 px-4 py-2.5 text-primary-fixed-dim hover:text-on-primary hover:bg-primary-container/20 transition-colors" href="/admin">
+<span class="material-symbols-outlined text-lg" data-icon="smartphone">smartphone</span>
+<span class="text-label-md font-label-md">Pelanggan Mobile</span>
+</a>
+<!-- Tab 6: Log Aktivitas & Audit -->
+<a class="flex items-center gap-3 px-4 py-2.5 text-primary-fixed-dim hover:text-on-primary hover:bg-primary-container/20 transition-colors" href="/admin">
+<span class="material-symbols-outlined text-lg" data-icon="history">history</span>
+<span class="text-label-md font-label-md">Log Aktivitas & Audit</span>
+</a>
+<!-- Tab 7: Konfigurasi MQTT -->
+<a class="flex items-center gap-3 px-4 py-2.5 text-primary-fixed-dim hover:text-on-primary hover:bg-primary-container/20 transition-colors" href="/admin">
+<span class="material-symbols-outlined text-lg" data-icon="settings_ethernet">settings_ethernet</span>
+<span class="text-label-md font-label-md">Konfigurasi MQTT</span>
+</a>
+<!-- Tab 8: Petunjuk & Panduan -->
+<a class="flex items-center gap-3 px-4 py-2.5 text-primary-fixed-dim hover:text-on-primary hover:bg-primary-container/20 transition-colors" href="/admin">
+<span class="material-symbols-outlined text-lg" data-icon="help">help</span>
+<span class="text-label-md font-label-md">Petunjuk & Panduan</span>
+</a>
+</div>
+<!-- Quick CTA & Footer -->
+<div class="p-3 border-t border-white/10 flex flex-col gap-2">
+<a href="/admin" class="w-full py-1.5 px-3 bg-white/20 hover:bg-white/30 text-on-primary rounded text-label-sm font-label-sm flex items-center justify-center gap-1.5 transition-colors no-underline">
+<span class="material-symbols-outlined text-sm" data-icon="open_in_new">open_in_new</span>
+        Buka Dashboard Live
+      </a>
+<a class="flex items-center justify-center gap-2 text-primary-fixed-dim hover:text-on-primary text-label-sm font-label-sm py-1 transition-colors" href="/stitch">
+<span class="material-symbols-outlined text-sm" data-icon="palette">palette</span>
+<span>Versi Obsidian Lumina</span>
+</a>
+</div>
+</aside>
+<!-- TopNavBar Component (Sticky Header) -->
+<header class="sticky top-0 right-0 z-20 w-full h-16 bg-surface-container-lowest border-b border-[#e3e6f0] shadow-sm flex items-center justify-between px-6 pl-60">
+<!-- Left: Search Box -->
+<div class="flex items-center max-w-sm w-full">
+<div class="relative w-full flex">
+<input class="w-full bg-[#f8f9fc] border border-[#d1d3e2] rounded-l px-3 py-1.5 text-body-sm font-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" placeholder="Cari data, node sensor, atau device..." type="text"/>
+<button class="bg-[#4e73df] hover:bg-[#2e59d9] text-on-primary px-3 rounded-r flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="search">search</span>
+</button>
+</div>
+</div>
+<!-- Right: Badges & Profile -->
+<div class="flex items-center gap-3">
+<!-- Notification Alerts -->
+<button class="relative p-2 text-[#b7b9cc] hover:text-[#5a5c69] rounded hover:bg-surface-container-low transition-colors" title="Pemberitahuan Sistem">
+<span class="material-symbols-outlined text-xl" data-icon="notifications">notifications</span>
+<span class="absolute top-1 right-1 bg-[#2563eb] text-white text-[0.625rem] font-bold px-1.5 py-0.2 rounded-full ring-2 ring-white">3</span>
+</button>
+<!-- Message Alerts -->
+<button class="relative p-2 text-[#b7b9cc] hover:text-[#5a5c69] rounded hover:bg-surface-container-low transition-colors" title="Pesan Gateway">
+<span class="material-symbols-outlined text-xl" data-icon="mail">mail</span>
+<span class="absolute top-1 right-1 bg-[#1d4ed8] text-white text-[0.625rem] font-bold px-1.5 py-0.2 rounded-full ring-2 ring-white">7</span>
+</button>
+<!-- Vertical Pipe Divider -->
+<div class="border-l border-[#e3e6f0] h-8 mx-1"></div>
+<!-- Trailing Action: Emergency Lockout (Professional Blue Style) -->
+<button class="hidden lg:flex items-center gap-1.5 px-3 py-1 text-label-sm font-label-sm font-bold text-[#1d4ed8] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-colors mr-2">
+<span class="material-symbols-outlined text-sm" data-icon="lock">lock</span>
+        Kunci Semua Gerbang
+      </button>
+<!-- Admin Profile Dropdown Anchor -->
+<div class="flex items-center gap-2 pl-1 cursor-pointer select-none">
+<div class="flex flex-col text-right">
+<span class="text-body-sm font-label-md text-gray-700 leading-tight">Admin Operasional</span>
+<span class="text-[0.6875rem] text-[#858796]">Sistem Superuser</span>
+</div>
+<img class="w-9 h-9 rounded-full object-cover ring-2 ring-[#e3e6f0]" data-alt="A sharp, minimalist modern portrait of a technical network operations administrator inside a brightly illuminated high-tech operations control room with faint glowing server status displays in clean blue and soft silver lighting tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJ4vRbkBu575Tvp3BU49nyiOZSpMpN-wCBTWtgellYJUKKAvyvY9suM-68f9ZdFXScGejLfnOl5SyTgftdwq_IP2n-WVwQ7dZTpQyh8MtJF_yJ0TYcRNVZdhEU4VAJny-dJ6kzHVnOKgVnL_10mPe0oNyxO7VU94OKZ1We4mE4m3K3vWPita4yfOW7sWOocNNWmy_m_7sI6t6aTcnS5aj9i21EWT-RCwdpjXMEw_ujrFuUGcYMhR18Yr9T6vm-DQsOngQnf80X2s8"/>
+<span class="material-symbols-outlined text-base text-[#858796]" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pl-56 p-6 min-h-[calc(100vh-4rem)] bg-[#f8f9fc] space-y-6">
+<!-- Page Header Row -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-[#e3e6f0]/60">
+<div>
+<h1 class="text-headline-lg font-headline-lg text-[#2e384d] tracking-tight">Ringkasan Sistem (Dashboard)</h1>
+<p class="text-body-sm font-body-sm text-[#858796] mt-0.5">Monitor & kendali gerbang otomatis serta sensor telemetri secara real-time</p>
+</div>
+<div class="flex items-center gap-2">
+<button class="bg-[#4e73df] hover:bg-[#2e59d9] text-on-primary px-3.5 py-2 text-label-md font-label-md rounded shadow-sm flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-base" data-icon="download">download</span>
+          Generate Report
+        </button>
+</div>
+</div>
+<!-- 4 SB Admin Signature Metric Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Metric 1: Primary Blue (Gateway Uptime & IoT Devices) -->
+<div class="bg-surface-container-lowest rounded p-4 border-l-[4px] border-[#4e73df] border-t border-r border-b border-[#e3e6f0] sb-card-shadow relative overflow-hidden">
+<div class="flex items-center justify-between">
+<div class="space-y-1">
+<div class="text-label-lg font-label-lg text-[#4e73df] uppercase tracking-wider">TOTAL PERANGKAT IOT</div>
+<div class="text-headline-md font-headline-md text-[#2e384d]">18 Unit Aktif</div>
+<div class="text-body-sm font-body-sm text-[#858796] pt-1">
+<span class="text-[#1cc88a] font-semibold">16 Online</span> · 2 Standby
+            </div>
+</div>
+<span class="material-symbols-outlined text-4xl text-[#dddfeb]" data-icon="developer_board">developer_board</span>
+</div>
+</div>
+<!-- Metric 2: Success Green (MQTT Broker Status) -->
+<div class="bg-surface-container-lowest rounded p-4 border-l-[4px] border-[#1cc88a] border-t border-r border-b border-[#e3e6f0] sb-card-shadow relative overflow-hidden">
+<div class="flex items-center justify-between">
+<div class="space-y-1">
+<div class="text-label-lg font-label-lg text-[#1cc88a] uppercase tracking-wider">STATUS SISTEM & MQTT</div>
+<div class="text-headline-md font-headline-md text-[#2e384d]">Terhubung 100%</div>
+<div class="text-body-sm font-body-sm text-[#858796] pt-1">Broker broker.emqx.io (Port 1883)</div>
+</div>
+<span class="material-symbols-outlined text-4xl text-[#dddfeb]" data-icon="settings_ethernet">settings_ethernet</span>
+</div>
+</div>
+<!-- Metric 3: Info Cyan (Mobile App Users) -->
+<div class="bg-surface-container-lowest rounded p-4 border-l-[4px] border-[#36b9cc] border-t border-r border-b border-[#e3e6f0] sb-card-shadow relative overflow-hidden">
+<div class="flex items-center justify-between">
+<div class="space-y-1">
+<div class="text-label-lg font-label-lg text-[#36b9cc] uppercase tracking-wider">PELANGGAN APLIKASI</div>
+<div class="text-headline-md font-headline-md text-[#2e384d]">12 Akun Terdaftar</div>
+<div class="text-body-sm font-body-sm text-[#858796] pt-1">9 Aktif di Mobile App saat ini</div>
+</div>
+<span class="material-symbols-outlined text-4xl text-[#dddfeb]" data-icon="smartphone">smartphone</span>
+</div>
+</div>
+<!-- Metric 4: Warning Amber (Audit Logs Count) -->
+<div class="bg-surface-container-lowest rounded p-4 border-l-[4px] border-[#f6c23e] border-t border-r border-b border-[#e3e6f0] sb-card-shadow relative overflow-hidden">
+<div class="flex items-center justify-between">
+<div class="space-y-1">
+<div class="text-label-lg font-label-lg text-[#f6c23e] uppercase tracking-wider">LOG AUDIT HARI INI</div>
+<div class="text-headline-md font-headline-md text-[#2e384d]">142 Aktivitas</div>
+<div class="text-body-sm font-body-sm text-[#858796] pt-1">12 Otentikasi RFID, 130 Perintah</div>
+</div>
+<span class="material-symbols-outlined text-4xl text-[#dddfeb]" data-icon="history">history</span>
+</div>
+</div>
+</div>
+<!-- Middle Content Row (7 Columns vs 5 Columns) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Left Column (7 cols): Controls & CCTV Stream -->
+<div class="lg:col-span-7 space-y-6">
+<!-- Module: Quick Gate Control & Smart Barrier -->
+<div class="bg-surface-container-lowest rounded border border-[#e3e6f0] sb-card-shadow overflow-hidden">
+<div class="bg-[#f8f9fc] border-b border-[#e3e6f0] px-4 py-3 flex justify-between items-center">
+<h2 class="text-title-md font-title-md text-[#4e73df] font-bold">Quick Gate Control & Smart Barrier</h2>
+<button class="text-[#858796] hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+<div class="p-5 space-y-4">
+<!-- Live Status Banner -->
+<div class="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded p-3">
+<div class="flex items-center gap-3">
+<span class="relative flex h-3 w-3">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1cc88a] opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-[#1cc88a]"></span>
+</span>
+<div>
+<div class="text-label-md font-label-md text-emerald-800 tracking-wide font-bold">STATUS BARRIER: GERBANG TERKUNCI & TERTUTUP</div>
+<div class="text-body-sm font-body-sm text-emerald-700">Servo Motor ESP32-A1 pada pin Relay 1 - Sinyal Stabil (0.00A Load)</div>
+</div>
+</div>
+<span class="px-2.5 py-1 bg-white text-[#1cc88a] border border-emerald-300 rounded text-label-sm font-label-sm font-bold shadow-xs">NORMAL 100%</span>
+</div>
+<!-- Toggles Matrix -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+<div class="p-3 bg-[#f8f9fc] border border-[#e3e6f0] rounded flex items-center justify-between">
+<div>
+<div class="text-label-md font-label-md text-[#2e384d]">Sensor Infrared</div>
+<div class="text-xs text-[#858796]">Anti-kejepit aktif</div>
+</div>
+<!-- Toggle Button -->
+<div class="w-8 h-4 bg-[#4e73df] rounded-full relative cursor-pointer flex items-center px-0.5">
+<div class="w-3 h-3 bg-white rounded-full ml-auto shadow"></div>
+</div>
+</div>
+<div class="p-3 bg-[#f8f9fc] border border-[#e3e6f0] rounded flex items-center justify-between">
+<div>
+<div class="text-label-md font-label-md text-[#2e384d]">RFID Reader</div>
+<div class="text-xs text-[#858796]">RC522 SPI Node</div>
+</div>
+<div class="w-8 h-4 bg-[#4e73df] rounded-full relative cursor-pointer flex items-center px-0.5">
+<div class="w-3 h-3 bg-white rounded-full ml-auto shadow"></div>
+</div>
+</div>
+<div class="p-3 bg-[#f8f9fc] border border-[#e3e6f0] rounded flex items-center justify-between">
+<div>
+<div class="text-label-md font-label-md text-[#2e384d]">Auto-Lock 15s</div>
+<div class="text-xs text-[#858796]">Timer otomatis</div>
+</div>
+<div class="w-8 h-4 bg-[#4e73df] rounded-full relative cursor-pointer flex items-center px-0.5">
+<div class="w-3 h-3 bg-white rounded-full ml-auto shadow"></div>
+</div>
+</div>
+</div>
+<!-- Override Buttons -->
+<div class="pt-2 flex flex-wrap gap-2.5">
+<button class="flex-1 bg-[#4e73df] hover:bg-[#2e59d9] text-white px-4 py-2.5 rounded font-label-md text-label-md shadow-sm flex items-center justify-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-base" data-icon="lock_open">lock_open</span>
+                Buka Gerbang (Manual Pulse)
+              </button>
+<button class="bg-[#1cc88a] hover:bg-emerald-600 text-white px-4 py-2.5 rounded font-label-md text-label-md shadow-sm flex items-center justify-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-base" data-icon="key">key</span>
+                Buka Gerbang Tamu
+              </button>
+<button class="bg-[#1e3a8a] hover:bg-[#1d4ed8] text-white px-4 py-2.5 rounded font-label-md text-label-md shadow-sm flex items-center justify-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-base" data-icon="lock">lock</span>
+                Kunci Semua Gerbang (Emergency Lock)
+              </button>
+</div>
+</div>
+</div>
+<!-- Module: Live Streaming CCTV Gerbang Utama -->
+<div class="bg-surface-container-lowest rounded border border-[#e3e6f0] sb-card-shadow overflow-hidden">
+<div class="bg-[#f8f9fc] border-b border-[#e3e6f0] px-4 py-3 flex justify-between items-center">
+<div class="flex items-center gap-2">
+<h2 class="text-title-md font-title-md text-[#4e73df] font-bold">Live Streaming CCTV Gerbang Utama</h2>
+<span class="px-2 py-0.5 bg-[#2563eb] text-white text-[0.625rem] font-bold rounded animate-pulse">LIVE 1080p</span>
+</div>
+<div class="flex items-center gap-2 text-[#858796] text-label-sm font-label-sm">
+<span class="material-symbols-outlined text-sm text-[#1cc88a]" data-icon="videocam">videocam</span>
+<span>CAM-01: RTSP/H.264 Stream</span>
+</div>
+</div>
+<div class="p-4 bg-slate-950">
+<!-- Simulated CCTV Viewport -->
+<div class="relative w-full aspect-video rounded overflow-hidden bg-slate-900 border border-slate-800">
+<!-- Placeholder Background Image -->
+<img class="w-full h-full object-cover opacity-85" data-alt="A realistic high-definition industrial CCTV surveillance camera view facing an automated residential security gate barrier arm at daytime, sharp outdoor lighting, asphalt driveway, clean modern housing architecture, and edge computing digital HUD overlays." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCG4oi-IlS5v3lOFnWFuv0jboHOvqvhSrkZBdTJLkT7JsNb3O8sY2frxbcvvSBUSgzDQaDX6MVYr_8hBh1LAL4FrcytDj_nKyVY-mE926m4k5fQkgwZv8UNG7WVeGF5g9zrVa6k68fM87PQZbrCLtLbIg5_RHZ7xf0bbw37OIhFrk2-V7NVxbXKMXBumTOfKUsLwHrMp1PbLLntpLuG4nlDY9BxVqzSNjjoZ0kRYuO9qteCq4w84BIeFk6CTLkxbKv0fZldkQnT4MY"/>
+<!-- Video HUD Overlays -->
+<div class="absolute top-3 left-3 bg-black/70 px-2 py-1 rounded text-white font-mono text-[0.6875rem] flex items-center gap-1.5 backdrop-blur-xs">
+<span class="w-2 h-2 rounded-full bg-[#38bdf8] animate-ping"></span>
+<span>CAM-01: 2025-05-18 14:32:05 WIB</span>
+</div>
+<div class="absolute top-3 right-3 bg-black/70 px-2 py-1 rounded text-emerald-400 font-mono text-[0.6875rem]">
+                BITRATE: 4.2 Mbps · FPS: 30
+              </div>
+<!-- AI Bounding Box Detection Graphic -->
+<div class="absolute bottom-12 left-1/3 border-2 border-emerald-400 bg-emerald-500/10 px-2 py-1 rounded text-[0.625rem] font-mono text-emerald-300">
+<span>[AI DETECT: KENDARAAN B-1492-SXA (98%)]</span>
+</div>
+<!-- Mini PTZ Controller Bar -->
+<div class="absolute bottom-3 left-3 right-3 bg-black/75 backdrop-blur-sm px-3 py-1.5 rounded flex items-center justify-between text-white text-body-sm">
+<div class="flex items-center gap-3">
+<button class="hover:text-primary-fixed transition-colors flex items-center gap-1 text-xs">
+<span class="material-symbols-outlined text-base" data-icon="photo_camera">photo_camera</span>
+                    Snapshot
+                  </button>
+<button class="hover:text-primary-fixed transition-colors flex items-center gap-1 text-xs">
+<span class="material-symbols-outlined text-base" data-icon="zoom_in">zoom_in</span>
+                    2x Zoom
+                  </button>
+<button class="text-emerald-400 flex items-center gap-1 text-xs">
+<span class="material-symbols-outlined text-base" data-icon="nightlight">nightlight</span>
+                    Night IR Auto
+                  </button>
+</div>
+<div class="text-[0.6875rem] text-slate-400">
+                  Storage: 428 GB / 1 TB (MicroSD Gateway)
+                </div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column (5 cols): System Health & Live Feed -->
+<div class="lg:col-span-5 space-y-6">
+<!-- Module: System Health & Server Telemetry -->
+<div class="bg-surface-container-lowest rounded border border-[#e3e6f0] sb-card-shadow overflow-hidden">
+<div class="bg-[#f8f9fc] border-b border-[#e3e6f0] px-4 py-3 flex justify-between items-center">
+<h2 class="text-title-md font-title-md text-[#4e73df] font-bold">Status Server & Services</h2>
+<span class="material-symbols-outlined text-base text-[#1cc88a]" data-icon="check_circle">check_circle</span>
+</div>
+<div class="p-4 space-y-3.5">
+<!-- Service List -->
+<div class="space-y-2 pb-2 border-b border-[#e3e6f0]">
+<div class="flex items-center justify-between text-body-sm font-body-sm">
+<span class="font-medium text-[#2e384d] flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-[#1cc88a]"></span> Node.js Backend API
+                </span>
+<span class="text-xs font-mono text-[#858796]">Port 3000 (PID 1420)</span>
+</div>
+<div class="flex items-center justify-between text-body-sm font-body-sm">
+<span class="font-medium text-[#2e384d] flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-[#1cc88a]"></span> MySQL Database Server
+                </span>
+<span class="text-xs font-mono text-[#858796]">v8.0 Connected (0 queued)</span>
+</div>
+<div class="flex items-center justify-between text-body-sm font-body-sm">
+<span class="font-medium text-[#2e384d] flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-[#1cc88a]"></span> WebSocket Event Server
+                </span>
+<span class="text-xs font-mono text-[#1cc88a]">Active (1ms Latency)</span>
+</div>
+<div class="flex items-center justify-between text-body-sm font-body-sm">
+<span class="font-medium text-[#2e384d] flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-[#1cc88a]"></span> ESP32 Gateway Node
+                </span>
+<span class="text-xs font-mono text-[#858796]">Bat 98% (Solar Powered)</span>
+</div>
+</div>
+<!-- Progress Bars -->
+<div class="space-y-3 pt-1">
+<div>
+<div class="flex justify-between text-xs font-semibold mb-1">
+<span class="text-[#2e384d]">Gateway CPU Load</span>
+<span class="text-[#4e73df]">24%</span>
+</div>
+<div class="w-full bg-[#eaecf4] h-2.5 rounded-full overflow-hidden">
+<div class="bg-[#4e73df] h-2.5 rounded-full" style="width: 24%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs font-semibold mb-1">
+<span class="text-[#2e384d]">RAM Gateway & Cache</span>
+<span class="text-[#36b9cc]">42%</span>
+</div>
+<div class="w-full bg-[#eaecf4] h-2.5 rounded-full overflow-hidden">
+<div class="bg-[#36b9cc] h-2.5 rounded-full" style="width: 42%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs font-semibold mb-1">
+<span class="text-[#2e384d]">Kekuatan Sinyal WiFi / LoRa Hub</span>
+<span class="text-[#1cc88a]">94% (-52 dBm)</span>
+</div>
+<div class="w-full bg-[#eaecf4] h-2.5 rounded-full overflow-hidden">
+<div class="bg-[#1cc88a] h-2.5 rounded-full" style="width: 94%"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Module: Aktivitas Terkini (Real-time Feed) -->
+<div class="bg-surface-container-lowest rounded border border-[#e3e6f0] sb-card-shadow overflow-hidden">
+<div class="bg-[#f8f9fc] border-b border-[#e3e6f0] px-4 py-3 flex justify-between items-center">
+<h2 class="text-title-md font-title-md text-[#4e73df] font-bold">Log Akses Terkini</h2>
+<span class="text-xs text-[#858796]">Live Feed</span>
+</div>
+<div class="p-4 space-y-3.5">
+<!-- Feed Item 1 -->
+<div class="flex items-start gap-3">
+<div class="p-2 rounded bg-emerald-100 text-emerald-700 shrink-0">
+<span class="material-symbols-outlined text-base" data-icon="badge">badge</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between">
+<span class="text-label-md font-label-md text-[#2e384d]">RFID Tag #A49F Terverifikasi</span>
+<span class="text-[0.6875rem] font-mono text-[#858796]">14:31:12</span>
+</div>
+<p class="text-body-sm font-body-sm text-[#5a5c69] truncate">Buka Gerbang oleh Bpk. Hendra S.</p>
+</div>
+</div>
+<!-- Feed Item 2 -->
+<div class="flex items-start gap-3">
+<div class="p-2 rounded bg-blue-100 text-blue-700 shrink-0">
+<span class="material-symbols-outlined text-base" data-icon="timer">timer</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between">
+<span class="text-label-md font-label-md text-[#2e384d]">MQTT Auto Command</span>
+<span class="text-[0.6875rem] font-mono text-[#858796]">14:28:40</span>
+</div>
+<p class="text-body-sm font-body-sm text-[#5a5c69] truncate">Tutup Otomatis Gerbang Utama (Timer selesai).</p>
+</div>
+</div>
+<!-- Feed Item 3 -->
+<div class="flex items-start gap-3">
+<div class="p-2 rounded bg-blue-100 text-[#2563eb] shrink-0">
+<span class="material-symbols-outlined text-base" data-icon="person">person</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between">
+<span class="text-label-md font-label-md text-[#2e384d]">Mobile App Auth</span>
+<span class="text-[0.6875rem] font-mono text-[#858796]">14:15:02</span>
+</div>
+<p class="text-body-sm font-body-sm text-[#5a5c69] truncate">Login Sukses Admin Operasional via iOS.</p>
+</div>
+</div>
+<!-- Feed Item 4 -->
+<div class="flex items-start gap-3">
+<div class="p-2 rounded bg-amber-100 text-amber-700 shrink-0">
+<span class="material-symbols-outlined text-base" data-icon="sensors">sensors</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between">
+<span class="text-label-md font-label-md text-[#2e384d]">Sensor Infrared Trigger</span>
+<span class="text-[0.6875rem] font-mono text-[#858796]">13:58:22</span>
+</div>
+<p class="text-body-sm font-body-sm text-[#5a5c69] truncate">Objek terdeteksi menghalangi sensor (Safety Hold).</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Full Width DataTables Card: Log Aktivitas & Audit Perangkat -->
+<div class="bg-surface-container-lowest rounded border border-[#e3e6f0] sb-card-shadow overflow-hidden">
+<!-- Card Header with SB Admin Blue Banner Title and Export Tools -->
+<div class="bg-[#f8f9fc] border-b border-[#e3e6f0] px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+<h2 class="text-title-md font-title-md text-[#4e73df] font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-lg" data-icon="table_chart">table_chart</span>
+          DataTables Log Aktivitas & Audit Perangkat
+        </h2>
+<!-- Classic DataTable Export Buttons -->
+<div class="flex items-center gap-1">
+<button class="bg-white hover:bg-[#eaecf4] text-[#5a5c69] text-xs font-semibold px-2.5 py-1.5 border border-[#d1d3e2] rounded shadow-xs">Copy</button>
+<button class="bg-white hover:bg-[#eaecf4] text-[#5a5c69] text-xs font-semibold px-2.5 py-1.5 border border-[#d1d3e2] rounded shadow-xs">CSV</button>
+<button class="bg-white hover:bg-[#eaecf4] text-[#5a5c69] text-xs font-semibold px-2.5 py-1.5 border border-[#d1d3e2] rounded shadow-xs">Excel</button>
+<button class="bg-white hover:bg-[#eaecf4] text-[#5a5c69] text-xs font-semibold px-2.5 py-1.5 border border-[#d1d3e2] rounded shadow-xs">PDF</button>
+<button class="bg-white hover:bg-[#eaecf4] text-[#5a5c69] text-xs font-semibold px-2.5 py-1.5 border border-[#d1d3e2] rounded shadow-xs">Print</button>
+</div>
+</div>
+<div class="p-5 space-y-4">
+<!-- Table Top Control: Show Entries & Search Filter -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-body-sm font-body-sm text-[#5a5c69]">
+<div class="flex items-center gap-2">
+<span>Show</span>
+<select class="border border-[#d1d3e2] rounded px-2.5 py-1 bg-white focus:outline-none focus:border-[#4e73df] text-xs font-medium">
+<option>10</option>
+<option>25</option>
+<option>50</option>
+<option>100</option>
+</select>
+<span>entries</span>
+</div>
+<div class="flex items-center gap-2">
+<span>Search:</span>
+<input class="border border-[#d1d3e2] rounded px-3 py-1 bg-white focus:outline-none focus:border-[#4e73df] text-xs w-48 sm:w-64" placeholder="Cari log..." type="text"/>
+</div>
+</div>
+<!-- Responsive Table Container -->
+<div class="overflow-x-auto border border-[#e3e6f0] rounded">
+<table class="w-full text-left border-collapse table-striped text-body-sm">
+<thead class="bg-[#f8f9fc] border-b-2 border-[#e3e6f0] text-xs font-bold text-[#4e73df] select-none">
+<tr>
+<th class="py-3 px-4 border-r border-[#e3e6f0] w-12 text-center">No</th>
+<th class="py-3 px-4 border-r border-[#e3e6f0]">Waktu</th>
+<th class="py-3 px-4 border-r border-[#e3e6f0]">Perangkat</th>
+<th class="py-3 px-4 border-r border-[#e3e6f0]">Aksi / Status</th>
+<th class="py-3 px-4 border-r border-[#e3e6f0]">Asal</th>
+<th class="py-3 px-4">ID Akun / Token</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#e3e6f0] text-[#5a5c69]">
+<!-- Row 1 -->
+<tr class="hover:bg-[#f8f9fc] transition-colors">
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] text-center font-medium">1</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-mono text-xs">14:31:12 WIB</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-semibold text-[#2e384d]">Gerbang Utama (ESP32-A1)</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-medium text-[#1cc88a]">BUKA GERBANG (RFID)</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0]">
+<span class="px-2 py-0.5 bg-emerald-100 text-[#1cc88a] font-bold text-[0.6875rem] rounded">HARDWARE</span>
+</td>
+<td class="py-2.5 px-4 font-mono text-xs text-[#2e384d]">USR-088 (Hendra S.)</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-[#f8f9fc] transition-colors">
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] text-center font-medium">2</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-mono text-xs">14:28:40 WIB</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-semibold text-[#2e384d]">Gerbang Utama (ESP32-A1)</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-medium text-[#4e73df]">TUTUP OTOMATIS</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0]">
+<span class="px-2 py-0.5 bg-gray-100 text-gray-700 font-bold text-[0.6875rem] rounded">SYSTEM</span>
+</td>
+<td class="py-2.5 px-4 font-mono text-xs text-[#858796]">AUTO-TIMER</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-[#f8f9fc] transition-colors">
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] text-center font-medium">3</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-mono text-xs">14:25:10 WIB</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-semibold text-[#2e384d]">Smart Lamp Hub</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-medium text-[#f6c23e]">LAMPU TAMAN ON</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0]">
+<span class="px-2 py-0.5 bg-blue-100 text-[#4e73df] font-bold text-[0.6875rem] rounded">APP</span>
+</td>
+<td class="py-2.5 px-4 font-mono text-xs text-[#2e384d]">USR-014 (Dewi K.)</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-[#f8f9fc] transition-colors">
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] text-center font-medium">4</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-mono text-xs">14:20:05 WIB</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-semibold text-[#2e384d]">Gerbang Garasi</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-medium text-[#1cc88a]">BUKA GERBANG</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0]">
+<span class="px-2 py-0.5 bg-blue-100 text-[#4e73df] font-bold text-[0.6875rem] rounded">APP</span>
+</td>
+<td class="py-2.5 px-4 font-mono text-xs text-[#2e384d]">USR-002 (Rian P.)</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-[#f8f9fc] transition-colors">
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] text-center font-medium">5</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-mono text-xs">14:15:02 WIB</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-semibold text-[#2e384d]">Sistem Auth Server</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-medium text-[#2563eb]">LOGIN BERHASIL</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0]">
+<span class="px-2 py-0.5 bg-blue-100 text-[#1d4ed8] font-bold text-[0.6875rem] rounded">WEB</span>
+</td>
+<td class="py-2.5 px-4 font-mono text-xs text-[#2e384d]">ADM-001 (Admin Operasional)</td>
+</tr>
+<!-- Row 6 -->
+<tr class="hover:bg-[#f8f9fc] transition-colors">
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] text-center font-medium">6</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-mono text-xs">14:10:48 WIB</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-semibold text-[#2e384d]">Kamera CCTV #01</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-medium text-[#36b9cc]">SNAPSHOT CAPTURED</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0]">
+<span class="px-2 py-0.5 bg-gray-100 text-gray-700 font-bold text-[0.6875rem] rounded">SYSTEM</span>
+</td>
+<td class="py-2.5 px-4 font-mono text-xs text-[#858796]">CAM-TRIG</td>
+</tr>
+<!-- Row 7 -->
+<tr class="hover:bg-[#f8f9fc] transition-colors">
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] text-center font-medium">7</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-mono text-xs">14:02:19 WIB</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-semibold text-[#2e384d]">Gerbang Utama (ESP32-A1)</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-medium text-[#2563eb]">BUKA MANUAL</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0]">
+<span class="px-2 py-0.5 bg-blue-100 text-[#1d4ed8] font-bold text-[0.6875rem] rounded">WEB</span>
+</td>
+<td class="py-2.5 px-4 font-mono text-xs text-[#2e384d]">ADM-001 (Admin Operasional)</td>
+</tr>
+<!-- Row 8 -->
+<tr class="hover:bg-[#f8f9fc] transition-colors">
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] text-center font-medium">8</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-mono text-xs">13:58:22 WIB</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-semibold text-[#2e384d]">Sensor Infrared IR-02</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-medium text-[#0284c7]">OBJEK TERDETEKSI</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0]">
+<span class="px-2 py-0.5 bg-emerald-100 text-[#1cc88a] font-bold text-[0.6875rem] rounded">HARDWARE</span>
+</td>
+<td class="py-2.5 px-4 font-mono text-xs text-[#858796]">SENSOR-GATE</td>
+</tr>
+<!-- Row 9 -->
+<tr class="hover:bg-[#f8f9fc] transition-colors">
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] text-center font-medium">9</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-mono text-xs">13:45:00 WIB</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-semibold text-[#2e384d]">MQTT Broker EMQX</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-medium text-[#1cc88a]">KONEKSI ULANG SUKSES</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0]">
+<span class="px-2 py-0.5 bg-gray-100 text-gray-700 font-bold text-[0.6875rem] rounded">SYSTEM</span>
+</td>
+<td class="py-2.5 px-4 font-mono text-xs text-[#858796]">BROKER-SRV</td>
+</tr>
+<!-- Row 10 -->
+<tr class="hover:bg-[#f8f9fc] transition-colors">
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] text-center font-medium">10</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-mono text-xs">13:30:15 WIB</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-semibold text-[#2e384d]">Smart Plug AC Hub</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0] font-medium text-[#36b9cc]">POWER STATS SYNC</td>
+<td class="py-2.5 px-4 border-r border-[#e3e6f0]">
+<span class="px-2 py-0.5 bg-emerald-100 text-[#1cc88a] font-bold text-[0.6875rem] rounded">HARDWARE</span>
+</td>
+<td class="py-2.5 px-4 font-mono text-xs text-[#858796]">PLUG-03</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Footer: Pagination & Counter -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-body-sm font-body-sm text-[#858796] pt-1">
+<div>Showing 1 to 10 of 142 entries</div>
+<div class="inline-flex rounded-md shadow-xs" role="group">
+<button class="px-3 py-1.5 text-xs font-medium text-[#858796] bg-white border border-[#d1d3e2] rounded-l hover:bg-[#eaecf4] transition-colors">
+              Previous
+            </button>
+<button class="px-3 py-1.5 text-xs font-bold text-white bg-[#4e73df] border border-[#4e73df] z-10">
+              1
+            </button>
+<button class="px-3 py-1.5 text-xs font-medium text-[#5a5c69] bg-white border border-[#d1d3e2] hover:bg-[#eaecf4] transition-colors">
+              2
+            </button>
+<button class="px-3 py-1.5 text-xs font-medium text-[#5a5c69] bg-white border border-[#d1d3e2] hover:bg-[#eaecf4] transition-colors">
+              3
+            </button>
+<button class="px-3 py-1.5 text-xs font-medium text-[#5a5c69] bg-white border border-[#d1d3e2] hover:bg-[#eaecf4] transition-colors">
+              4
+            </button>
+<button class="px-3 py-1.5 text-xs font-medium text-[#858796] bg-white border border-[#d1d3e2] rounded-r hover:bg-[#eaecf4] transition-colors">
+              Next
+            </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Dashboard System Footer -->
+<footer class="pt-6 pb-4 border-t border-[#e3e6f0] text-center text-xs text-[#858796]">
+<div>Copyright © 2025 <strong class="text-[#4e73df]">ALRISA CLOUD</strong> - Enterprise Smart Gate & IoT Hub Controller. All rights reserved.</div>
+<div class="text-[0.625rem] mt-1 text-[#b7b9cc]">Firmware v4.8.2-stable · MQTT Client ID: alrisa-hub-srv-01 · Uptime: 48 hari 12 jam</div>
+</footer>
+</main>
+</body></html>

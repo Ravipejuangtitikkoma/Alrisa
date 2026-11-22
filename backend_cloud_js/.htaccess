@@ -1,0 +1,20 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Arahkan seluruh request /api/... ke api.php (untuk Laragon Apache & cPanel Hosting)
+  RewriteRule ^api/(.*)$ api.php?endpoint=$1 [QSA,L]
+
+  # Arahkan /login.html atau /login ke public/login.html
+  RewriteRule ^login\.html$ public/login.html [L]
+  RewriteRule ^login$ public/login.html [L]
+
+  # Arahkan /index.html ke public/index.html
+  RewriteRule ^index\.html$ public/index.html [L]
+
+  # Arahkan file statis (gambar/logo) ke folder public/ jika ada di sana
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} !-f
+  RewriteRule ^([^/]+\.(png|jpg|jpeg|svg|gif|ico|css|js))$ public/$1 [L]
+</IfModule>
+

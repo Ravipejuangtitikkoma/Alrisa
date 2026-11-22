@@ -7,6 +7,13 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { WebSocketServer, WebSocket } from 'ws';
+import {
+  initMySQLDatabase,
+  syncToMySQL,
+  insertLogToMySQL,
+  getDbStatus,
+  loadFromMySQL,
+} from './db.js';
 
 dotenv.config();
 
@@ -29,9 +36,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Web Navigation Routes
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/stitch', (req, res) => res.sendFile(path.join(__dirname, 'public', 'stitch_dashboard.html')));
+app.get('/sb-admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sb_admin_dashboard.html')));
+app.get('/sbadmin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sb_admin_dashboard.html')));
 
 // -------------------------------------------------------------
 // 1. DATA PENGATURAN MULTI-AKUN (SETTINGS PERSISTENCE)
@@ -39,7 +50,7 @@ app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 
 let settingsData = {
   active_account_id: 'acc_superadmin',
   system: {
-    app_name: 'ALRISA & NEXORA Multi-Tenant Cloud Studio (Node.js)',
+    app_name: 'ALRISA Multi-Tenant Cloud Studio (Node.js)',
     mqtt_default_broker: 'broker.emqx.io',
     mqtt_default_port: 1883,
     api_secret_key: API_KEY,
@@ -65,12 +76,43 @@ function saveSettings() {
   } catch (err) {
     console.error('❌ Gagal menyimpan settings.json:', err.message);
   }
+  syncToMySQL(settingsData).catch((err) => {
+    console.error('⚠️ Gagal sinkronisasi MySQL:', err.message);
+  });
 }
 
 loadSettings();
 
-// In-Memory Device & Activity State
-const activityLogs = [];
+// In-Memory Device & Activity State (disinkronkan dengan tabel MySQL `activity_logs`)
+// In-Memory Device & Activity State (disinkronkan dengan tabel MySQL `activity_logs`)
+const activityLogs = [
+  { id: Date.now() - 1000 * 20, timestamp: '16:20:12', deviceId: 'Pintu Gerbang Utama', action: 'Buka Gerbang (Status: OPEN)', origin: 'APP', accountId: 'acc_001' },
+  { id: Date.now() - 1000 * 45, timestamp: '16:19:47', deviceId: 'Lampu Garasi', action: 'Dinyalakan (Status: ON)', origin: 'HARDWARE', accountId: 'acc_001' },
+  { id: Date.now() - 1000 * 90, timestamp: '16:19:02', deviceId: 'Pintu Gerbang Utama', action: 'Tutup Gerbang (Status: CLOSED)', origin: 'WEB', accountId: 'acc_superadmin' },
+  { id: Date.now() - 1000 * 150, timestamp: '16:18:02', deviceId: 'Relay Pompa Air', action: 'Dimatikan (Status: OFF)', origin: 'APP', accountId: 'acc_002' },
+  { id: Date.now() - 1000 * 210, timestamp: '16:17:12', deviceId: 'Kamera CCTV Gerbang', action: 'Deteksi Gerakan Terverifikasi', origin: 'HARDWARE', accountId: 'acc_001' },
+  { id: Date.now() - 1000 * 300, timestamp: '16:15:40', deviceId: 'Pintu Samping Vila', action: 'Kunci Elektrik Terbuka', origin: 'APP', accountId: 'acc_002' },
+  { id: Date.now() - 1000 * 400, timestamp: '16:14:15', deviceId: 'Sirene Alarm', action: 'Self-Check Sistem Normal', origin: 'HARDWARE', accountId: 'acc_001' },
+  { id: Date.now() - 1000 * 500, timestamp: '16:12:30', deviceId: 'Lampu Taman', action: 'Otomatis Hidup (Timer)', origin: 'HARDWARE', accountId: 'acc_002' },
+  { id: Date.now() - 1000 * 600, timestamp: '16:11:05', deviceId: 'Pintu Gerbang Utama', action: 'Buka Gerbang Tamu', origin: 'APP', accountId: 'acc_001' },
+  { id: Date.now() - 1000 * 700, timestamp: '16:10:00', deviceId: 'Sensor Infrared Gerbang', action: 'Objek Melintas (Aman)', origin: 'HARDWARE', accountId: 'acc_001' },
+  { id: Date.now() - 1000 * 850, timestamp: '16:07:22', deviceId: 'Pintu Gerbang Utama', action: 'Tutup Gerbang Selesai', origin: 'HARDWARE', accountId: 'acc_001' },
+  { id: Date.now() - 1000 * 1000, timestamp: '16:05:10', deviceId: 'Smart Lock Kantor', action: 'Buka PIN Akses Sukses', origin: 'APP', accountId: 'acc_superadmin' },
+  { id: Date.now() - 1000 * 1200, timestamp: '16:01:45', deviceId: 'Relay Exhaust Fan', action: 'Dinyalakan (Status: ON)', origin: 'WEB', accountId: 'acc_001' },
+  { id: Date.now() - 1000 * 1500, timestamp: '15:58:30', deviceId: 'Pintu Gerbang Utama', action: 'Buka Gerbang (Status: OPEN)', origin: 'APP', accountId: 'acc_001' },
+  { id: Date.now() - 1000 * 1800, timestamp: '15:53:11', deviceId: 'Lampu Teras Depan', action: 'Dimatikan (Status: OFF)', origin: 'APP', accountId: 'acc_002' },
+  { id: Date.now() - 1000 * 2100, timestamp: '15:48:00', deviceId: 'Gateway ESP32', action: 'Koneksi MQTT Tersinkron', origin: 'HARDWARE', accountId: 'acc_001' },
+  { id: Date.now() - 1000 * 2500, timestamp: '15:41:20', deviceId: 'Pintu Gerbang Utama', action: 'Tutup Otomatis (Timeout)', origin: 'HARDWARE', accountId: 'acc_001' },
+  { id: Date.now() - 1000 * 3000, timestamp: '15:33:10', deviceId: 'Kamera CCTV Garasi', action: 'Snapshot Wajah Tersimpan', origin: 'HARDWARE', accountId: 'acc_001' },
+  { id: Date.now() - 1000 * 3600, timestamp: '15:20:00', deviceId: 'Sistem ALRISA Cloud', action: 'Daily Backup Berhasil', origin: 'WEB', accountId: 'acc_superadmin' },
+  { id: Date.now() - 1000 * 4200, timestamp: '15:10:45', deviceId: 'Lampu Koridor', action: 'Dinyalakan (Status: ON)', origin: 'APP', accountId: 'acc_002' },
+  { id: Date.now() - 1000 * 4800, timestamp: '15:00:10', deviceId: 'Pintu Gerbang Utama', action: 'Buka Gerbang (Kurir Paket)', origin: 'APP', accountId: 'acc_001' },
+  { id: Date.now() - 1000 * 5400, timestamp: '14:50:30', deviceId: 'Pintu Gerbang Utama', action: 'Tutup Gerbang (Status: CLOSED)', origin: 'APP', accountId: 'acc_001' },
+  { id: Date.now() - 1000 * 6000, timestamp: '14:40:00', deviceId: 'Smart Plug AC', action: 'Dimatikan Hemat Energi', origin: 'WEB', accountId: 'acc_002' },
+  { id: Date.now() - 1000 * 7000, timestamp: '14:25:12', deviceId: 'Pintu Gerbang Utama', action: 'Buka Gerbang (Status: OPEN)', origin: 'APP', accountId: 'acc_001' },
+  { id: Date.now() - 1000 * 8000, timestamp: '14:10:05', deviceId: 'Inisialisasi Sistem', action: 'Boot Sistem ALRISA Siap', origin: 'WEB', accountId: 'acc_superadmin' }
+];
+
 function addLog(deviceId, action, origin = 'APP', accountId = '') {
   const logEntry = {
     id: Date.now(),
@@ -78,10 +120,11 @@ function addLog(deviceId, action, origin = 'APP', accountId = '') {
     deviceId,
     action,
     origin,
-    accountId,
+    accountId: accountId || settingsData.active_account_id || 'acc_superadmin',
   };
   activityLogs.unshift(logEntry);
-  if (activityLogs.length > 50) activityLogs.pop();
+  if (activityLogs.length > 500) activityLogs.pop();
+  insertLogToMySQL(logEntry);
   broadcastWs({ type: 'log', data: logEntry });
 }
 
@@ -137,14 +180,10 @@ const mqttClient = mqtt.connect(MQTT_BROKER, {
 
 mqttClient.on('connect', () => {
   console.log('✅ [MQTT] Berhasil terhubung ke Cloud MQTT Broker!');
-  // Hanya subscribe ke prefix spesifik sistem kita, BUKAN wildcard global!
+  // Subscribe ke seluruh sub-topik alrisa & nexora (multi-level wildcard #) agar perintah dari HP semua akun terbaca
   const topics = [
-    'alrisa/+/state',
-    'nexora/+/state',
-    'alrisa/+/set',
-    'nexora/+/set',
-    'alrisa/gateway/heartbeat',
-    'nexora/gateway/heartbeat',
+    'alrisa/#',
+    'nexora/#',
   ];
 
   topics.forEach((top) => {
@@ -175,26 +214,56 @@ mqttClient.on('message', (topic, message) => {
     const parts = topicStr.split('/');
     if (parts.length < 3) return;
 
-    const deviceId = parts[1];
-    const type = parts[2]; // 'state' atau 'set'
+    // Segment terakhir adalah tipe aksi: 'set', 'state', atau 'cmd'
+    const type = parts[parts.length - 1]; 
+    if (type !== 'set' && type !== 'state' && type !== 'cmd') return;
 
-    // Verifikasi apakah deviceId ini benar-benar ada di daftar akun kita
+    // Segment kedua terakhir adalah deviceId (misal: 'asu_pagar', 'pagar', 'lampu_teras')
+    const deviceId = parts[parts.length - 2];
+    // Prefix adalah segment sebelum deviceId (misal: 'alrisa/asu', 'alrisa', 'nexora')
+    const prefix = parts.slice(0, parts.length - 2).join('/');
+
+    // Verifikasi akun pemilik perangkat
     let targetDevice = null;
     let targetAccount = null;
+
     if (settingsData.accounts) {
-      for (const acc of settingsData.accounts) {
-        if (acc.devices) {
-          const found = acc.devices.find((item) => item.id === deviceId);
-          if (found) {
-            targetDevice = found;
-            targetAccount = acc;
-            break;
+      // Prioritas 1: Cocokkan prefix di topik dengan mqtt_prefix akun (misal 'alrisa/asu')
+      targetAccount = settingsData.accounts.find(a => 
+        (a.mqtt_prefix && a.mqtt_prefix === prefix) || 
+        (a.mqttPrefix && a.mqttPrefix === prefix) ||
+        (a.id && prefix.endsWith(a.id))
+      );
+
+      // Prioritas 2: Jika prefix global (misal 'nexora' atau 'alrisa'), coba cari di akun yang sedang aktif di website
+      if (!targetAccount && settingsData.active_account_id) {
+        const activeAcc = settingsData.accounts.find(a => a.id === settingsData.active_account_id);
+        if (activeAcc && activeAcc.devices && activeAcc.devices.some(d => d.id === deviceId)) {
+          targetAccount = activeAcc;
+        }
+      }
+
+      // Cari targetDevice di akun yang cocok
+      if (targetAccount && targetAccount.devices) {
+        targetDevice = targetAccount.devices.find(d => d.id === deviceId);
+      }
+
+      // Prioritas 3: Fallback ke seluruh akun jika belum ketemu
+      if (!targetDevice) {
+        for (const acc of settingsData.accounts) {
+          if (acc.devices) {
+            const found = acc.devices.find((item) => item.id === deviceId);
+            if (found) {
+              targetDevice = found;
+              targetAccount = acc;
+              break;
+            }
           }
         }
       }
     }
 
-    // JIKA BUKAN PERANGKAT KITA, ABAIKAN TOTAL (JANGAN LOG & JANGAN UPDATE)
+    // JIKA BUKAN PERANGKAT KITA, ABAIKAN
     if (!targetDevice) return;
 
     let isStateOn = false;
@@ -211,26 +280,53 @@ mqttClient.on('message', (topic, message) => {
         isStateOn = parsed === 1;
       } else if (typeof parsed === 'string') {
         const u = parsed.toUpperCase().trim();
-        isStateOn = (u === 'OPEN' || u === 'ON' || u === 'TRUE' || u === '1' || u === 'TERBUKA');
+        isStateOn = (u === 'OPEN' || u === 'ON' || u === 'TRUE' || u === '1' || u === 'TERBUKA' || u === 'BUKA');
       }
     } catch (_) {
       const u = payloadStr.toUpperCase().trim();
-      isStateOn = (u === 'OPEN' || u === 'ON' || u === 'TRUE' || u === '1' || u === 'TERBUKA');
+      isStateOn = (u === 'OPEN' || u === 'ON' || u === 'TRUE' || u === '1' || u === 'TERBUKA' || u === 'BUKA');
     }
 
-    // Update status perangkat jika berubah
-    if (targetDevice.isActive !== isStateOn || (numericValue !== null && targetDevice.value !== numericValue)) {
-      targetDevice.isActive = isStateOn;
-      targetDevice.statusText = isStateOn ? (targetDevice.type === 0 || targetDevice.type === 2 ? 'Terbuka' : 'Menyala') : (targetDevice.type === 0 || targetDevice.type === 2 ? 'Terkunci' : 'Mati');
-      if (numericValue !== null) targetDevice.value = numericValue;
+    // Update status perangkat jika berubah (atau jika perintah masuk dari HP)
+    targetDevice.isActive = isStateOn;
+    targetDevice.statusText = isStateOn 
+      ? (targetDevice.type === 0 || targetDevice.type === 2 ? 'Terbuka' : 'Menyala') 
+      : (targetDevice.type === 0 || targetDevice.type === 2 ? 'Terkunci' : 'Mati');
+    if (numericValue !== null) targetDevice.value = numericValue;
 
-      broadcastWs({ type: 'device_update', deviceId, isStateOn, value: numericValue });
+    saveSettings();
 
-      if (type === 'state') {
-        addLog(targetDevice.name, `Fisik: ${isStateOn ? 'TERBUKA / ON' : 'TERKUNCI / OFF'}`, 'HARDWARE', targetAccount?.id);
-      } else if (type === 'set') {
-        addLog(targetDevice.name, `Perintah: ${isStateOn ? 'BUKA / ON' : 'TUTUP / OFF'}`, 'USER', targetAccount?.id);
-      }
+    // Broadcast ke WebSocket Dashboard Web Real-Time!
+    broadcastWs({ 
+      type: 'device_update', 
+      deviceId, 
+      isStateOn, 
+      value: numericValue, 
+      accountId: targetAccount?.id 
+    });
+
+    const isGate = (targetDevice.type === 0 || targetDevice.type === 2 || deviceId.includes('pagar') || deviceId.includes('gate') || deviceId.includes('pintu'));
+    const actionLabel = isStateOn ? (isGate ? 'TERBUKA (Buka Gerbang)' : 'ON (Menyala)') : (isGate ? 'TERKUNCI (Tutup Gerbang)' : 'OFF (Mati)');
+
+    if (type === 'state') {
+      addLog(targetDevice.name, `Fisik: ${actionLabel}`, 'HARDWARE', targetAccount?.id);
+    } else if (type === 'set') {
+      addLog(targetDevice.name, `Aplikasi HP: ${actionLabel}`, 'MOBILE_APP', targetAccount?.id);
+
+      // Jika dari aplikasi HP mengirim /set, publikasikan juga status ke /state agar sinkron ke seluruh MQTT listener & hardware
+      const statePayload = JSON.stringify({
+        state: isStateOn,
+        value: numericValue,
+        pin: targetDevice.pin,
+        hardwarePin: targetDevice.hardwarePin
+      });
+      const stateStr = isStateOn ? (isGate ? 'BUKA' : 'ON') : (isGate ? 'TUTUP' : 'OFF');
+
+      const accPrefix = targetAccount?.mqtt_prefix || targetAccount?.mqttPrefix || 'alrisa';
+      mqttClient.publish(`${accPrefix}/${deviceId}/state`, stateStr, { qos: 1 });
+      mqttClient.publish(`${accPrefix}/${deviceId}/state`, statePayload, { qos: 1 });
+      mqttClient.publish(`nexora/${deviceId}/state`, stateStr, { qos: 1 });
+      mqttClient.publish(`nexora/${deviceId}/state`, statePayload, { qos: 1 });
     }
   } catch (err) {
     console.error('⚠️ Gagal proses pesan MQTT:', err.message);
@@ -241,16 +337,26 @@ mqttClient.on('message', (topic, message) => {
 // 4. REST API ENDPOINTS (KOMPATIBEL DENGAN PHP & APLIKASI HP)
 // -------------------------------------------------------------
 
-// 1. Healthcheck Sistem
+// 1. Healthcheck Sistem & Status Database MySQL
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ONLINE',
     system: settingsData.system?.app_name || 'ALRISA Cloud Smart Systems',
-    version: '3.0.0 (Node.js)',
+    version: '3.2.0 (Node.js + MySQL Edition)',
+    database: getDbStatus(),
     mqttConnected: mqttClient.connected,
     gateway: gatewayStatus,
     active_account: settingsData.active_account_id,
     timestamp: new Date().toISOString(),
+  });
+});
+
+app.get('/api/db-status', async (req, res) => {
+  const status = getDbStatus();
+  res.json({
+    success: status.connected,
+    ...status,
+    total_accounts: (settingsData.accounts || []).length,
   });
 });
 
@@ -413,7 +519,7 @@ app.post('/api/admins/create', (req, res) => {
     division: cleanDivision,
     created_at: new Date().toISOString().split('T')[0],
     hardware_type: 'ESP32 Smart Automation Hub',
-    hardware_desc: 'Sistem Kontrol Administrator Nexora Dash',
+    hardware_desc: 'Sistem Kontrol Administrator Alrisa Dash',
     mqtt_broker: settingsData.system?.mqtt_default_broker || 'broker.emqx.io',
     mqtt_port: settingsData.system?.mqtt_default_port || 1883,
     mqtt_ws_port: 8083,
@@ -423,7 +529,7 @@ app.post('/api/admins/create', (req, res) => {
     plc_ip: '192.168.1.100',
     plc_port: 502,
     plc_type: 'Mitsubishi FX5U (Modbus TCP)',
-    wifi_ssid: 'NEXORA_ADMIN_HQ',
+    wifi_ssid: 'ALRISA_ADMIN_HQ',
     wifi_password: '',
     devices: [],
     cctv: [],
@@ -749,7 +855,7 @@ app.post('/api/accounts/create', (req, res) => {
     password: String(password).trim(),
     role: cleanRole,
     hardware_type: hardware_type || 'ESP32 Smart Automation Hub',
-    hardware_desc: 'Modul Otomasi Cerdas Nexora Cloud IoT',
+    hardware_desc: 'Modul Otomasi Cerdas Alrisa Cloud IoT',
     mqtt_broker: settingsData.system?.mqtt_default_broker || 'broker.emqx.io',
     mqtt_port: settingsData.system?.mqtt_default_port || 1883,
     mqtt_ws_port: 8083,
@@ -759,7 +865,7 @@ app.post('/api/accounts/create', (req, res) => {
     plc_ip: plc_ip || '192.168.1.100',
     plc_port: parseInt(plc_port) || 502,
     plc_type: plc_type || 'Mitsubishi FX5U (Modbus TCP)',
-    wifi_ssid: wifi_ssid || 'NEXORA_SMART_WIFI',
+    wifi_ssid: wifi_ssid || 'ALRISA_SMART_WIFI',
     wifi_password: '',
     devices: defaultDevices,
     cctv: [],
@@ -864,7 +970,7 @@ app.post('/api/login', (req, res) => {
   if (!acc) {
     return res.status(404).json({
       success: false,
-      message: 'Akun / Email belum terdaftar di sistem server Cloud Nexora.',
+      message: 'Akun / Email belum terdaftar di sistem server Cloud ALRISA.',
     });
   }
 
@@ -884,11 +990,11 @@ app.post('/api/login', (req, res) => {
     console.log(`⛔ [LOGIN WEBSITE DITOLAK] Pelanggan ${acc.name} (${acc.email}) mencoba login ke Website Dash Admin!`);
     return res.status(403).json({
       success: false,
-      message: 'Akses Ditolak: Halaman Dash Admin khusus untuk Administrator! Pelanggan / Pengguna aplikasi silakan login menggunakan Aplikasi Mobile Nexora di HP Anda.',
+      message: 'Akses Ditolak: Halaman Dash Admin khusus untuk Administrator! Pelanggan / Pengguna aplikasi silakan login menggunakan Aplikasi Mobile ALRISA di HP Anda.',
     });
   }
 
-  const token = 'nexora_tk_' + Buffer.from(`${acc.id}:${Date.now()}`).toString('base64');
+  const token = 'alrisa_tk_' + Buffer.from(`${acc.id}:${Date.now()}`).toString('base64');
   console.log(`🔐 [LOGIN] ${acc.name} (${acc.email}) - Role: ${acc.role || 'user'} - Portal: ${isWebLogin ? 'WEB_ADMIN' : 'MOBILE_APP'}`);
   addLog(acc.name, `Login (${acc.role || 'user'}) via ${isWebLogin ? 'Web Dash Admin' : 'Aplikasi Mobile'}`, 'WEB_AUTH', acc.id);
 
@@ -1423,8 +1529,10 @@ app.post('/api/cctv/delete', (req, res) => {
 });
 
 // 7. Kontrol Perangkat (Dua Format: /api/devices/:id/control & /api/control)
-function handleControl(deviceId, action, value, origin, res) {
-  const acc = getActiveAccount();
+function handleControl(deviceId, action, value, origin, targetAccountId, res) {
+  let acc = null;
+  if (targetAccountId) acc = findAccount(targetAccountId);
+  if (!acc) acc = getActiveAccount();
   const prefix = acc?.mqtt_prefix || 'alrisa';
 
   let isStateOn = false;
@@ -1435,47 +1543,104 @@ function handleControl(deviceId, action, value, origin, res) {
     isStateOn = (u === 'ON' || u === 'OPEN' || u === 'BUKA' || u === 'TRUE' || u === '1');
   }
 
-  // Update memori
+  // Update memori & MySQL
+  let targetDev = null;
   if (acc && acc.devices) {
-    const dev = acc.devices.find((d) => d.id === deviceId);
-    if (dev) {
-      dev.isActive = isStateOn;
-      dev.statusText = isStateOn ? (dev.type === 0 || dev.type === 2 ? 'Terbuka' : 'Menyala') : (dev.type === 0 || dev.type === 2 ? 'Terkunci' : 'Mati');
-      if (value !== undefined && value !== null) dev.value = Number(value);
+    targetDev = acc.devices.find((d) => d.id === deviceId);
+    if (!targetDev && (deviceId.includes('pagar') || deviceId.includes('gate'))) {
+      targetDev = acc.devices.find((d) => d.type === 0);
+    }
+    if (targetDev) {
+      targetDev.isActive = isStateOn;
+      targetDev.statusText = isStateOn ? (targetDev.type === 0 || targetDev.type === 2 ? 'Terbuka' : 'Menyala') : (targetDev.type === 0 || targetDev.type === 2 ? 'Terkunci' : 'Mati');
+      if (value !== undefined && value !== null) targetDev.value = Number(value);
+      saveSettings();
     }
   }
 
   // Kirim ke MQTT
   const cmdStr = isStateOn ? 'OPEN' : 'CLOSE';
-  mqttClient.publish(`${prefix}/${deviceId}/set`, cmdStr, { qos: 1 });
-  mqttClient.publish(`nexora/${deviceId}/set`, cmdStr, { qos: 1 });
-  mqttClient.publish(`alrisa/${deviceId}/set`, cmdStr, { qos: 1 });
+  const stateStr = isStateOn ? (targetDev && targetDev.type === 1 ? 'ON' : 'OPEN') : (targetDev && targetDev.type === 1 ? 'OFF' : 'LOCKED');
+
+  // Ekstrak nomor PIN hardware jika ada (misal: "GPIO 2", "GPIO 23", "%QX0.0" -> 2, 23)
+  let pinNumber = null;
+  if (targetDev && targetDev.hardwarePin) {
+    const match = String(targetDev.hardwarePin).match(/(?:gpio\s*|pin\s*|#)?(\d+)/i);
+    if (match) pinNumber = parseInt(match[1]);
+  }
+
+  const jsonPayload = JSON.stringify({
+    state: isStateOn,
+    value: value !== undefined && value !== null ? Number(value) : null,
+    pin: pinNumber,
+    hardwarePin: targetDev ? targetDev.hardwarePin : undefined,
+    action: cmdStr
+  });
+
+  const statePayload = JSON.stringify({
+    state: isStateOn,
+    value: value !== undefined && value !== null ? Number(value) : null,
+    pin: pinNumber,
+    hardwarePin: targetDev ? targetDev.hardwarePin : undefined,
+  });
+
+  // 1. Publikasikan ke topic perintah (/set)
+  mqttClient.publish(`${prefix}/${deviceId}/set`, jsonPayload, { qos: 1 });
+  mqttClient.publish(`nexora/${deviceId}/set`, jsonPayload, { qos: 1 });
+  mqttClient.publish(`alrisa/${deviceId}/set`, jsonPayload, { qos: 1 });
+  if (targetDev && targetDev.id !== deviceId) {
+    mqttClient.publish(`${prefix}/${targetDev.id}/set`, jsonPayload, { qos: 1 });
+    mqttClient.publish(`nexora/${targetDev.id}/set`, jsonPayload, { qos: 1 });
+  }
+
+  // 2. Publikasikan status seketika ke topic state (/state) agar APLIKASI HP LANGSUNG TERUPDATE!
+  mqttClient.publish(`${prefix}/${deviceId}/state`, stateStr, { qos: 1 });
+  mqttClient.publish(`nexora/${deviceId}/state`, stateStr, { qos: 1 });
+  mqttClient.publish(`alrisa/${deviceId}/state`, stateStr, { qos: 1 });
+  mqttClient.publish(`${prefix}/${deviceId}/state`, statePayload, { qos: 1 });
+  mqttClient.publish(`nexora/${deviceId}/state`, statePayload, { qos: 1 });
+  if (targetDev && targetDev.id !== deviceId) {
+    mqttClient.publish(`${prefix}/${targetDev.id}/state`, stateStr, { qos: 1 });
+    mqttClient.publish(`nexora/${targetDev.id}/state`, stateStr, { qos: 1 });
+    mqttClient.publish(`${prefix}/${targetDev.id}/state`, statePayload, { qos: 1 });
+    mqttClient.publish(`nexora/${targetDev.id}/state`, statePayload, { qos: 1 });
+  }
+
+  // 3. Kirim juga string singkat untuk firmware sederhana
+  mqttClient.publish(`${prefix}/${deviceId}/cmd`, cmdStr, { qos: 1 });
+  mqttClient.publish(`nexora/${deviceId}/cmd`, cmdStr, { qos: 1 });
+
+  // 4. Sinkronisasikan ke seluruh klien WebSocket & Mobile Sync
+  if (acc) {
+    broadcastDeviceSync(acc);
+  }
 
   addLog(deviceId, `Perintah: ${cmdStr}${value !== undefined && value !== null ? ` (${value}%)` : ''}`, origin, acc?.id);
-  broadcastWs({ type: 'device_update', deviceId, isStateOn, value });
+  broadcastWs({ type: 'device_update', deviceId, isStateOn, value, accountId: acc?.id });
 
   res.json({
     success: true,
-    message: `Perintah ke ${deviceId} berhasil dipublikasikan ke MQTT`,
+    message: `Perintah ke ${deviceId} berhasil dipublikasikan ke MQTT & HP!`,
     device_id: deviceId,
     action: cmdStr,
     state: isStateOn,
     value,
+    account_id: acc?.id,
   });
 }
 
 app.post('/api/devices/:id/control', (req, res) => {
   const deviceId = req.params.id;
-  const { state, action, value } = req.body;
+  const { state, action, value, account_id } = req.body;
   const act = state !== undefined ? state : action;
-  handleControl(deviceId, act, value, 'WEB_DASHBOARD', res);
+  handleControl(deviceId, act, value, 'WEB_DASHBOARD', account_id, res);
 });
 
 app.post('/api/control', (req, res) => {
-  const { device_id, action, state, value } = req.body;
+  const { device_id, action, state, value, account_id } = req.body;
   const act = action !== undefined ? action : state;
   if (!device_id) return res.status(400).json({ success: false, message: 'device_id wajib diisi' });
-  handleControl(device_id, act, value, 'API_CONTROL', res);
+  handleControl(device_id, act, value, 'API_CONTROL', account_id, res);
 });
 
 // 8. Sinkronisasi PLC (Kompatibel dengan /api/plc_sync.php)
@@ -1507,15 +1672,36 @@ app.get('/api/logs', (req, res) => {
   res.json({ success: true, logs: activityLogs });
 });
 
-// Jalankan HTTP & WebSocket Server
-server.listen(PORT, '0.0.0.0', () => {
-  console.log('='.repeat(70));
-  console.log(`🚀 ALRISA & NEXORA CLOUD HUB (Node.js High-Performance Edition)`);
-  console.log(`🏢 Alfatech Solutions IDN. — Latensi < 10ms`);
-  console.log('='.repeat(70));
-  console.log(`✅ Web Dashboard & REST API : http://localhost:${PORT}`);
-  console.log(`✅ WebSocket Server Live    : ws://localhost:${PORT}`);
-  console.log(`✅ MQTT Cloud Broker        : ${MQTT_BROKER}`);
-  console.log(`✅ Akun Aktif               : ${getActiveAccount()?.name || 'Super Admin'}`);
-  console.log('='.repeat(70));
-});
+// Inisialisasi Database MySQL lalu jalankan HTTP & WebSocket Server
+async function startServer() {
+  const dbInit = await initMySQLDatabase(settingsData);
+  if (dbInit.connected && dbInit.settingsData) {
+    settingsData = dbInit.settingsData;
+    try {
+      fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settingsData, null, 2), 'utf-8');
+    } catch (_) {}
+  }
+  if (Array.isArray(dbInit.activityLogs) && dbInit.activityLogs.length > 0) {
+    activityLogs.splice(0, activityLogs.length, ...dbInit.activityLogs);
+  }
+
+  server.listen(PORT, '0.0.0.0', () => {
+    const dbStat = getDbStatus();
+    console.log('='.repeat(70));
+    console.log(`🚀 ALRISA CLOUD HUB (MySQL + Node.js Edition)`);
+    console.log(`🏢 Alfatech Solutions IDN. — Laragon & Cloud Hosting Ready`);
+    console.log('='.repeat(70));
+    console.log(`✅ Web Dashboard & REST API : http://localhost:${PORT}`);
+    console.log(`✅ WebSocket Server Live    : ws://localhost:${PORT}`);
+    console.log(`✅ Database MySQL           : ${dbStat.connected ? `TERHUBUNG (${dbStat.host}:${dbStat.port}/${dbStat.database})` : `FALLBACK JSON (${dbStat.error || 'MySQL belum aktif'})`}`);
+    console.log(`✅ MQTT Cloud Broker        : ${MQTT_BROKER}`);
+    console.log(`✅ Akun Aktif               : ${getActiveAccount()?.name || 'Super Admin'}`);
+    console.log('='.repeat(70));
+  });
+}
+
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;

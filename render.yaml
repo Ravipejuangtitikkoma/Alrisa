@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: alrisa-cloud-hub
+    env: node
+    plan: free
+    region: singapore
+    rootDir: backend_cloud_js
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: MQTT_BROKER_URL
+        value: mqtt://broker.emqx.io:1883
+      - key: API_KEY
+        value: alrisa_secret_token_2026

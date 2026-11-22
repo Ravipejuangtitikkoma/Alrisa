@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NEXORA & ALRISA Studio v3.0 — Central Multi-Tenant IoT Broker & Gateway</title>
+  <title>ALRISA Studio v3.0 — Central Multi-Tenant IoT Broker & Gateway</title>
   
   <!-- Modern Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1039,7 +1039,7 @@
         <div class="brand-logo-badge">⚡</div>
         <div class="brand-title-wrap">
           <h1>
-            <span class="gradient-text">NEXORA & ALRISA</span>
+            <span class="gradient-text">ALRISA</span>
             <span class="cyan-text">Studio</span>
             <span class="version-tag">v3.0</span>
           </h1>
@@ -1059,7 +1059,7 @@
           <span style="color: var(--cyan);" id="headerPingText">LATENSI: 18ms</span>
         </div>
 
-        <a href="dashboard.html" id="btnHeaderDashboard" class="btn-top active-dash" target="_blank" title="Buka Halaman Web Dashboard Nexora Home OS">
+        <a href="dashboard.html" id="btnHeaderDashboard" class="btn-top active-dash" target="_blank" title="Buka Halaman Web Dashboard Alrisa Home OS">
           <span>🏠</span> Buka Web Dashboard
         </a>
         <a href="/api/settings" target="_blank" class="btn-top" title="Lihat Endpoint Konfigurasi JSON REST">
@@ -1071,7 +1071,7 @@
     <!-- 2. TOPOLOGY MAP STRIP (PERSIS GAMBAR KEDUA USER) -->
     <section class="topology-card">
       <div class="topology-header">
-        <span>🔗 Topologi Integrasi Real-Time Multi-Tenant Nexora IoT</span>
+        <span>🔗 Topologi Integrasi Real-Time Multi-Tenant Alrisa IoT</span>
         <span style="color: var(--cyan); font-family: 'JetBrains Mono', monospace;" id="topoBrokerDisplay">
           Broker: broker.emqx.io:1883
         </span>
@@ -1081,7 +1081,7 @@
         <div class="node-box">
           <div class="node-icon">📱</div>
           <div class="node-info">
-            <div class="title">Aplikasi HP Android Nexora</div>
+            <div class="title">Aplikasi HP Android Alrisa</div>
             <div class="sub">Flutter Client Multi-Akun</div>
           </div>
         </div>
@@ -1383,7 +1383,7 @@
               <div class="card-icon-badge">🔐</div>
               <div>
                 <h2>Token Keamanan & REST API Sync Otomatis</h2>
-                <p>Kunci autentikasi agar aplikasi Flutter Nexora dapat mengunduh konfigurasi ini secara otomatis.</p>
+                <p>Kunci autentikasi agar aplikasi Flutter Alrisa dapat mengunduh konfigurasi ini secara otomatis.</p>
               </div>
             </div>
           </div>
@@ -1395,7 +1395,7 @@
             </div>
             <div class="form-group-box">
               <label for="app_name">Label Ekosistem Rumah / Kantor</label>
-              <input type="text" id="app_name" name="app_name" class="app-input" value="ALRISA & NEXORA Multi-Tenant Cloud Studio">
+              <input type="text" id="app_name" name="app_name" class="app-input" value="ALRISA Multi-Tenant Cloud Studio">
             </div>
           </div>
 
@@ -1460,7 +1460,7 @@
 
         <div class="form-group-box" style="margin-bottom: 16px;">
           <label for="editAccEmail">Username / Email Login HP <span class="field-badge">Wajib</span></label>
-          <input type="email" id="editAccEmail" class="app-input mono" placeholder="nama@nexora.id">
+          <input type="email" id="editAccEmail" class="app-input mono" placeholder="nama@alrisa.id">
         </div>
 
         <div class="form-group-box" style="margin-bottom: 16px;">
@@ -1516,7 +1516,7 @@
         </div>
         <div class="form-group-box" style="margin-bottom: 16px;">
           <label for="newAccEmail">Email / Username Login HP <span class="field-badge">Wajib</span></label>
-          <input type="email" id="newAccEmail" class="app-input mono" placeholder="hendra@nexora.id">
+          <input type="email" id="newAccEmail" class="app-input mono" placeholder="hendra@alrisa.id">
         </div>
         <div class="form-group-box" style="margin-bottom: 16px;">
           <label for="newAccPassword">Password Login HP <span class="field-badge">Wajib</span></label>
@@ -2647,7 +2647,7 @@
       statusBadge.style.color = 'var(--amber)';
       addTermLog('CLIENT', `Mengirim handshake WebSocket ke wss://${broker}:${wsPort}/mqtt...`);
 
-      const clientId = 'NEXORA_Diag_' + Math.random().toString(16).substr(2, 8);
+      const clientId = 'ALRISA_Diag_' + Math.random().toString(16).substr(2, 8);
       const startTime = performance.now();
 
       try {
