@@ -1,64 +1,66 @@
-# Panduan Simulasi Online ESP32 & Relay Pagar di Wokwi
-**Nexora / ALRISA Smart Home System**
+# Panduan Lengkap Simulasi Online ESP32 & Relay di Wokwi
+**ALRISA Smart Home & Industrial IoT System**
 
-Bila komponen fisik (ESP32 dan Relay) belum sampai, Anda **SANGAT BISA** mengujinya secara online dan visual 100% menggunakan **Wokwi Simulator (https://wokwi.com)**.
+Bila komponen fisik (ESP32 dan Relay) belum dipasang, Anda dapat menguji seluruh sistem secara **100% online, visual, dan interaktif** menggunakan **Wokwi Simulator (https://wokwi.com)**.
 
-Simulasi di Wokwi ini bersifat **LIVE**: ESP32 virtual di browser akan terhubung ke internet nyata via MQTT `broker.emqx.io`. Ketika Anda menekan tombol "Buka Pagar" di HP, relay virtual di browser Anda akan langsung bergerak, saklar kontak berbunyi "klik", dan lampu indikator motor pagar menyala hijau!
+Simulasi di Wokwi ini bersifat **LIVE**: ESP32 virtual di browser Anda terhubung ke internet nyata via MQTT `broker.emqx.io`. Ketika Anda menekan tombol di Web Dashboard ALRISA atau di HP, saklar relay di browser Anda akan berbunyi klik (*ON*) dan lampu indikator beban menyala secara real-time!
 
 ---
 
-## Opsi 1: Simulasi di Browser via Wokwi (Rekomendasi Utama)
+## Langkah Menjalankan Simulasi di Wokwi (Hanya 2 Menit)
 
-### Langkah 1: Buka Wokwi
-1. Buka browser dan kunjungi: **https://wokwi.com/projects/new/esp32**
+### 1. Buka Wokwi Simulator
+Buka browser Anda dan kunjungi:
+👉 **https://wokwi.com/projects/new/esp32**
 
-### Langkah 2: Masukkan Kode Kodingan
-1. Pada tab **`sketch.ino`** di Wokwi, hapus semua kode bawaan.
-2. Salin seluruh isi file: [`gateway/wokwi/esp32_relay_wokwi.ino`](file:///f:/Aplikasi%20Nexora/gateway/wokwi/esp32_relay_wokwi.ino) lalu tempel (*paste*) ke Wokwi.
+### 2. Masukkan Kode Firmware (`sketch.ino`)
+1. Di tab **`sketch.ino`** bawaan Wokwi, hapus semua kode di dalamnya.
+2. Buka file: [gateway/wokwi/esp32_relay_wokwi.ino](file:///run/media/ravi-armanza/New%20Volume/Aplikasi%20Nexora/gateway/wokwi/esp32_relay_wokwi.ino)
+3. Salin (*copy*) seluruh isinya, lalu tempel (*paste*) ke tab `sketch.ino` di Wokwi.
 
-### Langkah 3: Tambahkan Library PubSubClient
-1. Di bagian kiri panel kode Wokwi, klik tab **Library Manager** (ikon buku atau tab bertuliskan *Libraries*).
-2. Klik tombol **+ Add a Library** atau ketik:
+### 3. Masukkan Rangkaian Otomatis (`diagram.json`)
+Agar Anda tidak perlu repot menarik kabel satu per satu di layar Wokwi:
+1. Di Wokwi, klik tab **`diagram.json`**.
+2. Hapus isinya, lalu buka file: [gateway/wokwi/diagram.json](file:///run/media/ravi-armanza/New%20Volume/Aplikasi%20Nexora/gateway/wokwi/diagram.json)
+3. Salin seluruh teksnya dan tempel ke tab `diagram.json`.
+4. Anda akan langsung melihat rangkaian instan:
+   - 1x Board **ESP32 DevKit v4**
+   - 1x Modul **Relay** terhubung ke pin GPIO 2, 5V, dan GND
+   - 1x Lampu LED Hijau **"MOTOR PAGAR / BEBAN RELAY"** terhubung ke terminal NO (Normally Open)
+
+### 4. Tambahkan Library `PubSubClient`
+1. Di panel kiri Wokwi, klik tab **Library Manager** (ikon buku atau tab bertuliskan *Libraries* / `libraries.txt`).
+2. Ketik / pastikan tertulis:
    ```text
    PubSubClient
    ```
-3. Pilih library **PubSubClient by Nick O'Leary** (atau cukup tempel teks `PubSubClient` di tab `libraries.txt`).
 
-### Langkah 4: Pasang Rangkaian Otomatis (Diagram)
-Agar Anda tidak perlu repot menggambar dan menarik kabel relay satu per satu di Wokwi:
-1. Di Wokwi, klik tab **`diagram.json`**.
-2. Salin seluruh isi file: [`gateway/wokwi/diagram.json`](file:///f:/Aplikasi%20Nexora/gateway/wokwi/diagram.json) lalu tempel ke tab `diagram.json` tersebut.
-3. Anda akan langsung melihat:
-   - 1x Board **ESP32**
-   - 1x Modul **Relay** lengkap dengan kabel warna-warni terpasang ke pin GPIO 23, VCC (5V), GND, dan COM
-   - 1x Lampu LED Hijau bertuliskan **"MOTOR PAGAR"** yang tersambung ke terminal NO (Normally Open)
-
-### Langkah 5: Jalankan Simulasi!
+### 5. Jalankan Simulasi!
 1. Klik tombol **Play (ikon segitiga hijau)** di pojok atas Wokwi.
-2. Perhatikan panel **Serial Monitor** di bawah:
-   - ESP32 akan menyambung ke `WiFi Wokwi-GUEST`
-   - ESP32 akan terhubung ke `broker.emqx.io:1883`
-   - Muncul status: `✅ ESP32 Siap menerima kendali dari HP Anda!`
-
-### Langkah 6: Cara Menguji
-- **Cara A (Langsung dari HP Nexora)**:
-  - Buka aplikasi Nexora di HP.
-  - Tekan tombol **Buka Pagar** $\rightarrow$ Di layar Wokwi, saklar relay akan bergerak menyambung dan lampu LED **"MOTOR PAGAR"** menyala terang!
-  - Tekan tombol **Kunci Pagar** $\rightarrow$ Saklar relay terputus dan lampu motor pagar padam!
-- **Cara B (Lewat Serial Monitor Wokwi)**:
-  - Pada kotak input Serial Monitor di bawah simulasi, ketik `OPEN` lalu Enter $\rightarrow$ Relay aktif!
-  - Ketik `CLOSE` lalu Enter $\rightarrow$ Relay mati!
+2. Di panel **Serial Monitor** di bagian bawah, Anda akan melihat log proses:
+   - Terhubung ke WiFi virtual (`Wokwi-GUEST`)
+   - Terhubung ke Cloud MQTT (`broker.emqx.io:1883`)
+   - Muncul pesan: `✅ ESP32 Siap menerima kendali dari Web Dashboard & HP Anda!`
 
 ---
 
-## Opsi 2: Simulasi Offline di Laptop (Visual PLC Simulator)
+## 3 Cara Menguji Kendali Relay
 
-Jika Anda ingin simulasi visual langsung di layar komputer tanpa membuka browser, Anda sudah memiliki aplikasi simulator bawaan di project ini:
+### Cara 1: Dari Web Dashboard ALRISA
+1. Buka **https://alrisa.vercel.app** (atau `http://localhost:3001`).
+2. Login dengan akun: `raviarmanza149@gmail.com` / `ravi18`.
+3. Pada kartu **Gerbang Utama Depan** (ID: `pagar`), klik tombol saklar:
+   - Saklar relay di Wokwi langsung menyambung (*ON*).
+   - Lampu LED hijau di layar Wokwi menyala terang!
+   - Serial Monitor Wokwi menampilkan log: `⚡ [RELAY ON / MENYAMBUNG]`.
 
-1. Buka terminal PowerShell di folder project:
-   ```powershell
-   python "f:\Aplikasi Nexora\gateway\visual_plc.py"
-   ```
-2. Aplikasi desktop **ALRISA OpenPLC Visual Simulator** akan terbuka:
-   - Menampilkan diagram kontak relay pagar (%QX0.1).
-   - Kabel dan coil akan menyala hijau saat pagar dibuka dari HP.
+### Cara 2: Dari Aplikasi HP (Flutter)
+1. Buka aplikasi ALRISA di HP Anda.
+2. Tekan tombol **Buka Pagar**:
+   - HP mem-publish perintah ke topik `alrisa/pagar/set`.
+   - Relay virtual di Wokwi seketika merespons dan lampu menyala!
+
+### Cara 3: Lewat Serial Monitor Wokwi (Manual)
+1. Pada kotak input Serial Monitor di bawah simulasi Wokwi:
+   - Ketik `OPEN` lalu Enter $\rightarrow$ Relay aktif, lampu menyala.
+   - Ketik `CLOSE` lalu Enter $\rightarrow$ Relay mati, lampu padam.
