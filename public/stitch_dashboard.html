@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ALRISA OS | Executive Smart Gate &amp; Architectural Automation Hub</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Outfit:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-dim": "#10131d",
+            "error-container": "#93000a",
+            "surface-bright": "#363944",
+            "surface-tint": "#00dce6",
+            "outline-variant": "#3a494b",
+            "surface-variant": "#313440",
+            "tertiary-fixed": "#6ffbbe",
+            "tertiary-fixed-dim": "#4edea3",
+            "on-tertiary": "#003824",
+            "error": "#ffb4ab",
+            "surface-container-lowest": "#0a0e18",
+            "inverse-surface": "#e0e2f1",
+            "on-tertiary-fixed-variant": "#005236",
+            "on-tertiary-container": "#006e4b",
+            "outline": "#849495",
+            "on-tertiary-fixed": "#002113",
+            "secondary-fixed-dim": "#4cd7f6",
+            "inverse-primary": "#00696f",
+            "primary-container": "#00f2fe",
+            "on-surface": "#e0e2f1",
+            "secondary-fixed": "#acedff",
+            "on-primary-fixed": "#002022",
+            "surface": "#10131d",
+            "inverse-on-surface": "#2d303b",
+            "tertiary-container": "#67f4b7",
+            "primary-fixed-dim": "#00dce6",
+            "on-secondary": "#003640",
+            "on-secondary-container": "#00424e",
+            "surface-container": "#1c1f2a",
+            "on-background": "#e0e2f1",
+            "primary-fixed": "#6ff6ff",
+            "on-secondary-fixed": "#001f26",
+            "on-primary-container": "#006a70",
+            "on-surface-variant": "#b9cacb",
+            "on-primary": "#00373a",
+            "secondary": "#4cd7f6",
+            "surface-container-low": "#181b26",
+            "on-secondary-fixed-variant": "#004e5c",
+            "surface-container-highest": "#313440",
+            "on-error-container": "#ffdad6",
+            "on-error": "#690005",
+            "on-primary-fixed-variant": "#004f53",
+            "background": "#10131d",
+            "tertiary": "#e1ffec",
+            "primary": "#e0fdff",
+            "surface-container-high": "#262a35",
+            "secondary-container": "#03b5d3"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-md": "1rem",
+            "space-xl": "2.5rem",
+            "gutter-sm": "1rem",
+            "margin": "2rem",
+            "space-xs": "0.25rem",
+            "space-sm": "0.5rem",
+            "space-lg": "1.5rem",
+            "gutter": "1.5rem",
+            "margin-sm": "1rem"
+          },
+          "fontFamily": {
+            "body-md": ["Plus Jakarta Sans"],
+            "headline-lg": ["Outfit"],
+            "headline-xl": ["Outfit"],
+            "label-mono-sm": ["JetBrains Mono"],
+            "body-lg": ["Plus Jakarta Sans"],
+            "body-sm": ["Plus Jakarta Sans"],
+            "headline-lg-mobile": ["Outfit"],
+            "label-mono-md": ["JetBrains Mono"],
+            "title-sm": ["Plus Jakarta Sans"],
+            "headline-xl-mobile": ["Outfit"],
+            "headline-md": ["Outfit"]
+          },
+          "fontSize": {
+            "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "500" }],
+            "headline-xl": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.03em", "fontWeight": "600" }],
+            "label-mono-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+            "body-lg": ["16px", { "lineHeight": "26px", "fontWeight": "400" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "500" }],
+            "label-mono-md": ["13px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500" }],
+            "title-sm": ["16px", { "lineHeight": "24px", "letterSpacing": "-0.005em", "fontWeight": "600" }],
+            "headline-xl-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+            "headline-md": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "500" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+      line-height: 1;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .custom-glass-card {
+      background: rgba(16, 19, 29, 0.72);
+      backdrop-filter: blur(20px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.05);
+    }
+    .custom-glass-card-interactive {
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .custom-glass-card-interactive:hover {
+      background: rgba(28, 31, 42, 0.85);
+      border-color: rgba(0, 242, 254, 0.3);
+      box-shadow: 0 0 28px -4px rgba(0, 242, 254, 0.12), inset 0 1px 2px 0 rgba(255, 255, 255, 0.1);
+    }
+    .glow-cyan-aura {
+      box-shadow: 0 0 24px -2px rgba(0, 242, 254, 0.35);
+    }
+    .glow-emerald-aura {
+      box-shadow: 0 0 24px -2px rgba(103, 244, 183, 0.25);
+    }
+    .laser-scan-line {
+      animation: scanLaser 3.5s ease-in-out infinite alternate;
+    }
+    @keyframes scanLaser {
+      0% { transform: translateY(0%); opacity: 0.2; }
+      50% { opacity: 0.9; }
+      100% { transform: translateY(180px); opacity: 0.2; }
+    }
+    .radar-pulse {
+      animation: radarRipples 2.4s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+    }
+    @keyframes radarRipples {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface antialiased font-body-md overflow-x-hidden selection:bg-primary-container selection:text-surface-container-lowest">
+<!-- ========================================================
+       SHARED COMPONENT: SideNavBar
+       Authority: JSON Component Blueprint & Injected Styles
+  ======================================================== -->
+<aside class="h-screen w-64 fixed left-0 top-0 flex flex-col justify-between border-r border-outline-variant/30 backdrop-blur-xl bg-surface-container-low/65 z-50 transition-all duration-200">
+<div class="w-64 h-full p-space-md flex flex-col justify-between shrink-0">
+<!-- Top Branding Sector -->
+<div class="space-y-space-md">
+<div class="flex items-center justify-between px-space-xs pt-space-xs">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-lg bg-surface-container-highest border border-outline-variant/40 flex items-center justify-center text-primary-container glow-cyan-aura">
+<span class="material-symbols-outlined text-[20px]">fence</span>
+</div>
+<div>
+<div class="flex items-center gap-space-xs">
+<span class="text-headline-md font-headline-md tracking-wider font-semibold text-primary dark:text-primary leading-none">ALRISA</span>
+<span class="px-1.5 py-0.5 rounded text-[9px] font-label-mono-sm font-label-mono-sm bg-primary-container/15 text-primary-container border border-primary-container/30">v3.4</span>
+</div>
+<p class="text-label-mono-sm font-label-mono-sm text-on-surface-variant text-[10px] tracking-tight">Architectural Automation OS</p>
+</div>
+</div>
+</div>
+<!-- System State Pill -->
+<div class="flex items-center justify-between px-space-sm py-1.5 rounded bg-surface-container-lowest/80 border border-outline-variant/20">
+<div class="flex items-center gap-2">
+<span class="relative flex h-2 w-2">
+<span class="radar-pulse absolute inline-flex h-full w-full rounded-full bg-tertiary-container opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-tertiary-container"></span>
+</span>
+<span class="text-label-mono-sm font-label-mono-sm text-tertiary-fixed-dim text-[10px]">ALL NODES SYNCED</span>
+</div>
+<span class="text-label-mono-sm font-label-mono-sm text-on-surface-variant text-[10px]">TLS 1.3</span>
+</div>
+<!-- Primary Navigation Links (Derived from Shared JSON) -->
+<nav class="space-y-1">
+<!-- Item 1: Active Dashboard / Overview -->
+<a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg bg-surface-container-high text-primary-container font-title-sm border-l-2 border-primary-container transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">space_dashboard</span>
+<span class="text-body-md font-body-md text-primary-container font-medium">Dashboard</span>
+</a>
+<!-- Item 2: Gate & Perimeter -->
+<a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg text-on-surface-variant font-body-md hover:text-on-surface hover:bg-surface-container/40 transition-colors" href="#gates">
+<span class="material-symbols-outlined text-[20px]">fence</span>
+<span class="text-body-md font-body-md">Gate &amp; Perimeter</span>
+</a>
+<!-- Item 3: Lighting & Ambience -->
+<a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg text-on-surface-variant font-body-md hover:text-on-surface hover:bg-surface-container/40 transition-colors" href="#lighting">
+<span class="material-symbols-outlined text-[20px]">lightbulb</span>
+<span class="text-body-md font-body-md">Lighting &amp; Ambience</span>
+</a>
+<!-- Item 4: Water & Resource -->
+<a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg text-on-surface-variant font-body-md hover:text-on-surface hover:bg-surface-container/40 transition-colors" href="#water">
+<span class="material-symbols-outlined text-[20px]">water_drop</span>
+<span class="text-body-md font-body-md">Water &amp; Resource</span>
+</a>
+<!-- Item 5: Surveillance -->
+<a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg text-on-surface-variant font-body-md hover:text-on-surface hover:bg-surface-container/40 transition-colors" href="#surveillance">
+<span class="material-symbols-outlined text-[20px]">videocam</span>
+<span class="text-body-md font-body-md">Surveillance</span>
+<span class="ml-auto text-label-mono-sm font-label-mono-sm text-[10px] px-1.5 py-0.2 bg-error-container/40 text-error rounded border border-error/20">8 LIVE</span>
+</a>
+<!-- Item 6: Audit Logs -->
+<a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg text-on-surface-variant font-body-md hover:text-on-surface hover:bg-surface-container/40 transition-colors" href="#audit">
+<span class="material-symbols-outlined text-[20px]">history</span>
+<span class="text-body-md font-body-md">Audit Logs</span>
+</a>
+</nav>
+</div>
+<!-- Bottom Controls & Profile Dock -->
+<div class="space-y-space-md pt-4 border-t border-outline-variant/30">
+<!-- Emergency Facility Action -->
+<button class="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-error-container/25 hover:bg-error-container/45 text-error border border-error/30 active:scale-[0.98] transition-all group">
+<span class="material-symbols-outlined text-[18px] group-hover:rotate-12 transition-transform">lock</span>
+<span class="text-body-sm font-body-sm font-semibold tracking-wide">Lockdown Facility</span>
+</button>
+<!-- Secondary Footers -->
+<div class="flex items-center justify-between text-on-surface-variant text-label-mono-sm font-label-mono-sm px-1">
+<a class="flex items-center gap-1 hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined text-[16px]">tune</span> Diagnostics
+          </a>
+<a class="flex items-center gap-1 hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined text-[16px]">settings</span> Settings
+          </a>
+</div>
+<!-- User Profile Card -->
+<div class="p-2.5 rounded-xl bg-surface-container/80 border border-outline-variant/30 flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<div class="relative">
+<img class="w-9 h-9 rounded-lg object-cover border border-outline-variant/40" data-alt="Close up executive portrait of director Alexander Vance in a refined architectural interior, moody cinematic dark lighting with gentle cyan fill accents and impeccable styling." src="https://lh3.googleusercontent.com/aida-public/AB6AXuChN2fqiWmEXQfEvfekZZ77cmGB_jwYWfbnDFdjZjUfKjAjseNdqvYe3_eyT7eZdLsN5UF4zAlVOewm0aWN5X5gfPyTW_cp17yeXIZddrzXur6o926xLGH2HV7K8Y7fk8zEIDoCG7A3dEAr8tEJYY6iPUZW0PVQRLUe3hD60qxtRqDIjzXkOu7Uml8KJm2SFpMsoLr3fzv9Fg3gBcx4Agk7ZJjx1r5lpDiAvJ6Zcdq9Ous8wzLt7L1I65F5guAYKTCmDJqV1x7HCdEP"/>
+<span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-tertiary-container rounded-full border-2 border-surface-container"></span>
+</div>
+<div>
+<p class="text-body-sm font-body-sm font-semibold text-on-surface leading-snug">Alexander Vance</p>
+<p class="text-label-mono-sm font-label-mono-sm text-on-surface-variant text-[10px]">Super Admin</p>
+</div>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface p-1 rounded hover:bg-surface-container-high transition-colors" title="Account Options">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+</aside>
+<!-- ========================================================
+       SHARED COMPONENT: TopNavBar
+       Authority: JSON Component Blueprint & Injected Styles
+  ======================================================== -->
+<header class="docked full-width top-0 sticky z-40 backdrop-blur-2xl bg-surface-container-lowest/80 dark:bg-surface-container-lowest/80 border-b border-outline-variant/30 shadow-sm dark:shadow-none">
+<div class="flex justify-between items-center h-16 px-gutter w-full ml-64 max-w-[calc(100%-16rem)]">
+<!-- Left Breadcrumb & Subsystem Ping -->
+<div class="flex items-center gap-space-lg">
+<div class="flex items-center gap-2 text-on-surface-variant text-body-sm font-body-sm">
+<span class="text-headline-md font-headline-md font-bold tracking-tight text-on-surface dark:text-on-surface leading-none">ALRISA OS</span>
+<span class="text-outline text-xs">/</span>
+<span class="text-body-sm font-body-sm text-on-surface font-medium">Estate Overview</span>
+</div>
+<!-- Telemetry Ping Badge -->
+<div class="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-container-low border border-outline-variant/25">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary-container animate-pulse"></span>
+<span class="text-label-mono-sm font-label-mono-sm text-on-surface-variant text-[11px]">Subsystems Online</span>
+<span class="text-outline-variant">·</span>
+<span class="text-label-mono-sm font-label-mono-sm text-primary-container text-[11px]">Ping 12ms</span>
+</div>
+</div>
+<!-- Center Secondary Navigation Links from JSON -->
+<div class="hidden xl:flex items-center gap-space-md">
+<a class="text-primary-container font-title-sm border-b-2 border-primary-container pb-1 text-body-sm font-body-sm" href="#">Estate Overview</a>
+<a class="text-on-surface-variant font-body-md hover:text-on-surface transition-colors text-body-sm font-body-sm" href="#gates">Perimeter Control</a>
+<a class="text-on-surface-variant font-body-md hover:text-on-surface transition-colors text-body-sm font-body-sm" href="#health">Protocol Health</a>
+</div>
+<!-- Right Trailing Actions -->
+<div class="flex items-center gap-space-md">
+<!-- Search Input Recessed -->
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-on-surface-variant">search</span>
+<input class="w-60 bg-surface-container-lowest border border-outline-variant/30 rounded-lg pl-9 pr-3 py-1.5 text-body-sm font-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary-container/80 focus:ring-1 focus:ring-primary-container/40 transition-all" placeholder="Search telemetry, sensors, gates..." type="text"/>
+<kbd class="absolute right-2.5 top-2 px-1.5 py-0.5 rounded bg-surface-container-high border border-outline-variant/40 text-[9px] font-label-mono-sm font-label-mono-sm text-on-surface-variant">⌘K</kbd>
+</div>
+<!-- Protocol Sync Button -->
+<button class="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface border border-outline-variant/30 active:scale-95 transition-all text-body-sm font-body-sm">
+<span class="material-symbols-outlined text-[16px] text-primary-container">sync</span>
+<span>Protocol Sync</span>
+</button>
+<!-- Emergency Lock (Trailing Primary Action) -->
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error-container text-on-error hover:bg-error-container/85 border border-error/40 shadow-sm active:scale-95 transition-all text-body-sm font-body-sm font-medium">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">shield</span>
+<span>Emergency Lock</span>
+</button>
+<!-- Trailing System Icons -->
+<div class="flex items-center gap-1 pl-2 border-l border-outline-variant/30 text-on-surface-variant">
+<button class="p-2 rounded-lg hover:bg-surface-container-high/60 hover:text-on-surface transition-all relative">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary-container"></span>
+</button>
+<button class="p-2 rounded-lg hover:bg-surface-container-high/60 hover:text-on-surface transition-all">
+<span class="material-symbols-outlined text-[20px]">dark_mode</span>
+</button>
+</div>
+</div>
+</div>
+</header>
+<!-- ========================================================
+       MAIN EXECUTIVE DASHBOARD CANVAS
+  ======================================================== -->
+<main class="ml-64 max-w-[calc(100%-16rem)] p-gutter space-y-gutter">
+<!-- SUB-HEADER AMBIENT BANNER -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-outline-variant/20">
+<div>
+<h1 class="text-headline-lg font-headline-lg text-primary tracking-tight">Executive Architectural Command</h1>
+<p class="text-body-md font-body-md text-on-surface-variant">High-density telemetry and physical gate orchestration for Residence Sector Alpha.</p>
+</div>
+<div class="flex items-center gap-2 self-start md:self-auto">
+<span class="text-label-mono-sm font-label-mono-sm text-outline-variant mr-1">CLUSTER: #US-PACIFIC-NODE-01</span>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant/30 text-on-surface text-body-sm font-body-sm hover:border-primary-container/40 transition-colors flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]">file_download</span>
+          Export Audit Run
+        </button>
+<button class="px-3 py-1.5 rounded-lg bg-primary-container text-surface-container-lowest text-body-sm font-body-sm font-semibold hover:opacity-90 transition-opacity flex items-center gap-1.5 glow-cyan-aura">
+<span class="material-symbols-outlined text-[16px]">add_circle</span>
+          Provision Node
+        </button>
+</div>
+</div>
+<!-- ========================================================
+         HERO SECTION: 4 KPI CARDS & INFRASTRUCTURE STRIP
+    ======================================================== -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-gutter">
+<!-- KPI 1: Connected Devices -->
+<div class="custom-glass-card custom-glass-card-interactive p-space-lg rounded-xl relative overflow-hidden">
+<div class="flex items-center justify-between mb-3">
+<span class="text-label-mono-sm font-label-mono-sm text-on-surface-variant uppercase">Connected Devices</span>
+<span class="p-2 rounded-lg bg-surface-container-high text-primary-container">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-headline-xl font-headline-xl text-on-surface">142</span>
+<span class="text-title-sm font-title-sm text-outline-variant">/ 144</span>
+</div>
+<div class="mt-3 flex items-center gap-2 text-label-mono-sm font-label-mono-sm">
+<span class="text-tertiary-fixed-dim flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> +3 today
+          </span>
+<span class="text-outline-variant">·</span>
+<span class="text-on-surface-variant">2 Maintenance</span>
+</div>
+<!-- Hairline bottom accent -->
+<div class="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary-container/40 to-transparent"></div>
+</div>
+<!-- KPI 2: Active Tenants -->
+<div class="custom-glass-card custom-glass-card-interactive p-space-lg rounded-xl relative overflow-hidden">
+<div class="flex items-center justify-between mb-3">
+<span class="text-label-mono-sm font-label-mono-sm text-on-surface-variant uppercase">Active Residents</span>
+<span class="p-2 rounded-lg bg-surface-container-high text-tertiary-container">
+<span class="material-symbols-outlined text-[18px]">badge</span>
+</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-headline-xl font-headline-xl text-on-surface">38</span>
+<span class="text-body-sm font-body-sm text-tertiary-fixed-dim">Verified Today</span>
+</div>
+<div class="mt-3 flex items-center gap-2 text-label-mono-sm font-label-mono-sm">
+<span class="text-tertiary-fixed-dim flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary-container"></span> RFID &amp; Biometrics Active
+          </span>
+</div>
+<div class="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-tertiary-container/40 to-transparent"></div>
+</div>
+<!-- KPI 3: Live CCTV Streams -->
+<div class="custom-glass-card custom-glass-card-interactive p-space-lg rounded-xl relative overflow-hidden">
+<div class="flex items-center justify-between mb-3">
+<span class="text-label-mono-sm font-label-mono-sm text-on-surface-variant uppercase">Perimeter Video</span>
+<span class="p-2 rounded-lg bg-surface-container-high text-secondary">
+<span class="material-symbols-outlined text-[18px]">videocam</span>
+</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-headline-xl font-headline-xl text-on-surface">8</span>
+<span class="text-body-sm font-body-sm text-on-surface-variant">4K UHD Streams</span>
+</div>
+<div class="mt-3 flex items-center gap-2 text-label-mono-sm font-label-mono-sm">
+<span class="text-primary-container flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span> 60 FPS · AV1 Encoded
+          </span>
+</div>
+<div class="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-secondary/40 to-transparent"></div>
+</div>
+<!-- KPI 4: System Health & Uptime -->
+<div class="custom-glass-card custom-glass-card-interactive p-space-lg rounded-xl relative overflow-hidden">
+<div class="flex items-center justify-between mb-3">
+<span class="text-label-mono-sm font-label-mono-sm text-on-surface-variant uppercase">Ecosystem Health</span>
+<span class="p-2 rounded-lg bg-surface-container-high text-primary-container">
+<span class="material-symbols-outlined text-[18px]">network_check</span>
+</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-headline-xl font-headline-xl text-on-surface">99.98%</span>
+<span class="text-label-mono-sm font-label-mono-sm text-tertiary-fixed-dim">Optimal</span>
+</div>
+<div class="mt-3 flex items-center gap-2 text-label-mono-sm font-label-mono-sm">
+<span class="text-on-surface-variant">Broker Latency:</span>
+<span class="text-primary-container">0.8 ms (Local LAN)</span>
+</div>
+<div class="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary-container/40 to-transparent"></div>
+</div>
+</div>
+<!-- INFRASTRUCTURE TELEMETRY STRIP -->
+<div class="p-space-sm px-space-md rounded-xl bg-surface-container-lowest/90 border border-outline-variant/30 flex flex-wrap items-center justify-between gap-4 text-label-mono-sm font-label-mono-sm">
+<div class="flex items-center gap-3">
+<span class="text-outline uppercase text-[10px]">Bus Subsystems:</span>
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="w-2 h-2 rounded-full bg-tertiary-container"></span>
+<span>MQTT Broker (EMQX Enterprise):</span>
+<span class="text-tertiary-fixed-dim font-semibold">5,420 msgs/sec</span>
+</div>
+</div>
+<div class="flex items-center gap-2 text-on-surface">
+<span class="w-2 h-2 rounded-full bg-tertiary-container"></span>
+<span>WebSocket Gateway:</span>
+<span class="text-primary-container font-semibold">0ms ping (TLS 1.3 Strict)</span>
+</div>
+<div class="flex items-center gap-2 text-on-surface">
+<span class="w-2 h-2 rounded-full bg-tertiary-container"></span>
+<span>PLC Mitsubishi Modbus TCP:</span>
+<span class="text-secondary font-semibold">Synced (Port 502 Cyclic)</span>
+</div>
+<div class="flex items-center gap-2 text-on-surface">
+<span class="w-2 h-2 rounded-full bg-tertiary-container"></span>
+<span>Perimeter Radar:</span>
+<span class="text-tertiary-fixed-dim font-semibold">24.125 GHz Active</span>
+</div>
+</div>
+<!-- ========================================================
+         BENTO CORE: SMART GATE DUAL VISUALIZER & SURVEILLANCE
+    ======================================================== -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter" id="gates">
+<!-- HERO GATE CARD (7 Columns) -->
+<div class="lg:col-span-7 custom-glass-card rounded-xl p-space-lg flex flex-col justify-between relative overflow-hidden border border-outline-variant/40">
+<!-- Ambient top gradient bloom -->
+<div class="absolute -top-24 -left-24 w-80 h-80 bg-primary-container/10 rounded-full blur-3xl pointer-events-none"></div>
+<div>
+<!-- Card Header Sector -->
+<div class="flex items-start justify-between mb-4">
+<div>
+<div class="flex items-center gap-2">
+<span class="text-headline-md font-headline-md text-on-surface">Main Estate Dual Sliding Gate</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-high border border-outline-variant/30 text-label-mono-sm font-label-mono-sm text-primary-container">NODE-GATE-01</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Brushless heavy DC twin servomotors with optical linear encoder synchronization</p>
+</div>
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high border border-tertiary-container/30 text-tertiary-container text-label-mono-sm font-label-mono-sm font-semibold glow-emerald-aura">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary-container animate-pulse"></span>
+                SECURE ARMED
+              </span>
+</div>
+</div>
+<!-- Architectural Gate Visualizer Chamber -->
+<div class="relative w-full h-56 rounded-xl bg-surface-container-lowest/90 border border-outline-variant/30 p-4 flex flex-col justify-between overflow-hidden">
+<!-- Grid Lines overlay -->
+<div class="absolute inset-0 bg-[linear-gradient(to_right,#1c1f2a_1px,transparent_1px),linear-gradient(to_bottom,#1c1f2a_1px,transparent_1px)] bg-[size:24px_24px] opacity-40"></div>
+<!-- Laser Scanning HUD Line -->
+<div class="absolute left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-primary-container to-transparent laser-scan-line pointer-events-none"></div>
+<!-- Top Chamber Telemetry Overlay -->
+<div class="relative z-10 flex items-center justify-between text-label-mono-sm font-label-mono-sm">
+<div class="flex items-center gap-2 bg-surface-container/80 backdrop-blur-md px-2.5 py-1 rounded border border-outline-variant/30">
+<span class="text-outline uppercase text-[10px]">Position:</span>
+<span class="text-primary-container font-semibold">100% CLOSED (0.00mm Drift)</span>
+</div>
+<div class="flex items-center gap-2 bg-surface-container/80 backdrop-blur-md px-2.5 py-1 rounded border border-outline-variant/30">
+<span class="text-outline uppercase text-[10px]">Infrared Curtains:</span>
+<span class="text-tertiary-fixed-dim font-semibold">CLEAR (8/8 Channels)</span>
+</div>
+</div>
+<!-- Dual Motorized Gates CAD-Style Graphic Representation -->
+<div class="relative z-10 my-auto flex items-center justify-center gap-2 py-4">
+<!-- Left Gate Leaf -->
+<div class="flex-1 max-w-[200px] h-20 rounded-lg bg-surface-container-high/90 border-2 border-primary-container/60 relative overflow-hidden flex flex-col justify-between p-2 shadow-lg">
+<div class="flex justify-between items-center text-[9px] font-label-mono-sm font-label-mono-sm text-primary-container">
+<span>WING-A [WEST]</span>
+<span class="text-tertiary-fixed-dim">MOTOR LOAD: 2.1A</span>
+</div>
+<!-- Precision Gate Slats Representation -->
+<div class="flex justify-between items-center gap-1.5 h-8 opacity-75">
+<div class="w-1 h-full bg-primary-container/40 rounded-full"></div>
+<div class="w-1 h-full bg-primary-container/40 rounded-full"></div>
+<div class="w-1 h-full bg-primary-container/40 rounded-full"></div>
+<div class="w-1 h-full bg-primary-container/40 rounded-full"></div>
+<div class="w-1 h-full bg-primary-container/40 rounded-full"></div>
+<div class="w-1 h-full bg-primary-container/40 rounded-full"></div>
+<div class="w-1 h-full bg-primary-container/40 rounded-full"></div>
+<div class="w-1 h-full bg-primary-container/40 rounded-full"></div>
+</div>
+<div class="text-[9px] font-label-mono-sm font-label-mono-sm text-outline flex justify-between">
+<span>RESOLVER: 0°</span>
+<span class="text-primary-container">MAGNETIC LATCHED</span>
+</div>
+</div>
+<!-- Center Kinetic Contact Barrier -->
+<div class="flex flex-col items-center justify-center gap-1">
+<div class="w-6 h-6 rounded-full bg-surface-container border border-primary-container flex items-center justify-center text-primary-container glow-cyan-aura">
+<span class="material-symbols-outlined text-[14px]">lock</span>
+</div>
+<span class="text-[9px] font-label-mono-sm font-label-mono-sm text-primary-container">1200kgf</span>
+</div>
+<!-- Right Gate Leaf -->
+<div class="flex-1 max-w-[200px] h-20 rounded-lg bg-surface-container-high/90 border-2 border-primary-container/60 relative overflow-hidden flex flex-col justify-between p-2 shadow-lg">
+<div class="flex justify-between items-center text-[9px] font-label-mono-sm font-label-mono-sm text-primary-container">
+<span class="text-tertiary-fixed-dim">MOTOR LOAD: 2.2A</span>
+<span>WING-B [EAST]</span>
+</div>
+<!-- Precision Gate Slats Representation -->
+<div class="flex justify-between items-center gap-1.5 h-8 opacity-75">
+<div class="w-1 h-full bg-primary-container/40 rounded-full"></div>
+<div class="w-1 h-full bg-primary-container/40 rounded-full"></div>
+<div class="w-1 h-full bg-primary-container/40 rounded-full"></div>
+<div class="w-1 h-full bg-primary-container/40 rounded-full"></div>
+<div class="w-1 h-full bg-primary-container/40 rounded-full"></div>
+<div class="w-1 h-full bg-primary-container/40 rounded-full"></div>
+<div class="w-1 h-full bg-primary-container/40 rounded-full"></div>
+<div class="w-1 h-full bg-primary-container/40 rounded-full"></div>
+</div>
+<div class="text-[9px] font-label-mono-sm font-label-mono-sm text-outline flex justify-between">
+<span class="text-primary-container">MAGNETIC LATCHED</span>
+<span>RESOLVER: 0°</span>
+</div>
+</div>
+</div>
+<!-- Lower Chamber Telemetry -->
+<div class="relative z-10 flex items-center justify-between text-label-mono-sm font-label-mono-sm text-[11px] text-on-surface-variant">
+<span>Drive Slew: 0.40 m/s Normal Curve</span>
+<span>Loop Inductance: Active (Vehicle in Range: None)</span>
+<span>Torque: Normal (18 Nm)</span>
+</div>
+</div>
+<!-- Linear Position / Travel Bar -->
+<div class="mt-4 space-y-1.5">
+<div class="flex justify-between items-center text-label-mono-sm font-label-mono-sm text-xs">
+<span class="text-on-surface-variant">Travel Aperture Index</span>
+<span class="text-primary-container font-semibold">0% Open (Locked)</span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-container-highest overflow-hidden p-0.5 border border-outline-variant/30">
+<div class="w-[4%] h-full rounded-full bg-primary-container"></div>
+</div>
+<div class="flex justify-between text-[10px] font-label-mono-sm font-label-mono-sm text-outline">
+<span>0% (Fully Closed)</span>
+<span>50% (Pedestrian Pass)</span>
+<span>100% (Full Clearance)</span>
+</div>
+</div>
+</div>
+<!-- Gate Action Triggers -->
+<div class="mt-6 pt-4 border-t border-outline-variant/30 flex flex-wrap items-center justify-between gap-3">
+<div class="flex items-center gap-2">
+<button class="px-4 py-2 rounded-lg bg-primary-container hover:opacity-95 text-surface-container-lowest font-title-sm text-body-sm font-body-sm font-bold flex items-center gap-2 glow-cyan-aura transition-all active:scale-95">
+<span class="material-symbols-outlined text-[18px]">lock_open</span>
+              Open Main Gate
+            </button>
+<button class="px-4 py-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-title-sm text-body-sm font-body-sm border border-outline-variant/40 flex items-center gap-2 transition-all active:scale-95">
+<span class="material-symbols-outlined text-[18px]">pause</span>
+              Hold Open
+            </button>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-4 py-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface text-body-sm font-body-sm border border-outline-variant/30 flex items-center gap-1.5 transition-all">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+              Timer: Auto-Close 45s
+            </button>
+<button class="px-4 py-2 rounded-lg bg-error-container/30 hover:bg-error-container/60 text-error border border-error/40 text-body-sm font-body-sm font-semibold flex items-center gap-1.5 transition-all active:scale-95">
+<span class="material-symbols-outlined text-[18px]">gpp_bad</span>
+              Force Interlock
+            </button>
+</div>
+</div>
+</div>
+<!-- SURVEILLANCE & AI VEHICLE HUD CARD (5 Columns) -->
+<div class="lg:col-span-5 custom-glass-card rounded-xl p-space-lg flex flex-col justify-between border border-outline-variant/40" id="surveillance">
+<div>
+<!-- Card Header -->
+<div class="flex items-center justify-between mb-3">
+<div class="flex items-center gap-2">
+<span class="text-title-sm font-title-sm text-on-surface">CAM-01 [Main Gate Entry]</span>
+<span class="px-1.5 py-0.5 rounded text-[10px] font-label-mono-sm font-label-mono-sm bg-surface-container-high text-on-surface-variant border border-outline-variant/30">4K UHD</span>
+</div>
+<div class="flex items-center gap-2 text-label-mono-sm font-label-mono-sm">
+<span class="flex items-center gap-1 text-error">
+<span class="w-2 h-2 rounded-full bg-error animate-ping"></span>
+                REC
+              </span>
+<span class="text-outline-variant">·</span>
+<span class="text-on-surface-variant">21:44:12 UTC</span>
+</div>
+</div>
+<!-- Video Viewport with HUD Overlay -->
+<div class="relative w-full h-64 rounded-xl bg-surface-container-lowest overflow-hidden border border-outline-variant/30 group">
+<img class="w-full h-full object-cover opacity-70 group-hover:scale-105 transition-transform duration-700" data-alt="High angle night surveillance perspective of an ultra-luxurious private estate entrance with sleek dual metal gates and an electric sedan approaching on an illuminated dark driveway, with cyan and subtle emerald sensor lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdf5a3P8CxYS8jAZpyHgPWxiAxkW1gJLbRtzW7nuL4X5nzwGNq8GUO6-HfsbWzen3DlWxj7V0AHgTDsmXeP_nnfWJo-MjU5epIWC3qHwNYyNJ2kdAET7EwQ2k1867k7M-K1yTEg9M8z3GFg4XZ2riZyzPI47vGeBKfaWnviGS2AZjd3oFjzOJGQEwTOZtBJMEkh1FLVThNphJ1cCoGhNdzN__RMtsSyeuSYhQzVwe5bLlxR7Y-rE7SWdi_HbxhM0WopVkgpgF0GkNG"/>
+<!-- Crosshair HUD Overlay -->
+<div class="absolute inset-0 pointer-events-none p-4 flex flex-col justify-between">
+<!-- Top HUD Telemetry -->
+<div class="flex items-center justify-between text-label-mono-sm font-label-mono-sm text-[10px] text-primary-container bg-surface-container-lowest/80 px-2.5 py-1 rounded backdrop-blur-md border border-primary-container/20">
+<span>FPS: 59.94 · BITRATE: 18.4 Mbps</span>
+<span>IR NIGHT-VISION: ACTIVE</span>
+</div>
+<!-- AI Object Detection Bounding Box -->
+<div class="self-center my-auto w-48 h-28 border border-primary-container/80 rounded bg-primary-container/5 p-2 flex flex-col justify-between backdrop-blur-[1px] relative">
+<!-- Corner ticks -->
+<div class="absolute -top-1 -left-1 w-2 h-2 border-t-2 border-l-2 border-primary-container"></div>
+<div class="absolute -top-1 -right-1 w-2 h-2 border-t-2 border-r-2 border-primary-container"></div>
+<div class="absolute -bottom-1 -left-1 w-2 h-2 border-b-2 border-l-2 border-primary-container"></div>
+<div class="absolute -bottom-1 -right-1 w-2 h-2 border-b-2 border-r-2 border-primary-container"></div>
+<div class="flex justify-between items-start">
+<span class="px-1 py-0.5 rounded bg-primary-container text-surface-container-lowest text-[9px] font-label-mono-sm font-label-mono-sm font-bold">LPR MATCH: 99.4%</span>
+<span class="text-[9px] font-label-mono-sm font-label-mono-sm text-tertiary-fixed-dim">ALLOW</span>
+</div>
+<div class="bg-surface-container-lowest/90 p-1.5 rounded border border-outline-variant/40">
+<p class="text-[10px] font-label-mono-sm font-label-mono-sm text-on-surface font-semibold">TESLA MODEL S PLAID</p>
+<p class="text-[9px] font-label-mono-sm font-label-mono-sm text-on-surface-variant">Plate: 7XYZ892 · Tenant #104</p>
+</div>
+</div>
+<!-- Bottom Lens HUD -->
+<div class="flex items-center justify-between text-label-mono-sm font-label-mono-sm text-[10px] text-on-surface-variant">
+<span>PTZ: 142° PAN / -12° TILT</span>
+<span>ZOOM: 1.4X OPTICAL</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Camera Controls -->
+<div class="mt-4 pt-3 border-t border-outline-variant/30 flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<button class="p-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-colors" title="Pan Left">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-colors" title="Pan Right">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-colors" title="Zoom In">
+<span class="material-symbols-outlined text-[18px]">zoom_in</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-colors" title="Snapshot Frame">
+<span class="material-symbols-outlined text-[18px]">photo_camera</span>
+</button>
+</div>
+<button class="text-body-sm font-body-sm text-primary-container hover:underline flex items-center gap-1">
+<span>View All 8 Feeds</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- ========================================================
+         CATEGORIZED SMART HOME & IOT DEVICE CONTROL MATRIX
+    ======================================================== -->
+<div class="space-y-4">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+<div>
+<h2 class="text-headline-md font-headline-md text-on-surface">Subsystem Device Controls</h2>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Continuous actuation and telemetry monitoring across estate zones</p>
+</div>
+<!-- Segmented Filter Tabs -->
+<div class="flex items-center p-1 rounded-xl bg-surface-container-low border border-outline-variant/30">
+<button class="px-3 py-1 rounded-lg bg-surface-container-high text-primary-container text-body-sm font-body-sm font-medium">All Units (12)</button>
+<button class="px-3 py-1 rounded-lg text-on-surface-variant hover:text-on-surface text-body-sm font-body-sm">Access</button>
+<button class="px-3 py-1 rounded-lg text-on-surface-variant hover:text-on-surface text-body-sm font-body-sm">Lighting</button>
+<button class="px-3 py-1 rounded-lg text-on-surface-variant hover:text-on-surface text-body-sm font-body-sm">Hydraulics</button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter">
+<!-- DEVICE 1: North Perimeter Barrier -->
+<div class="custom-glass-card custom-glass-card-interactive p-space-md rounded-xl flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="px-2 py-0.5 rounded text-[10px] font-label-mono-sm font-label-mono-sm bg-surface-container text-on-surface-variant border border-outline-variant/30">PERIMETER</span>
+<span class="flex items-center gap-1.5 text-label-mono-sm font-label-mono-sm text-tertiary-fixed-dim">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary-container"></span> SECURED
+              </span>
+</div>
+<div class="flex items-center gap-3 my-2">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high border border-outline-variant/40 flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[22px]">sensor_door</span>
+</div>
+<div>
+<p class="text-title-sm font-title-sm text-on-surface">North Boundary Gate</p>
+<p class="text-label-mono-sm font-label-mono-sm text-on-surface-variant text-[11px]">Biometric Pass Active</p>
+</div>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-2">Optical beam perimeter armed. Last entry: 18:20 by Security Patrol.</p>
+</div>
+<div class="mt-4 pt-3 border-t border-outline-variant/20 flex items-center justify-between">
+<span class="text-label-mono-sm font-label-mono-sm text-outline">RELAY 04: CLOSED</span>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-body-sm font-body-sm border border-outline-variant/30 transition-colors">
+              Momentary Pulse
+            </button>
+</div>
+</div>
+<!-- DEVICE 2: Penthouse Smart Lock -->
+<div class="custom-glass-card custom-glass-card-interactive p-space-md rounded-xl flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="px-2 py-0.5 rounded text-[10px] font-label-mono-sm font-label-mono-sm bg-surface-container text-on-surface-variant border border-outline-variant/30">ACCESS NODE</span>
+<span class="flex items-center gap-1.5 text-label-mono-sm font-label-mono-sm text-tertiary-fixed-dim">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary-container"></span> BLE 5.3 LINK
+              </span>
+</div>
+<div class="flex items-center gap-3 my-2">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high border border-outline-variant/40 flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[22px]">key</span>
+</div>
+<div>
+<p class="text-title-sm font-title-sm text-on-surface">Penthouse Smart Lock</p>
+<p class="text-label-mono-sm font-label-mono-sm text-on-surface-variant text-[11px]">Battery: 94% · Encrypted</p>
+</div>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-2">Ultra-high security dual-deadbolt mortise with NFC passkey support.</p>
+</div>
+<div class="mt-4 pt-3 border-t border-outline-variant/20 flex items-center justify-between">
+<span class="text-label-mono-sm font-label-mono-sm text-outline">AUTO-DEADBOLT: ON</span>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-primary-container text-body-sm font-body-sm border border-outline-variant/30 transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">lock</span> Locked
+            </button>
+</div>
+</div>
+<!-- DEVICE 3: Architectural Terrace Lighting -->
+<div class="custom-glass-card custom-glass-card-interactive p-space-md rounded-xl flex flex-col justify-between" id="lighting">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="px-2 py-0.5 rounded text-[10px] font-label-mono-sm font-label-mono-sm bg-surface-container text-on-surface-variant border border-outline-variant/30">LIGHTING</span>
+<span class="flex items-center gap-1.5 text-label-mono-sm font-label-mono-sm text-primary-container">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span> 78% ACTIVE
+              </span>
+</div>
+<div class="flex items-center gap-3 my-2">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high border border-outline-variant/40 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[22px]">flare</span>
+</div>
+<div>
+<p class="text-title-sm font-title-sm text-on-surface">Architectural Terrace</p>
+<p class="text-label-mono-sm font-label-mono-sm text-on-surface-variant text-[11px]">DALI-2 Luminaire Array</p>
+</div>
+</div>
+<!-- Dimmer Slider Precision -->
+<div class="mt-3 space-y-1">
+<div class="flex justify-between text-label-mono-sm font-label-mono-sm text-[11px]">
+<span class="text-on-surface-variant">Luminance</span>
+<span class="text-primary-container font-semibold">78% · 2700K Warm</span>
+</div>
+<input class="w-full accent-primary-container bg-surface-container-highest h-1.5 rounded-lg cursor-pointer" max="100" min="0" type="range" value="78"/>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-outline-variant/20 flex items-center justify-between">
+<span class="text-label-mono-sm font-label-mono-sm text-outline">DUSK SCENE ACTIVE</span>
+<button class="px-3 py-1 rounded-lg bg-primary-container/20 text-primary-container border border-primary-container/40 text-body-sm font-body-sm">
+              Preset #3
+            </button>
+</div>
+</div>
+<!-- DEVICE 4: Hydro-Pressure Water Pump -->
+<div class="custom-glass-card custom-glass-card-interactive p-space-md rounded-xl flex flex-col justify-between" id="water">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="px-2 py-0.5 rounded text-[10px] font-label-mono-sm font-label-mono-sm bg-surface-container text-on-surface-variant border border-outline-variant/30">HYDRAULICS</span>
+<span class="flex items-center gap-1.5 text-label-mono-sm font-label-mono-sm text-tertiary-fixed-dim">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary-container animate-pulse"></span> PUMPING
+              </span>
+</div>
+<div class="flex items-center gap-3 my-2">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high border border-outline-variant/40 flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[22px]">water_pump</span>
+</div>
+<div>
+<p class="text-title-sm font-title-sm text-on-surface">Main Reservoir Pump</p>
+<p class="text-label-mono-sm font-label-mono-sm text-on-surface-variant text-[11px]">Inverter VFD 3-Phase</p>
+</div>
+</div>
+<!-- Flow Telemetry Meter -->
+<div class="mt-3 p-2 rounded-lg bg-surface-container-lowest/80 border border-outline-variant/20 flex items-center justify-between">
+<div class="text-label-mono-sm font-label-mono-sm">
+<span class="text-outline uppercase text-[9px] block">Flow Rate</span>
+<span class="text-on-surface font-semibold text-body-md font-body-md">42.5 L/min</span>
+</div>
+<div class="text-label-mono-sm font-label-mono-sm text-right">
+<span class="text-outline uppercase text-[9px] block">Head Pressure</span>
+<span class="text-tertiary-fixed-dim font-semibold text-body-md font-body-md">4.2 Bar</span>
+</div>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-outline-variant/20 flex items-center justify-between">
+<span class="text-label-mono-sm font-label-mono-sm text-outline">AUTO REGULATION</span>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-body-sm font-body-sm border border-outline-variant/30 transition-colors">
+              Purge Cycle
+            </button>
+</div>
+</div>
+</div>
+</div>
+<!-- ========================================================
+         REAL-TIME AUDIT ACTIVITY FEED TABLE
+    ======================================================== -->
+<div class="custom-glass-card rounded-xl p-space-lg border border-outline-variant/30" id="audit">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+<div>
+<div class="flex items-center gap-2">
+<h2 class="text-headline-md font-headline-md text-on-surface">Immutable System Audit Log</h2>
+<span class="px-2 py-0.5 rounded text-[10px] font-label-mono-sm font-label-mono-sm bg-surface-container-high text-primary-container border border-outline-variant/30">ZERO-DRIFT SHA-256</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Real-time chronologically sealed events recorded on estate control bus</p>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant/30 text-body-sm font-body-sm text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">filter_list</span> Filter Protocol
+          </button>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant/40 text-body-sm font-body-sm text-primary-container transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">refresh</span> Live Polling
+          </button>
+</div>
+</div>
+<!-- Tabular Log Stream -->
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-outline-variant/30 text-label-mono-sm font-label-mono-sm text-outline-variant uppercase text-[11px]">
+<th class="py-2.5 px-3">Timestamp (UTC)</th>
+<th class="py-2.5 px-3">Subsystem Entity</th>
+<th class="py-2.5 px-3">Telemetry Event Description</th>
+<th class="py-2.5 px-3">Authority Level</th>
+<th class="py-2.5 px-3 text-right">Verification Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/15 text-body-sm font-body-sm">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-high/30 transition-colors">
+<td class="py-3 px-3 font-label-mono-sm text-primary-container text-xs whitespace-nowrap">21:42:05.108</td>
+<td class="py-3 px-3 font-medium text-on-surface flex items-center gap-2 whitespace-nowrap">
+<span class="material-symbols-outlined text-[16px] text-primary-container">fence</span>
+                Main Estate Gate
+              </td>
+<td class="py-3 px-3 text-on-surface-variant">Gate cycle closed and magnetic contact verified with zero clearance fault.</td>
+<td class="py-3 px-3">
+<span class="px-2 py-0.5 rounded text-[10px] font-label-mono-sm font-label-mono-sm bg-primary-container/15 text-primary-container border border-primary-container/30">VERIFIED AUTOMATION</span>
+</td>
+<td class="py-3 px-3 text-right text-label-mono-sm font-label-mono-sm text-tertiary-fixed-dim">
+<span class="inline-flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> SUCCESS
+                </span>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-high/30 transition-colors">
+<td class="py-3 px-3 font-label-mono-sm text-primary-container text-xs whitespace-nowrap">21:38:19.442</td>
+<td class="py-3 px-3 font-medium text-on-surface flex items-center gap-2 whitespace-nowrap">
+<span class="material-symbols-outlined text-[16px] text-tertiary-container">key</span>
+                Penthouse Smart Lock
+              </td>
+<td class="py-3 px-3 text-on-surface-variant">NFC Keycard Entry authenticated: Alexander Vance (Resident Key #01).</td>
+<td class="py-3 px-3">
+<span class="px-2 py-0.5 rounded text-[10px] font-label-mono-sm font-label-mono-sm bg-tertiary-container/15 text-tertiary-fixed-dim border border-tertiary-container/30">SUPER ADMIN</span>
+</td>
+<td class="py-3 px-3 text-right text-label-mono-sm font-label-mono-sm text-tertiary-fixed-dim">
+<span class="inline-flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">verified_user</span> AUTHORIZED
+                </span>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-high/30 transition-colors">
+<td class="py-3 px-3 font-label-mono-sm text-primary-container text-xs whitespace-nowrap">21:15:00.003</td>
+<td class="py-3 px-3 font-medium text-on-surface flex items-center gap-2 whitespace-nowrap">
+<span class="material-symbols-outlined text-[16px] text-secondary">water_drop</span>
+                Sprinkler Zone 2
+              </td>
+<td class="py-3 px-3 text-on-surface-variant">Soil moisture threshold (64%) met. Valve shutoff scheduled cycle skipped.</td>
+<td class="py-3 px-3">
+<span class="px-2 py-0.5 rounded text-[10px] font-label-mono-sm font-label-mono-sm bg-surface-container-high text-on-surface-variant border border-outline-variant/30">ECO PROTOCOL</span>
+</td>
+<td class="py-3 px-3 text-right text-label-mono-sm font-label-mono-sm text-primary-container">
+<span class="inline-flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">eco</span> CONSERVED
+                </span>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-high/30 transition-colors">
+<td class="py-3 px-3 font-label-mono-sm text-primary-container text-xs whitespace-nowrap">20:54:12.871</td>
+<td class="py-3 px-3 font-medium text-on-surface flex items-center gap-2 whitespace-nowrap">
+<span class="material-symbols-outlined text-[16px] text-error">radar</span>
+                Perimeter Radar Sensor
+              </td>
+<td class="py-3 px-3 text-on-surface-variant">Micro-motion detected in Forest Boundary Sector. Neural classifier evaluated: Wildlife (Deer).</td>
+<td class="py-3 px-3">
+<span class="px-2 py-0.5 rounded text-[10px] font-label-mono-sm font-label-mono-sm bg-surface-container-high text-on-surface-variant border border-outline-variant/30">NEURAL SENSOR</span>
+</td>
+<td class="py-3 px-3 text-right text-label-mono-sm font-label-mono-sm text-on-surface-variant">
+<span class="inline-flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">shield</span> CLEARED AI
+                </span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Footer Summary -->
+<div class="mt-4 pt-3 border-t border-outline-variant/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-label-mono-sm font-label-mono-sm text-on-surface-variant text-[11px]">
+<span>Showing latest 4 of 3,842 recorded cycles (Last 24 Hours)</span>
+<div class="flex items-center gap-2">
+<button class="hover:text-on-surface underline">View Complete Log Vault (CSV)</button>
+<span>·</span>
+<span class="text-tertiary-fixed-dim">Storage Ring Buffer 12.4% Full</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Interactive JavaScript Micro-interactions -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Dynamic slider percentage update
+      const slider = document.querySelector('input[type="range"]');
+      if (slider) {
+        slider.addEventListener('input', (e) => {
+          const val = e.target.value;
+          const display = slider.previousElementSibling?.querySelector('.text-primary-container');
+          if (display) {
+            display.textContent = `${val}% · 2700K Warm`;
+          }
+        });
+      }
+
+      // Smooth scroll navigation for anchor tags
+      document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+          const targetId = this.getAttribute('href');
+          if (targetId && targetId !== '#') {
+            const targetEl = document.querySelector(targetId);
+            if (targetEl) {
+              e.preventDefault();
+              targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }
+        });
+      });
+    });
+  </script>
+</body></html>

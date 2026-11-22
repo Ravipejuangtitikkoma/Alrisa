@@ -32,7 +32,34 @@ const SETTINGS_PATH = path.join(__dirname, 'settings.json');
 // Middleware
 app.use(cors());
 
-// Vercel Serverless URL Normalizer (mencegah Cannot GET /backend_cloud_js/server.js)
+// Database auto-init middleware for Serverless (Vercel)
+let dbInitialized = false;
+let dbInitPromise = null;
+
+async function ensureDbInit() {
+  if (dbInitialized) return;
+  if (!dbInitPromise) {
+    dbInitPromise = initMySQLDatabase(settingsData).then((dbInit) => {
+      if (dbInit && dbInit.connected && dbInit.settingsData) {
+        settingsData = dbInit.settingsData;
+      }
+      if (dbInit && Array.isArray(dbInit.activityLogs) && dbInit.activityLogs.length > 0) {
+        activityLogs.splice(0, activityLogs.length, ...dbInit.activityLogs);
+      }
+      dbInitialized = true;
+    }).catch((err) => {
+      console.warn('⚠️ Serverless DB init error:', err.message);
+    });
+  }
+  return dbInitPromise;
+}
+
+app.use(async (req, res, next) => {
+  await ensureDbInit();
+  next();
+});
+
+// Vercel Serverless URL Normalizer
 app.use((req, res, next) => {
   const matched = req.headers['x-matched-path'];
   if (matched && !matched.endsWith('server.js') && !matched.endsWith('index.js')) {
@@ -42,11 +69,22 @@ app.use((req, res, next) => {
       .replace(/^\/backend_cloud_js\/server\.js/, '')
       .replace(/^\/server\.js/, '')
       .replace(/^\/api\/index\.js/, '')
+      .replace(/^\/api\/index/, '')
       .replace(/^\/api$/, '');
     if (!req.url || req.url === '') {
       req.url = '/';
     }
   }
+
+  // Jika dipanggil dari Vercel /api handler tapi prefix /api hilang di subpath
+  if (!req.url.startsWith('/api') && req.url !== '/' && !req.url.includes('.')) {
+    // Cek apakah ini rute API yang valid
+    const apiCandidate = '/api' + (req.url.startsWith('/') ? req.url : '/' + req.url);
+    if (!['/login', '/dashboard', '/admin', '/settings', '/stitch', '/sb-admin', '/sbadmin'].includes(req.url)) {
+      req.url = apiCandidate;
+    }
+  }
+
   next();
 });
 

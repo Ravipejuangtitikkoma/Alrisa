@@ -1,9 +1,23 @@
 {
   "version": 2,
+  "cleanUrls": true,
+  "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/(.*)",
-      "destination": "/api/index.js"
+      "source": "/stitch",
+      "destination": "/stitch_dashboard.html"
+    },
+    {
+      "source": "/sb-admin",
+      "destination": "/sb_admin_dashboard.html"
+    },
+    {
+      "source": "/sbadmin",
+      "destination": "/sb_admin_dashboard.html"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
     }
   ]
 }
