@@ -16,6 +16,9 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Mengizinkan koneksi pooler Supabase PostgreSQL di cloud Vercel
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 // Konfigurasi MySQL
 export const DB_CONFIG = {
   host: process.env.DB_HOST || '127.0.0.1',

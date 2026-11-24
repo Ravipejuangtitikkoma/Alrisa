@@ -61,42 +61,74 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   // Status ON/OPEN vs OFF/CLOSE
   bool turnOn = (message.indexOf("ON") >= 0 || message.indexOf("OPEN") >= 0 || 
-                 message.indexOf("1") >= 0 || message.indexOf("true") >= 0);
+                 message.indexOf("BUKA") >= 0 || message.indexOf("1") >= 0 || 
+                 message.indexOf("true") >= 0);
 
-  // 1. Pagar Utama (Gerbang Depan) -> Pin GPIO 2
+  // 1. Ekstrak nomor PIN dinamis dari payload JSON jika ada (contoh: "pin": 23 atau "pin": 4)
+  int dynamicPin = -1;
+  int pinIdx = message.indexOf("\"pin\":");
+  if (pinIdx == -1) pinIdx = message.indexOf("\"pin\" :");
+  if (pinIdx >= 0) {
+    int startIdx = message.indexOf(':', pinIdx) + 1;
+    while (startIdx < (int)message.length() && (message[startIdx] == ' ' || message[startIdx] == '\"')) startIdx++;
+    int endIdx = startIdx;
+    while (endIdx < (int)message.length() && isDigit(message[endIdx])) endIdx++;
+    if (endIdx > startIdx) {
+      dynamicPin = message.substring(startIdx, endIdx).toInt();
+    }
+  }
+
+  // Jika payload membawa nomor PIN spesifik (diset di Website / HP)
+  if (dynamicPin >= 0) {
+    pinMode(dynamicPin, OUTPUT);
+    digitalWrite(dynamicPin, turnOn ? HIGH : LOW);
+    Serial.print("⚡ [PIN DINAMIS DARI WEB/HP] Berhasil aktifkan GPIO ");
+    Serial.print(dynamicPin);
+    Serial.println(turnOn ? " -> HIGH (AKTIF / TERBUKA)" : " -> LOW (MATI / TERKUNCI)");
+  }
+
+  // 2. Pemetaan Default jika PIN tidak disertakan / kontrol raw
   if (deviceId == "pagar") {
-    digitalWrite(PIN_PAGAR_UTAMA, turnOn ? HIGH : LOW);
+    if (dynamicPin == -1) digitalWrite(PIN_PAGAR_UTAMA, turnOn ? HIGH : LOW);
     Serial.println(turnOn ? "🚪 Gerbang Utama: MEMBUKA" : "🔒 Gerbang Utama: MENGUNCI");
     client.publish("nexora/pagar/state", turnOn ? "OPEN" : "LOCKED");
+    client.publish("alrisa/pagar/state", turnOn ? "OPEN" : "LOCKED");
   }
   // 2. Pagar Belakang (Gerbang Tambahan Dinamis) -> Pin GPIO 4
   else if (deviceId == "pagar_belakang" || deviceId == "pagar_2") {
-    digitalWrite(PIN_PAGAR_BELAKANG, turnOn ? HIGH : LOW);
+    if (dynamicPin == -1) digitalWrite(PIN_PAGAR_BELAKANG, turnOn ? HIGH : LOW);
     Serial.println(turnOn ? "🚪 Gerbang Belakang: MEMBUKA" : "🔒 Gerbang Belakang: MENGUNCI");
-    String stateTopic = "nexora/" + deviceId + "/state";
-    client.publish(stateTopic.c_str(), turnOn ? "OPEN" : "LOCKED");
+    String stateTopic1 = "nexora/" + deviceId + "/state";
+    String stateTopic2 = "alrisa/" + deviceId + "/state";
+    client.publish(stateTopic1.c_str(), turnOn ? "OPEN" : "LOCKED");
+    client.publish(stateTopic2.c_str(), turnOn ? "OPEN" : "LOCKED");
   }
   // 3. Pintu Geser -> Pin GPIO 5
   else if (deviceId == "pintu_geser") {
-    digitalWrite(PIN_PINTU_GESER, turnOn ? HIGH : LOW);
+    if (dynamicPin == -1) digitalWrite(PIN_PINTU_GESER, turnOn ? HIGH : LOW);
     client.publish("nexora/pintu_geser/state", turnOn ? "OPEN" : "LOCKED");
+    client.publish("alrisa/pintu_geser/state", turnOn ? "OPEN" : "LOCKED");
   }
   // 4. Lampu Teras -> Pin GPIO 18
   else if (deviceId == "lampu_teras") {
-    digitalWrite(PIN_LAMPU_TERAS, turnOn ? HIGH : LOW);
+    if (dynamicPin == -1) digitalWrite(PIN_LAMPU_TERAS, turnOn ? HIGH : LOW);
     client.publish("nexora/lampu_teras/state", turnOn ? "ON" : "OFF");
+    client.publish("alrisa/lampu_teras/state", turnOn ? "ON" : "OFF");
   }
   // 5. Pompa Toren -> Pin GPIO 19
   else if (deviceId == "pompa_toren") {
-    digitalWrite(PIN_POMPA_TOREN, turnOn ? HIGH : LOW);
+    if (dynamicPin == -1) digitalWrite(PIN_POMPA_TOREN, turnOn ? HIGH : LOW);
     client.publish("nexora/pompa_toren/state", turnOn ? "ON" : "OFF");
+    client.publish("alrisa/pompa_toren/state", turnOn ? "ON" : "OFF");
   }
   else {
     // Perangkat dinamis lainnya: kirim echo state balik
-    Serial.print("⚠️ Perangkat kustom: ");
+    Serial.print("ℹ️ Perangkat kustom: ");
     Serial.println(deviceId);
-    String stateTopic = "nexora/" + deviceId + "/state";
-    client.publish(stateTopic.c_str(), turnOn ? "OPEN" : "LOCKED");
+    String stateTopic1 = "nexora/" + deviceId + "/state";
+    String stateTopic2 = "alrisa/" + deviceId + "/state";
+    client.publish(stateTopic1.c_str(), turnOn ? "OPEN" : "LOCKED");
+    client.publish(stateTopic2.c_str(), turnOn ? "OPEN" : "LOCKED");
   }
 }
 
@@ -107,10 +139,12 @@ void reconnect() {
       Serial.println(" TERHUBUNG!");
       // Subscribe ke SEMUA perintah perangkat secara otomatis (wildcard +)
       client.subscribe("nexora/+/set");
-      Serial.println("Berhasil Subscribe ke: nexora/+/set");
+      client.subscribe("alrisa/+/set");
+      Serial.println("Berhasil Subscribe ke: nexora/+/set & alrisa/+/set");
       
       // Kirim status awal ke aplikasi Flutter
       client.publish("nexora/pagar/state", "LOCKED");
+      client.publish("alrisa/pagar/state", "LOCKED");
     } else {
       Serial.print("Gagal, rc=");
       Serial.print(client.state());

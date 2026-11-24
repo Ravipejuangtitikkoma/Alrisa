@@ -54,39 +54,71 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   String topicStr = String(topic);
 
-  // Periksa apakah perintah untuk pagar: nexora/pagar/set
-  if (topicStr.indexOf("/pagar/set") >= 0 || topicStr.indexOf("/pagar") >= 0) {
-    // Cek apakah perintahnya BUKA (OPEN / true / 1) atau KUNCI (CLOSE / LOCKED / false / 0)
-    bool willOpen = (message.indexOf("OPEN") >= 0 || message.indexOf("true") >= 0 || 
-                     message.indexOf("1") >= 0 || message.indexOf("ON") >= 0);
+  // Parsing deviceId
+  int firstSlash = topicStr.indexOf('/');
+  int secondSlash = topicStr.lastIndexOf('/');
+  String deviceId = "pagar";
+  if (firstSlash != -1 && secondSlash != -1 && firstSlash != secondSlash) {
+    deviceId = topicStr.substring(firstSlash + 1, secondSlash);
+  }
 
+  // Cek apakah perintahnya BUKA / ON atau KUNCI / OFF
+  bool willOpen = (message.indexOf("OPEN") >= 0 || message.indexOf("open") >= 0 ||
+                   message.indexOf("BUKA") >= 0 || message.indexOf("buka") >= 0 ||
+                   message.indexOf("true") >= 0 || message.indexOf("1") >= 0 || 
+                   message.indexOf("ON") >= 0 || message.indexOf("on") >= 0);
+
+  // Ekstrak nomor PIN dinamis jika dikirim dari Web / HP
+  int dynamicPin = -1;
+  int pinIdx = message.indexOf("\"pin\":");
+  if (pinIdx == -1) pinIdx = message.indexOf("\"pin\" :");
+  if (pinIdx >= 0) {
+    int startIdx = message.indexOf(':', pinIdx) + 1;
+    while (startIdx < (int)message.length() && (message[startIdx] == ' ' || message[startIdx] == '\"')) startIdx++;
+    int endIdx = startIdx;
+    while (endIdx < (int)message.length() && isDigit(message[endIdx])) endIdx++;
+    if (endIdx > startIdx) {
+      dynamicPin = message.substring(startIdx, endIdx).toInt();
+    }
+  }
+
+  // Jika ada PIN dinamis (misal GPIO 2, GPIO 5, GPIO 4, dll.)
+  if (dynamicPin >= 0) {
+    pinMode(dynamicPin, OUTPUT);
+    digitalWrite(dynamicPin, willOpen ? HIGH : LOW);
+    Serial.print("⚡ [DYNAMIC PIN SET] Mengaktifkan GPIO ");
+    Serial.print(dynamicPin);
+    Serial.println(willOpen ? " -> HIGH (AKTIF)" : " -> LOW (MATI)");
+  }
+
+  // Kontrol Pagar Utama
+  if (deviceId == "pagar" || topicStr.indexOf("/pagar") >= 0) {
     if (willOpen) {
       Serial.println("🚪 GERBANG DIBUKA -> LAMPU LED MENYALA! 💡");
-      
-      // Nyalakan LED bawaan D4 (Active LOW: LOW = menyala)
-      digitalWrite(PIN_LED_UTAMA, LOW);
-      // Nyalakan LED eksternal D1 (Active HIGH: HIGH = menyala)
-      digitalWrite(PIN_LED_EXTERNAL, HIGH);
-
-      // Balas status ke Aplikasi HP agar tampilan gerbang di HP berubah jadi "TERBUKA"
+      if (dynamicPin == -1) {
+        digitalWrite(PIN_LED_UTAMA, LOW);   // Active-LOW (D4 menyala)
+        digitalWrite(PIN_LED_EXTERNAL, HIGH); // Active-HIGH (D1 menyala)
+      }
       client.publish("nexora/pagar/state", "OPEN");
+      client.publish("alrisa/pagar/state", "OPEN");
     } else {
       Serial.println("🔒 GERBANG DIKUNCI -> LAMPU LED PADAM! 🌑");
-      
-      // Matikan LED bawaan D4
-      digitalWrite(PIN_LED_UTAMA, HIGH);
-      // Matikan LED eksternal D1
-      digitalWrite(PIN_LED_EXTERNAL, LOW);
-
-      // Balas status ke Aplikasi HP agar tampilan gerbang di HP berubah jadi "TERKUNCI"
+      if (dynamicPin == -1) {
+        digitalWrite(PIN_LED_UTAMA, HIGH);  // Active-LOW (D4 padam)
+        digitalWrite(PIN_LED_EXTERNAL, LOW); // Active-HIGH (D1 padam)
+      }
       client.publish("nexora/pagar/state", "LOCKED");
+      client.publish("alrisa/pagar/state", "LOCKED");
     }
   } 
-  // Jika mengendalikan Gerbang Belakang (nexora/pagar_belakang/set)
-  else if (topicStr.indexOf("/pagar_belakang/set") >= 0) {
-    bool willOpen = (message.indexOf("OPEN") >= 0 || message.indexOf("true") >= 0);
-    Serial.println(willOpen ? "🚪 Gerbang Belakang: BUKA" : "🔒 Gerbang Belakang: KUNCI");
-    client.publish("nexora/pagar_belakang/state", willOpen ? "OPEN" : "LOCKED");
+  // Jika mengendalikan Gerbang Belakang atau perangkat lainnya
+  else {
+    Serial.print(willOpen ? "🚪 Perangkat AKTIF: " : "🔒 Perangkat NONAKTIF: ");
+    Serial.println(deviceId);
+    String stateTopic1 = "nexora/" + deviceId + "/state";
+    String stateTopic2 = "alrisa/" + deviceId + "/state";
+    client.publish(stateTopic1.c_str(), willOpen ? "OPEN" : "LOCKED");
+    client.publish(stateTopic2.c_str(), willOpen ? "OPEN" : "LOCKED");
   }
   Serial.println("----------------------------------------------");
 }
@@ -98,12 +130,14 @@ void reconnect() {
     if (client.connect(client_id)) {
       Serial.println("BERHASIL TERHUBUNG!");
       
-      // Berlangganan (Subscribe) ke perintah semua perangkat rumah: nexora/+/set
+      // Berlangganan (Subscribe) ke perintah semua perangkat rumah
       client.subscribe("nexora/+/set");
-      Serial.println("✅ Siap menerima perintah dari Aplikasi HP Nexora!");
+      client.subscribe("alrisa/+/set");
+      Serial.println("✅ Siap menerima perintah dari Aplikasi HP Nexora & Web Studio!");
       
       // Kirim status awal gerbang ke HP saat pertama kali menyala: TERKUNCI
       client.publish("nexora/pagar/state", "LOCKED");
+      client.publish("alrisa/pagar/state", "LOCKED");
     } else {
       Serial.print("Gagal, status error=");
       Serial.print(client.state());
